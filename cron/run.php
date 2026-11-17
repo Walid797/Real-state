@@ -26,6 +26,7 @@ if (!App\Config::loaded()) {
 $job = $argv[1] ?? 'auto';
 if ($job === 'status') {
     echo '[' . gmdate('Y-m-d H:i') . " UTC]\n" . implode("\n", App\Diagnostics::report()) . "\n";
+    echo "OpenStreetMap servers:\n  " . implode("\n  ", App\Providers\Overpass::probe()) . "\n";
     exit(0);
 }
 if (!in_array($job, ['auto', 'alerts', 'market', 'prune', 'score', 'backup'], true)) {

@@ -13,7 +13,12 @@ use App\Http;
  */
 final class Overpass
 {
-    private const URL = 'https://overpass-api.de/api/interpreter';
+    /** Public OpenStreetMap query servers, tried in turn: the main one is often busy for shared-hosting addresses. */
+    private const URLS = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.private.coffee/api/interpreter',
+    ];
 
     public const KINDS = [
         'school' => 'Schools',
@@ -24,11 +29,27 @@ final class Overpass
         'park' => 'Parks',
     ];
 
+    /** One tiny query to each server: which ones answer from here, and how fast. @return string[] */
+    public static function probe(): array
+    {
+        $out = [];
+        foreach (self::URLS as $url) {
+            $res = Http::postForm($url, ['data' => '[out:json][timeout:5];node(around:200,37.5407,-77.4360)[highway=bus_stop];out 1;'], 10);
+            $out[] = parse_url($url, PHP_URL_HOST) . ': ' . ($res['status'] ?: 'no answer' . ($res['error'] ? ' (' . $res['error'] . ')' : '')) . ' in ' . $res['ms'] . 'ms';
+        }
+        return $out;
+    }
+
     /** @return array<string, array{count:int, nearest:?float, name:?string}>|null null when OSM didn't answer */
     public static function around(float $lat, float $lng): ?array
     {
         $key = ['lat' => round($lat, 4), 'lng' => round($lng, 4)];
-        return Cache::remember('osm', 'nearby', $key, 86400 * 90, static function () use ($lat, $lng) {
+        // After every server failed, don't make the next visitor wait again for a while.
+        $failKey = Cache::key('osm', 'nearby-failed', $key);
+        if (Cache::get($failKey) !== null) {
+            return null;
+        }
+        $res = Cache::remember('osm', 'nearby', $key, 86400 * 90, static function () use ($lat, $lng) {
             $a = '(around:1609,' . $lat . ',' . $lng . ')';
             $h = '(around:4828,' . $lat . ',' . $lng . ')'; // on-ramps: within 3 miles
             $q = '[out:json][timeout:25];('
@@ -38,10 +59,23 @@ final class Overpass
                 . 'node' . $a . '[highway=bus_stop];node' . $a . '[railway~"^(station|halt|tram_stop|subway_entrance)$"];'
                 . 'node' . $h . '[highway=motorway_junction];'
                 . 'nwr' . $a . '[leisure=park][name];'
-                . ');out center 400;';
-            $res = Http::postForm(self::URL, ['data' => $q], 30);
-            $json = json_decode($res['body'], true);
-            if ($res['status'] !== 200 || !isset($json['elements'])) {
+                . ');out center qt 400;';
+            $json = null;
+            $started = microtime(true);
+            foreach (self::URLS as $url) {
+                $left = 26 - (int) (microtime(true) - $started); // stay well under the page's own patience
+                if ($left < 5) {
+                    break;
+                }
+                $res = Http::postForm($url, ['data' => str_replace('[timeout:25]', '[timeout:' . min(12, $left) . ']', $q)], min(14, $left));
+                $try = json_decode($res['body'], true);
+                if ($res['status'] === 200 && isset($try['elements'])) {
+                    $json = $try;
+                    break;
+                }
+                error_log('[info] OpenStreetMap ' . parse_url($url, PHP_URL_HOST) . ' answered ' . ($res['status'] ?: 'nothing') . ' in ' . $res['ms'] . 'ms');
+            }
+            if ($json === null) {
                 return null;
             }
             $out = array_fill_keys(array_keys(self::KINDS), ['count' => 0, 'nearest' => null, 'name' => null]);
@@ -70,5 +104,9 @@ final class Overpass
             }
             return $out;
         });
+        if ($res === null) {
+            Cache::put($failKey, 'osm', true, 900);
+        }
+        return $res;
     }
 }
