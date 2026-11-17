@@ -13,8 +13,11 @@ if (is_post()) {
     $do = input('do');
     if ($do === 'add') {
         $loc = Address::parseLocation(input('q', '', 190));
-        if (!$loc || $loc['type'] === 'address') {
-            flash('Type a ZIP code, or a city with its state (Tampa, FL).', 'err');
+        // Zillow Research publishes series per ZIP and per city — not for a whole state, a county or several areas at once.
+        if (!$loc || !in_array($loc['type'], ['zip', 'city'], true) || empty($loc[$loc['type']])) {
+            flash($loc && in_array($loc['type'], ['state', 'county', 'multi'], true)
+                ? 'Market trends work one city or one ZIP at a time (for example Richmond, VA or 23220). Add each one you want to follow.'
+                : 'Type a ZIP code, or a city with its state (Richmond, VA).', 'err');
             redirect('/market');
         }
         $kind = $loc['type'] === 'zip' ? 'zip' : 'city';
