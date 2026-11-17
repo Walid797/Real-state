@@ -2,7 +2,13 @@
 declare(strict_types=1);
 
 use App\Address;
+use App\Auth;
 use App\Db;
+use App\Services\Activity;
+use App\Services\Condition;
+use App\Services\Deal;
+use App\Services\Pipeline;
+use App\Services\Score;
 use App\Geo;
 use App\PropertyRepo;
 use App\Providers\OpenWebNinja;
@@ -20,31 +26,74 @@ $full = Address::full($p);
 
 switch ($do) {
     case 'watch':
-        Db::run('INSERT IGNORE INTO watchlist (property_id, stage, created_at, updated_at) VALUES (?, ?, ?, ?)', [$id, 'considering', now(), now()]);
-        flash('Added to your watchlist.');
+        Pipeline::add($id);
+        flash('Added to the team pipeline.');
         break;
 
     case 'unwatch':
-        Db::run('DELETE FROM watchlist WHERE property_id = ?', [$id]);
-        flash('Removed from your watchlist.');
+        Pipeline::remove($id);
+        flash('Removed from the pipeline.');
         break;
 
     case 'stage':
-        $stage = input('stage');
-        if (in_array($stage, ['considering', 'visited', 'offer', 'passed', 'bought'], true)) {
-            Db::run('UPDATE watchlist SET stage = ?, updated_at = ? WHERE property_id = ?', [$stage, now(), $id]);
-        }
-        $back = $back ?: '/watchlist';
+        Pipeline::setStage($id, input('stage'));
+        $back = $back ?: '';
+        break;
+
+    case 'owner':
+        $owner = (int) input('owner_id');
+        $valid = $owner ? Db::val("SELECT id FROM users WHERE id = ? AND is_active = 1 AND role <> 'viewer'", [$owner]) : null;
+        Pipeline::setOwner($id, $valid ? $owner : null);
         break;
 
     case 'note':
-        Db::run('UPDATE properties SET notes = ?, updated_at = ? WHERE id = ?', [mb_substr(trim((string) ($_POST['notes'] ?? '')), 0, 10000) ?: null, now(), $id]);
-        flash('Note saved.');
+        $body = mb_substr(trim((string) ($_POST['note'] ?? '')), 0, 10000);
+        if ($body !== '') {
+            Db::insert('notes', ['property_id' => $id, 'user_id' => Auth::userId(), 'body' => $body, 'created_at' => now()]);
+            Activity::log('note', $id, mb_strimwidth($body, 0, 120, '…'));
+        }
         $home .= '#notes';
         break;
 
+    case 'note_delete':
+        $note = Db::one('SELECT * FROM notes WHERE id = ? AND property_id = ?', [(int) input('note_id'), $id]);
+        if ($note && ((int) $note['user_id'] === Auth::userId() || Auth::can('admin'))) {
+            Db::run('DELETE FROM notes WHERE id = ?', [$note['id']]);
+        }
+        $home .= '#notes';
+        break;
+
+    case 'deal':
+        Deal::save($id, $_POST);
+        Score::refresh($id);
+        flash('Numbers saved and the analysis recalculated.');
+        $home .= '#deal';
+        break;
+
+    case 'condition':
+        if (input('reset_auto') === '1') {
+            Db::run("UPDATE property_condition SET source = 'auto' WHERE property_id = ?", [$id]);
+            Activity::log('condition', $id, 'Back to reading the listing text');
+        } else {
+            Condition::setByHand($id, $_POST);
+        }
+        Score::refresh($id);
+        flash('Condition saved; renovation estimate and score updated.');
+        $home .= '#condition';
+        break;
+
+    case 'data_status':
+        $ds = input('data_status');
+        if (in_array($ds, ['full', 'limited', 'link_only', 'link_dead', 'removed'], true)) {
+            Db::run('UPDATE properties SET data_status = ? WHERE id = ?', [$ds, $id]);
+            Activity::log('edit', $id, 'Listing data marked “' . str_replace('_', ' ', $ds) . '”');
+        }
+        break;
+
     case 'delete':
+        Auth::require('admin');
         Db::run('DELETE FROM properties WHERE id = ?', [$id]);
+        Activity::log('edit', null, 'Deleted ' . $p['address']);
         flash('Deleted ' . $p['address'] . '.');
         redirect('/');
 
@@ -144,4 +193,9 @@ switch ($do) {
         break;
 }
 
-redirect($back !== '' && str_starts_with($back, '/') ? $back : $home);
+if (in_array($do, ['record', 'value', 'rent', 'sales', 'zillow'], true)) {
+    Activity::log('pull', $id, ['record' => 'Public record', 'value' => 'Value estimate', 'rent' => 'Rent estimate', 'sales' => 'Nearby sales', 'zillow' => 'Zillow details'][$do]);
+    Score::refresh($id);
+}
+
+redirect($back !== '' && str_starts_with($back, '/') && !str_starts_with($back, '//') ? $back : $home);

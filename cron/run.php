@@ -22,8 +22,8 @@ if (!App\Config::loaded()) {
 }
 
 $job = $argv[1] ?? 'auto';
-if (!in_array($job, ['auto', 'alerts', 'market', 'prune'], true)) {
-    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune\n");
+if (!in_array($job, ['auto', 'alerts', 'market', 'prune', 'score', 'backup'], true)) {
+    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune | score | backup\n");
     exit(1);
 }
 

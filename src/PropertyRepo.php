@@ -16,8 +16,11 @@ final class PropertyRepo
         'status', 'list_price', 'listed_date', 'days_on_market', 'listing_type', 'last_sale_price', 'last_sale_date',
         'est_value', 'est_value_low', 'est_value_high', 'est_rent', 'est_source', 'est_at',
         'tax_annual', 'assessed_value', 'mls_name', 'mls_number', 'agent_name', 'agent_phone', 'agent_email',
-        'office_name', 'photo_url', 'description', 'source_id', 'source_url',
+        'office_name', 'photo_url', 'description', 'source_id', 'source_url', 'garage_spaces', 'has_basement', 'source_site',
     ];
+
+    /** How much we know about a listing, from least to most. link_dead / removed are set by people only. */
+    private const DATA_RANK = ['link_only' => 1, 'limited' => 2, 'full' => 3];
 
     public const TYPES = ['Single Family', 'Condo', 'Townhouse', 'Multi-Family', 'Manufactured', 'Apartment', 'Land'];
 
@@ -27,6 +30,9 @@ final class PropertyRepo
         'price_desc' => 'Price, high to low',
         'ppsf_asc' => '$/sqft, low to high',
         'sqft_desc' => 'Largest',
+        'score' => 'Best opportunity',
+        'profit' => 'Highest est. profit',
+        'dom_desc' => 'Longest on market',
     ];
 
     /**
@@ -55,7 +61,11 @@ final class PropertyRepo
         }
         $data = array_filter($data, static fn ($v) => $v !== null);
 
+        $incomingStatus = isset(self::DATA_RANK[$p['data_status'] ?? '']) ? $p['data_status'] : ($source === 'manual' ? null : 'limited');
         $existing = Db::one('SELECT * FROM properties WHERE addr_hash = ?', [$hash]);
+        if ($incomingStatus !== null && ($existing === null || (self::DATA_RANK[$existing['data_status']] ?? 9) < self::DATA_RANK[$incomingStatus])) {
+            $data['data_status'] = $incomingStatus; // only ever upgraded here; "link dead" / "removed" stay as people set them
+        }
         $old = $new = null;
 
         if ($existing === null) {
@@ -152,6 +162,10 @@ final class PropertyRepo
             case 'assessed_value':
             case 'days_on_market':
                 return is_numeric($v) && $v > 0 && $v < 4000000000 ? (int) round((float) $v) : null;
+            case 'garage_spaces':
+                return is_numeric($v) && $v >= 0 && $v < 50 ? (int) $v : null;
+            case 'has_basement':
+                return $v === null ? null : ($v ? 1 : 0);
             case 'year_built':
                 return is_numeric($v) && $v >= 1600 && $v <= (int) gmdate('Y') + 2 ? (int) $v : null;
             case 'listed_date':
@@ -209,8 +223,10 @@ final class PropertyRepo
     public static function find(int $id): ?array
     {
         $row = Db::one(
-            'SELECT p.*, w.id AS watch_id, w.stage AS watch_stage, w.source_url AS watch_url
-             FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id WHERE p.id = ?',
+            'SELECT p.*, w.id AS watch_id, w.stage AS watch_stage, w.source_url AS watch_url, w.owner_id, w.updated_at AS stage_at,
+                    ou.name AS owner_name, ub.name AS stage_by
+             FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id
+             LEFT JOIN users ou ON ou.id = w.owner_id LEFT JOIN users ub ON ub.id = w.updated_by WHERE p.id = ?',
             [$id]
         );
         if ($row) {
@@ -223,6 +239,43 @@ final class PropertyRepo
     public static function events(int $id): array
     {
         return Db::all('SELECT event, price, event_date, source FROM price_events WHERE property_id = ? ORDER BY event_date DESC, id DESC', [$id]);
+    }
+
+    /** Listing-status choices on the search page. */
+    public const LISTING = [
+        'new' => 'New listings (7 days)',
+        'reduced' => 'Price reduced',
+        'foreclosure' => 'Foreclosure / short sale',
+        'auction' => 'Auction',
+        'fixer' => 'Fixer-upper',
+        'basement' => 'Has a basement',
+    ];
+
+    /** SQL for one location (zip, city, county, state, or several). */
+    public static function locSql(array $loc, array &$a): string
+    {
+        switch ($loc['type'] ?? '') {
+            case 'zip':
+                $a[] = $loc['zip'];
+                return 'p.zip = ?';
+            case 'city':
+                array_push($a, $loc['state'], $loc['city']);
+                return '(p.state = ? AND p.city = ?)';
+            case 'county':
+                array_push($a, $loc['state'], $loc['county'], $loc['county'] . ' County', $loc['county'] . ' city');
+                return '(p.state = ? AND p.county IN (?, ?, ?))';
+            case 'state':
+                $a[] = $loc['state'];
+                return 'p.state = ?';
+            case 'multi':
+                $or = [];
+                foreach ($loc['parts'] as $part) {
+                    $or[] = self::locSql($part, $a);
+                }
+                return '(' . implode(' OR ', $or) . ')';
+            default:
+                return '1=1';
+        }
     }
 
     /**
@@ -245,16 +298,8 @@ final class PropertyRepo
             $w[] = "p.status IN ('for_sale','pending') AND p.list_price > 0";
         }
 
-        $loc = $f['loc'] ?? null;
-        if (is_array($loc)) {
-            if (($loc['type'] ?? '') === 'zip') {
-                $w[] = 'p.zip = ?';
-                $a[] = $loc['zip'];
-            } elseif (($loc['type'] ?? '') === 'city') {
-                $w[] = 'p.state = ? AND p.city = ?';
-                $a[] = $loc['state'];
-                $a[] = $loc['city'];
-            }
+        if (is_array($f['loc'] ?? null)) {
+            $w[] = self::locSql($f['loc'], $a);
         }
         if (!empty($f['center']) && Geo::valid($f['center'][0] ?? null, $f['center'][1] ?? null)) {
             $box = Geo::box((float) $f['center'][0], (float) $f['center'][1], (float) ($f['radius'] ?? 5));
@@ -262,30 +307,45 @@ final class PropertyRepo
             array_push($a, $box['lat1'], $box['lat2'], $box['lng1'], $box['lng2']);
         }
 
-        $range = static function (string $col, mixed $min, mixed $max) use (&$w, &$a): void {
+        // min / max on any numeric column; "Any" is simply an empty box.
+        $range = static function (string $col, mixed $min, mixed $max, bool $nullPasses = false) use (&$w, &$a): void {
+            $c = [];
             if (is_numeric($min) && $min > 0) {
-                $w[] = "$col >= ?";
+                $c[] = "$col >= ?";
                 $a[] = $min + 0;
             }
-            if (is_numeric($max) && $max > 0) {
-                $w[] = "$col <= ?";
+            if (is_numeric($max) && ($max > 0 || $nullPasses)) {
+                $c[] = "$col <= ?";
                 $a[] = $max + 0;
+            }
+            if ($c) {
+                $w[] = $nullPasses ? "($col IS NULL OR (" . implode(' AND ', $c) . '))' : implode(' AND ', $c);
             }
         };
         $range($priceCol, $f['price_min'] ?? null, $f['price_max'] ?? null);
-        $range('p.beds', $f['beds_min'] ?? null, null);
-        $range('p.baths', $f['baths_min'] ?? null, null);
+        $range('p.beds', $f['beds_min'] ?? null, $f['beds_max'] ?? null);
+        $range('p.baths', $f['baths_min'] ?? null, $f['baths_max'] ?? null);
         $range('p.sqft', $f['sqft_min'] ?? null, $f['sqft_max'] ?? null);
-        $range('p.lot_sqft', $f['lot_min'] ?? null, null);
+        $range('p.lot_sqft', $f['lot_min'] ?? null, $f['lot_max'] ?? null);
         $range('p.year_built', $f['year_min'] ?? null, $f['year_max'] ?? null);
-
-        if (is_numeric($f['hoa_max'] ?? null)) {
-            $w[] = '(p.hoa_fee IS NULL OR p.hoa_fee <= ?)';
-            $a[] = (float) $f['hoa_max'];
+        $range('p.garage_spaces', $f['garage_min'] ?? null, null);
+        // An unknown HOA fee is shown: most single-family homes have none and feeds often leave it out.
+        $range('p.hoa_fee', $f['hoa_min'] ?? null, $f['hoa_max'] ?? null, true);
+        $range('p.score', $f['score_min'] ?? null, null);
+        $range('p.est_profit', $f['profit_min'] ?? null, null);
+        if (is_numeric($f['risk_max'] ?? null) && $f['risk_max'] > 0) {
+            $w[] = '(p.risk IS NULL OR p.risk <= ?)';
+            $a[] = (int) $f['risk_max'];
         }
-        if ($mode === 'sale' && is_numeric($f['dom_max'] ?? null) && $f['dom_max'] > 0) {
-            $w[] = 'p.listed_date >= ?';
-            $a[] = gmdate('Y-m-d', time() - (int) $f['dom_max'] * 86400);
+        if ($mode === 'sale') {
+            if (is_numeric($f['dom_max'] ?? null) && $f['dom_max'] > 0) {
+                $w[] = 'COALESCE(p.listed_date, DATE(p.first_seen_at)) >= ?';
+                $a[] = gmdate('Y-m-d', time() - (int) $f['dom_max'] * 86400);
+            }
+            if (is_numeric($f['dom_min'] ?? null) && $f['dom_min'] > 0) {
+                $w[] = 'COALESCE(p.listed_date, DATE(p.first_seen_at)) <= ?';
+                $a[] = gmdate('Y-m-d', time() - (int) $f['dom_min'] * 86400);
+            }
         }
         if (is_numeric($f['ppsf_max'] ?? null) && $f['ppsf_max'] > 0) {
             $w[] = "p.sqft > 0 AND $priceCol / p.sqft <= ?";
@@ -296,6 +356,53 @@ final class PropertyRepo
             $w[] = 'p.property_type IN (' . implode(',', array_fill(0, count($types), '?')) . ')';
             array_push($a, ...$types);
         }
+
+        // Listing status: any of the ticked kinds.
+        $or = [];
+        foreach (array_intersect(array_keys(self::LISTING), (array) ($f['listing'] ?? [])) as $k) {
+            switch ($k) {
+                case 'new':
+                    $or[] = 'COALESCE(p.listed_date, DATE(p.first_seen_at)) >= ?';
+                    $a[] = gmdate('Y-m-d', time() - 7 * 86400);
+                    break;
+                case 'reduced':
+                    $or[] = "EXISTS (SELECT 1 FROM price_events e WHERE e.property_id = p.id AND e.event = 'price_change' AND e.event_date >= ?
+                             AND e.price < (SELECT MAX(e2.price) FROM price_events e2 WHERE e2.property_id = p.id AND e2.event IN ('listed','relisted','price_change') AND e2.event_date <= e.event_date AND e2.id <> e.id))";
+                    $a[] = gmdate('Y-m-d', time() - 90 * 86400);
+                    break;
+                case 'foreclosure':
+                    $or[] = "(FIND_IN_SET('foreclosure', p.flags) OR FIND_IN_SET('short_sale', p.flags))";
+                    break;
+                case 'auction':
+                    $or[] = "FIND_IN_SET('auction', p.flags)";
+                    break;
+                case 'fixer':
+                    $or[] = "(FIND_IN_SET('fixer', p.flags) OR c.overall IN ('needs_renovation','major_repair'))";
+                    break;
+                case 'basement':
+                    $or[] = 'p.has_basement = 1';
+                    break;
+            }
+        }
+        if ($or) {
+            $w[] = '(' . implode(' OR ', $or) . ')';
+        }
+
+        // Condition: overall + per part. "Not disclosed" is its own choice, never counted as good.
+        $overall = array_intersect(array_keys(Services\Condition::OVERALL), (array) ($f['cond'] ?? []));
+        if ($overall) {
+            $in = implode(',', array_fill(0, count($overall), '?'));
+            $w[] = in_array('not_disclosed', $overall, true) ? "(c.overall IS NULL OR c.overall IN ($in))" : "c.overall IN ($in)";
+            array_push($a, ...array_values($overall));
+        }
+        foreach (['kitchen', 'bathroom', 'roof', 'hvac'] as $part) {
+            $want = (string) ($f['c_' . $part] ?? 'any');
+            if ($want === 'updated') {
+                $w[] = "c.$part IN ('updated','new')";
+            } elseif ($want === 'needs_work') {
+                $w[] = "c.$part IN ('needs_work','original')";
+            }
+        }
         if (!empty($f['since'])) {
             $w[] = 'p.first_seen_at > ?';
             $a[] = $f['since'];
@@ -303,25 +410,35 @@ final class PropertyRepo
         if (!empty($f['watch_only'])) {
             $w[] = 'w.id IS NOT NULL';
         }
+        if (!empty($f['stage'])) {
+            $w[] = 'w.stage = ?';
+            $a[] = (string) $f['stage'];
+        }
 
         $order = match ($f['sort'] ?? 'newest') {
+            'score' => 'p.score IS NULL, p.score DESC',
+            'profit' => 'p.est_profit IS NULL, p.est_profit DESC',
             'price_asc' => "$priceCol ASC",
             'price_desc' => "$priceCol DESC",
             'ppsf_asc' => "(CASE WHEN p.sqft > 0 THEN $priceCol / p.sqft ELSE 999999 END) ASC",
             'sqft_desc' => 'p.sqft DESC',
+            'dom_desc' => 'COALESCE(p.listed_date, DATE(p.first_seen_at)) ASC',
             default => $mode === 'sold' ? 'p.last_sale_date DESC' : 'COALESCE(p.listed_date, DATE(p.first_seen_at)) DESC',
         };
 
         $where = implode(' AND ', $w);
-        $from = 'FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id WHERE ' . $where;
+        $from = 'FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id LEFT JOIN property_condition c ON c.property_id = p.id
+                 LEFT JOIN users ou ON ou.id = w.owner_id WHERE ' . $where;
         $total = (int) Db::val("SELECT COUNT(*) $from", $a);
-        $limit = max(1, min(1000, (int) ($f['limit'] ?? 60)));
+        $limit = max(1, min(2000, (int) ($f['limit'] ?? 60)));
         $offset = max(0, (int) ($f['offset'] ?? 0));
         $rows = Db::all(
             "SELECT p.id, p.address, p.city, p.state, p.zip, p.lat, p.lng, p.property_type, p.beds, p.baths, p.sqft,
-                    p.lot_sqft, p.year_built, p.hoa_fee, p.status, p.list_price, p.listed_date, p.days_on_market,
-                    p.listing_type, p.last_sale_price, p.last_sale_date, p.est_value, p.photo_url, p.source,
-                    p.first_seen_at, p.county, w.id AS watch_id
+                    p.lot_sqft, p.year_built, p.hoa_fee, p.garage_spaces, p.has_basement, p.flags, p.status, p.list_price, p.listed_date,
+                    p.days_on_market, p.listing_type, p.last_sale_price, p.last_sale_date, p.est_value, p.photo_url, p.source,
+                    p.source_url, p.data_status, p.first_seen_at, p.county, p.score, p.risk, p.confidence, p.est_arv, p.est_reno,
+                    p.est_profit, p.est_roi, c.overall AS cond_overall, w.id AS watch_id, w.stage AS watch_stage,
+                    w.owner_id, ou.name AS owner_name
              $from ORDER BY $order, p.id DESC LIMIT $limit OFFSET $offset",
             $a
         );

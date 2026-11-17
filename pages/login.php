@@ -39,7 +39,7 @@ View::header('Sign in', '', ['bare' => true]);
     <?= csrf_field() ?>
     <input type="hidden" name="next" value="<?= e(input('next', '/', 300)) ?>">
     <h1 class="display">Sign in</h1>
-    <p class="soft">Private. One account, yours.</p>
+    <p class="soft">Private to your team.</p>
     <?php if ($note): ?><p class="small down" role="status"><?= e($note['msg']) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="err" role="alert"><?= e($error) ?></p><?php endif; ?>
     <label class="field">
@@ -51,8 +51,13 @@ View::header('Sign in', '', ['bare' => true]);
       <input class="input" type="password" name="password" autocomplete="current-password" required>
     </label>
     <button class="btn btn-primary" type="submit">Sign in</button>
+    <p class="small mt-m"><a href="/forgot">Forgot your password?</a></p>
+    <?php if (App\Settings::has('google_client_id') && App\Settings::has('google_client_secret')): ?>
+    <div class="or"><span>or</span></div>
+    <a class="btn btn-google" href="<?= e(url('/auth/google', ['next' => input('next', '', 300) ?: null])) ?>"><?= icon('google', 16) ?>Continue with Google</a>
+    <?php endif; ?>
   </form>
-  <p class="small muted">Not indexed by search engines. Sessions end after 14 days.</p>
+  <p class="small muted">Not indexed by search engines. Sessions end after 14 days. No account? Ask an admin for an invitation.</p>
 </section>
 <aside class="bare-art" aria-hidden="true">
   <svg class="plat" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#3d4b47" stroke-width="1">

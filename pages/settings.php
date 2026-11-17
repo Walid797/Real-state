@@ -72,29 +72,17 @@ if (is_post()) {
             $anchor = '#notify';
             break;
 
-        case 'account':
+        case 'site':
             Settings::set('site_name', input('site_name', 'Plat', 30) ?: 'Plat');
-            $new = (string) ($_POST['new_password'] ?? '');
-            if ($new !== '') {
-                $user = Db::one('SELECT password_hash FROM users WHERE id = ?', [Auth::userId()]);
-                $problems = Auth::passwordProblems($new);
-                if (!$user || !password_verify((string) ($_POST['current_password'] ?? ''), $user['password_hash'])) {
-                    $problems[] = 'The current password is wrong.';
-                }
-                if ($new !== (string) ($_POST['new_password2'] ?? '')) {
-                    $problems[] = 'The two new passwords are different.';
-                }
-                if ($problems) {
-                    flash(implode(' ', $problems), 'err');
-                    redirect('/settings#account');
-                }
-                Db::run('UPDATE users SET password_hash = ? WHERE id = ?', [Auth::hash($new), Auth::userId()]);
-                session_regenerate_id(true);
-                flash('Saved. Your password is changed.');
-            } else {
-                flash('Saved.');
+            Settings::set('default_state', App\Address::stateAbbr(input('default_state', 'VA', 30)) ?? 'VA');
+            Settings::set('google_client_id', input('google_client_id', '', 200));
+            $secret('google_client_secret');
+            foreach (App\Services\Deal::SETTINGS as $k => $def) {
+                $v = parse_num(input($k, '', 20));
+                Settings::set($k, $v === null ? null : (string) $v);
             }
-            $anchor = '#account';
+            flash('Saved.');
+            $anchor = '#site';
             break;
 
         case 'run':
@@ -138,7 +126,7 @@ View::header('Settings', 'settings');
 ?>
 <header class="page-head"><div><h1 class="display">Settings</h1></div></header>
 <nav class="setting-nav" aria-label="Sections">
-  <a href="#sources">Data sources</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#account">Account</a><a href="#data">Data</a>
+  <a href="#sources">Data sources</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
 </nav>
 
 <div class="narrow">
@@ -309,18 +297,40 @@ View::header('Settings', 'settings');
     <span class="small muted">Run by hand it may use your own requests rather than the alerts’ share.</span></form>
 </section>
 
-<section class="section" id="account">
-  <div class="section-head"><h2>Account</h2><span class="aside"><?= e(Auth::email()) ?></span></div>
+<section class="section" id="site">
+  <div class="section-head"><h2>Site, sign-in and deal defaults</h2></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
-    <?= csrf_field() ?><input type="hidden" name="do" value="account">
+    <?= csrf_field() ?><input type="hidden" name="do" value="site">
     <div class="form-grid">
       <label class="field c4"><span>Site name</span><input class="input" name="site_name" value="<?= $s('site_name') ?>" maxlength="30"></label>
-      <div class="c8"></div>
-      <label class="field c4"><span>Current password</span><input class="input" type="password" name="current_password" autocomplete="current-password"></label>
-      <label class="field c4"><span>New password</span><input class="input" type="password" name="new_password" autocomplete="new-password" minlength="12"></label>
-      <label class="field c4"><span>New password again</span><input class="input" type="password" name="new_password2" autocomplete="new-password" minlength="12"></label>
+      <label class="field c4"><span>Home state</span><input class="input" name="default_state" value="<?= $s('default_state') ?>" maxlength="20">
+        <small>“Entire state” searches and county names use this.</small></label>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save</button><span class="small muted">Leave the password boxes empty to keep the one you have.</span></div>
+
+    <div class="card mt-l">
+      <h3>Sign in with Google <span class="tag<?= Settings::has('google_client_id') && Settings::has('google_client_secret') ? ' tag-live' : '' ?>"><?= Settings::has('google_client_id') && Settings::has('google_client_secret') ? 'On' : 'Off' ?></span></h3>
+      <ol class="steps mb-m">
+        <li>Open <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → APIs &amp; Services → Credentials</a> (any Google account, free).</li>
+        <li>Configure the consent screen (External, app name, your email), then Create credentials → OAuth client ID → Web application.</li>
+        <li>Under Authorized redirect URIs add <span class="mono"><?= e(abs_url('/auth/google/callback')) ?></span></li>
+        <li>Paste the client ID and secret here. Only people on the Team page can sign in.</li>
+      </ol>
+      <div class="form-grid">
+        <label class="field c12"><span>Client ID</span><input class="input mono" name="google_client_id" value="<?= $s('google_client_id') ?>" spellcheck="false"></label>
+        <?= $secretField('google_client_secret', 'Client secret') ?>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Deal calculator defaults</h3>
+      <p class="small soft mb-m">Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.</p>
+      <div class="form-grid">
+        <?php foreach (App\Services\Deal::SETTINGS as $k => [$label, $def, $unit]): ?>
+        <label class="field c4"><span><?= e($label) ?></span><input class="input" name="<?= $k ?>" value="<?= e((string) (Settings::get($k) ?? '')) ?>" placeholder="<?= e($def . ' ' . $unit) ?>" inputmode="decimal"></label>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit">Save</button><span class="small muted">Your own name, password and Telegram are on <a href="/account">My account</a>.</span></div>
   </form>
 </section>
 
@@ -336,7 +346,18 @@ View::header('Settings', 'settings');
     <?= csrf_field() ?><input type="hidden" name="do" value="cache">
     <button class="linkbtn small" type="submit">Clear caches and force fresh pulls</button>
   </form>
-  <p class="section-note">API keys and passwords are encrypted in the database with a key that lives only in the server’s config file. Back up the database from hPanel → Databases → phpMyAdmin → Export.</p>
+  <h3 class="eyebrow mt-l">Backups</h3>
+  <?php $backups = App\Backup::list(); ?>
+  <?php if ($backups): ?>
+  <ul class="plain-list">
+    <?php foreach (array_slice($backups, 0, 7) as $b): ?>
+    <li><a class="main" href="/backup/<?= e($b['name']) ?>"><?= e($b['name']) ?></a><span class="end"><?= number_format($b['size'] / 1024, 0) ?> KB · <?= e(ago(gmdate('Y-m-d H:i:s', $b['time']))) ?></span></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php else: ?>
+  <p class="blank">The scheduler writes one every day and keeps the last 14.</p>
+  <?php endif; ?>
+  <p class="section-note">A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. API keys and passwords inside are encrypted with a key that lives only in the server’s config file.</p>
 </section>
 </div>
 <?php

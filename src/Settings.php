@@ -12,11 +12,12 @@ final class Settings
 {
     /** Settings that must be encrypted at rest. */
     public const SECRETS = [
-        'rentcast_key', 'openwebninja_key', 'smtp_pass', 'telegram_token', 'callmebot_key', 'census_key',
+        'rentcast_key', 'openwebninja_key', 'smtp_pass', 'telegram_token', 'callmebot_key', 'census_key', 'google_client_secret',
     ];
 
     public const DEFAULTS = [
         'site_name' => 'Plat',
+        'default_state' => 'VA',
         'rentcast_limit' => '50',
         'rentcast_reserve' => '15',
         'openwebninja_limit' => '100',

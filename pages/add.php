@@ -6,6 +6,10 @@ use App\Db;
 use App\Geo;
 use App\PropertyRepo;
 use App\Providers\Census;
+use App\Services\Activity;
+use App\Services\LinkImport;
+use App\Services\Pipeline;
+use App\Services\Score;
 use App\View;
 
 /*
@@ -32,11 +36,41 @@ $form = [
     'beds' => $edit['beds'] ?? '', 'baths' => $edit['baths'] ?? '', 'sqft' => $edit['sqft'] ?? '',
     'lot_sqft' => $edit['lot_sqft'] ?? '', 'year_built' => $edit['year_built'] ?? '',
     'property_type' => $edit['property_type'] ?? ($near['property_type'] ?? ''), 'hoa_fee' => $edit['hoa_fee'] ?? '',
-    'source_url' => $edit['watch_url'] ?? ($edit['source_url'] ?? ''), 'notes' => $edit['notes'] ?? '',
+    'source_url' => $edit['watch_url'] ?? ($edit['source_url'] ?? ''), 'notes' => '',
     'watch' => $edit ? (bool) $edit['watch_id'] : isset($_GET['watch']),
 ];
 $errors = [];
 $importResult = null;
+
+/* ── Add from a listing link ─────────────────────────────────────────── */
+$linkError = null;
+$linkUrl = '';
+if (is_post() && input('do') === 'link') {
+    $linkUrl = input('url', '', 500);
+    $r = LinkImport::resolve($linkUrl);
+    if (!$r['ok']) {
+        $linkError = $r['error'];
+        $form['source_url'] = preg_match('#^https://#i', $linkUrl) ? $linkUrl : '';
+    } else {
+        $price = parse_num(input('price', '', 30));
+        $res = PropertyRepo::upsert([
+            'address' => $r['address'], 'city' => $r['city'], 'state' => $r['state'], 'zip' => $r['zip'],
+            'lat' => $r['lat'], 'lng' => $r['lng'], 'county' => $r['county'],
+            'source_url' => $linkUrl, 'source_site' => $r['site'], 'data_status' => 'link_only',
+            'status' => $price ? 'for_sale' : null, 'list_price' => $price, 'listed_date' => $price ? today() : null,
+        ], 'manual');
+        Pipeline::add($res['id'], $linkUrl);
+        $note = trim((string) ($_POST['note'] ?? ''));
+        if ($note !== '') {
+            Db::insert('notes', ['property_id' => $res['id'], 'user_id' => App\Auth::userId(), 'body' => mb_substr($note, 0, 10000), 'created_at' => now()]);
+        }
+        Activity::log('added', $res['id'], 'From a ' . $r['site'] . ' link');
+        Score::refresh($res['id']);
+        flash(($res['created'] ? 'Added from ' . $r['site'] . '.' : 'That home was already on file — linked it and added it to the pipeline.')
+            . ' Only the address came from the link: add the facts by hand or pull the public record.');
+        redirect('/property/' . $res['id']);
+    }
+}
 
 /* ── CSV import ─────────────────────────────────────────────────────── */
 if (is_post() && input('do') === 'import') {
@@ -92,7 +126,7 @@ if (is_post() && input('do') === 'import') {
 }
 
 /* ── Save one home ──────────────────────────────────────────────────── */
-if (is_post() && input('do') !== 'import') {
+if (is_post() && !in_array(input('do'), ['import', 'link'], true)) {
     foreach (['address', 'city', 'zip', 'listed_date', 'last_sale_date', 'property_type'] as $k) {
         $form[$k] = input($k, '', 190);
     }
@@ -146,18 +180,21 @@ if (is_post() && input('do') !== 'import') {
             'source_url' => $form['source_url'] ?: null,
             'lat' => $geo['lat'] ?? null, 'lng' => $geo['lng'] ?? null, 'county' => $geo['county'] ?? null,
         ];
+        if ($form['source_url'] !== '') {
+            $data['source_site'] = LinkImport::site($form['source_url']);
+        }
         $res = PropertyRepo::upsert($data, $edit ? $edit['source'] : 'manual');
         $pid = $res['id'];
-        Db::run('UPDATE properties SET notes = ? WHERE id = ?', [$form['notes'] ?: null, $pid]);
-        if ($form['watch']) {
-            Db::run(
-                'INSERT INTO watchlist (property_id, stage, source_url, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE source_url = COALESCE(VALUES(source_url), source_url), updated_at = VALUES(updated_at)',
-                [$pid, 'considering', $form['source_url'] ?: null, now(), now()]
-            );
-        } elseif ($edit && $edit['watch_id']) {
-            Db::run('DELETE FROM watchlist WHERE property_id = ?', [$pid]);
+        if ($form['notes'] !== '') {
+            Db::insert('notes', ['property_id' => $pid, 'user_id' => App\Auth::userId(), 'body' => $form['notes'], 'created_at' => now()]);
         }
+        Activity::log($edit ? 'edit' : 'added', $pid, $edit ? 'Facts or price edited' : 'Entered by hand');
+        if ($form['watch']) {
+            Pipeline::add($pid, $form['source_url'] ?: null);
+        } elseif ($edit && $edit['watch_id']) {
+            Pipeline::remove($pid);
+        }
+        Score::refresh($pid);
         $msg = $edit ? 'Saved.' : ($res['created'] ? 'Added.' : 'That address was already on file — updated it.');
         if ($res['old_price'] && $res['new_price']) {
             $msg .= ' Price change recorded: ' . money($res['old_price']) . ' → ' . money($res['new_price']) . '.';
@@ -187,6 +224,24 @@ View::header($edit ? 'Edit ' . $edit['address'] : 'Add a home', 'add');
   <?php if ($importResult): ?>
     <p class="flash"><?= plural($importResult['ok'], 'row') ?> imported<?= $importResult['skipped'] ? ', ' . $importResult['skipped'] . ' skipped for a missing address' : '' ?>.
       <?= $importResult['geo'] ? '' : 'The file had no latitude/longitude columns, so these rows are searchable but won’t be used as comps.' ?></p>
+  <?php endif; ?>
+
+  <?php if (!$edit && !$near): ?>
+  <section class="card link-card">
+    <h3><?= icon('link-2', 16) ?> Add from a listing link</h3>
+    <p class="small soft mb-m">Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. The address is read from the link itself — the other site is never downloaded — and the home goes into the team pipeline with a “View original listing” button.</p>
+    <?php if ($linkError): ?><p class="err" role="alert"><?= e($linkError) ?></p><?php endif; ?>
+    <form method="post" action="/add">
+      <?= csrf_field() ?><input type="hidden" name="do" value="link">
+      <div class="form-grid">
+        <label class="field c8"><span>Listing link</span><input class="input" type="url" name="url" value="<?= e($linkUrl) ?>" placeholder="https://www.homes.com/property/…" required></label>
+        <label class="field c4"><span>Asking price (optional)</span><input class="input" name="price" inputmode="numeric" placeholder="$"></label>
+        <label class="field c12"><span>Note for the team (optional)</span><input class="input" name="note" placeholder="Seen on Homes.com — price cut last week, vacant."></label>
+      </div>
+      <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('plus', 15) ?>Add from link</button></div>
+    </form>
+  </section>
+  <h2 class="eyebrow mt-l mb-m">Or type it in</h2>
   <?php endif; ?>
 
   <form method="post" action="<?= e(url('/add', ['id' => $editId ?: null])) ?>">
@@ -220,9 +275,9 @@ View::header($edit ? 'Edit ' . $edit['address'] : 'Add a home', 'add');
       <label class="field c4"><span>HOA, $ per month</span><input class="input" name="hoa_fee" value="<?= $val('hoa_fee') ?>" inputmode="decimal"></label>
       <label class="field c8"><span>Link to the listing</span><input class="input" type="url" name="source_url" value="<?= $val('source_url') ?>" placeholder="https://www.zillow.com/homedetails/…"></label>
 
-      <label class="field c12"><span>Notes</span>
+      <label class="field c12"><span><?= $edit ? 'Add a note for the team' : 'Note for the team' ?></span>
         <textarea class="textarea" name="notes" rows="3" placeholder="Corner lot, backs onto the greenbelt."><?= e($form['notes']) ?></textarea></label>
-      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>>Keep it on my watchlist</label></div>
+      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>>In the team pipeline</label></div>
     </div>
     <div class="form-foot">
       <button class="btn btn-primary" type="submit"><?= $edit ? 'Save changes' : 'Add home' ?></button>

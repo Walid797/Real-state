@@ -6,13 +6,15 @@ namespace App;
 /** Page chrome and the handful of fragments shared by more than one page. */
 final class View
 {
+    /** key => [href, label, permission] */
     private const NAV = [
-        'search' => ['/', 'Search'],
-        'watchlist' => ['/watchlist', 'Watchlist'],
-        'alerts' => ['/alerts', 'Alerts'],
-        'market' => ['/market', 'Market'],
-        'add' => ['/add', 'Add a home'],
-        'sites' => ['/sites', 'Sites'],
+        'dashboard' => ['/', 'Dashboard', 'view'],
+        'search' => ['/search', 'Search', 'view'],
+        'pipeline' => ['/pipeline', 'Pipeline', 'view'],
+        'alerts' => ['/alerts', 'Alerts', 'view'],
+        'reports' => ['/reports', 'Reports', 'view'],
+        'market' => ['/market', 'Market', 'view'],
+        'add' => ['/add', 'Add a home', 'edit'],
     ];
 
     private static array $scripts = [];
@@ -55,15 +57,18 @@ final class View
 <?php if (!$bare): ?>
 <header class="top">
   <div class="top-in">
-    <a class="brand" href="/" aria-label="<?= e($site) ?> — search"><?= e($site) ?></a>
+    <a class="brand" href="/" aria-label="<?= e($site) ?> — dashboard"><?= e($site) ?></a>
     <nav class="nav" aria-label="Main">
-      <?php foreach (self::NAV as $key => [$href, $label]): ?>
+      <?php foreach (self::NAV as $key => [$href, $label, $perm]): if (!Auth::can($perm)) { continue; } ?>
       <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= $label ?></a>
       <?php endforeach; ?>
     </nav>
     <div class="top-end">
-      <?= self::quotaChip() ?>
-      <a class="top-link<?= $active === 'settings' ? ' is-on' : '' ?>" href="/settings" title="Settings"><?= icon('settings', 17) ?><span class="sr">Settings</span></a>
+      <?= Auth::can('admin') ? self::quotaChip() : '' ?>
+      <?php if (Auth::can('admin')): ?>
+      <a class="top-link<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' is-on' : '' ?>" href="/settings" title="Settings, team and sites"><?= icon('settings', 17) ?><span class="sr">Settings</span></a>
+      <?php endif; ?>
+      <a class="who<?= $active === 'account' ? ' is-on' : '' ?>" href="/account" title="My account"><span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(Auth::name() ?: '?', 0, 1))) ?></span><span class="who-name"><?= e(Auth::name()) ?></span></a>
       <form method="post" action="/logout" class="inline">
         <?= csrf_field() ?>
         <button class="top-link" type="submit" title="Sign out"><?= icon('log-out', 17) ?><span class="sr">Sign out</span></button>
@@ -148,7 +153,7 @@ final class View
             return '';
         }
         $link = static fn (int $p, string $label, bool $on = true) => $on
-            ? '<a class="btn btn-ghost" href="' . e(url('/', $query + ['page' => $p > 1 ? $p : null])) . '">' . $label . '</a>'
+            ? '<a class="btn btn-ghost" href="' . e(url('/search', $query + ['page' => $p > 1 ? $p : null])) . '">' . $label . '</a>'
             : '<span class="btn btn-ghost is-off">' . $label . '</span>';
         return '<nav class="pager" aria-label="Pages">' . $link($page - 1, 'Previous', $page > 1)
             . '<span class="pager-at">Page ' . $page . ' of ' . $pages . '</span>'

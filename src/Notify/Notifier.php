@@ -12,13 +12,27 @@ final class Notifier
 {
     public const CHANNELS = ['email' => 'Email', 'whatsapp' => 'WhatsApp', 'telegram' => 'Telegram'];
 
-    /** @return array<string,bool> which channels are set up */
-    public static function ready(): array
+    /**
+     * Where a message goes. Defaults to the site-wide settings; an alert passes its owner's
+     * own email and Telegram chat instead (a Telegram group id works too).
+     * @return array{email:string, telegram:string}
+     */
+    public static function recipient(?array $user = null): array
     {
         return [
-            'email' => Settings::has('notify_email'),
+            'email' => (string) ($user['email'] ?? Settings::get('notify_email', '')),
+            'telegram' => (string) (($user['telegram_chat'] ?? '') ?: Settings::get('telegram_chat', '')),
+        ];
+    }
+
+    /** @return array<string,bool> which channels can deliver to this recipient */
+    public static function ready(?array $to = null): array
+    {
+        $to ??= self::recipient();
+        return [
+            'email' => $to['email'] !== '',
             'whatsapp' => Settings::has('callmebot_phone') && Settings::has('callmebot_key'),
-            'telegram' => Settings::has('telegram_token') && Settings::has('telegram_chat'),
+            'telegram' => Settings::has('telegram_token') && $to['telegram'] !== '',
         ];
     }
 
@@ -26,19 +40,20 @@ final class Notifier
      * @param string[] $channels
      * @return array<string, array{ok:bool, detail:string}>
      */
-    public static function send(string $subject, string $text, array $channels, ?string $html = null): array
+    public static function send(string $subject, string $text, array $channels, ?string $html = null, ?array $to = null): array
     {
         $out = [];
-        $ready = self::ready();
+        $to ??= self::recipient();
+        $ready = self::ready($to);
         foreach (array_intersect(array_keys(self::CHANNELS), $channels) as $ch) {
             if (empty($ready[$ch])) {
                 $out[$ch] = ['ok' => false, 'detail' => 'Not set up yet.'];
             } else {
                 try {
                     $out[$ch] = match ($ch) {
-                        'email' => self::email($subject, $text, $html),
+                        'email' => self::email($to['email'], $subject, $text, $html),
                         'whatsapp' => self::whatsapp($subject . "\n\n" . $text),
-                        'telegram' => self::telegram($subject . "\n\n" . $text),
+                        'telegram' => self::telegram($to['telegram'], $subject . "\n\n" . $text),
                     };
                 } catch (\Throwable $e) {
                     $out[$ch] = ['ok' => false, 'detail' => mb_substr($e->getMessage(), 0, 200)];
@@ -52,9 +67,8 @@ final class Notifier
         return $out;
     }
 
-    private static function email(string $subject, string $text, ?string $html): array
+    private static function email(string $to, string $subject, string $text, ?string $html): array
     {
-        $to = (string) Settings::get('notify_email');
         $user = (string) Settings::get('smtp_user', '');
         $name = (string) Settings::get('site_name', 'Plat');
         if ($user !== '' && Settings::has('smtp_pass')) {
@@ -83,10 +97,10 @@ final class Notifier
         return ['ok' => $ok, 'detail' => $ok ? 'Queued for ' . $phone : 'CallMeBot answered ' . $res['status'] . ': ' . mb_substr(trim(strip_tags($res['body'])), 0, 140)];
     }
 
-    private static function telegram(string $text): array
+    private static function telegram(string $chat, string $text): array
     {
         $res = Http::postForm('https://api.telegram.org/bot' . rawurlencode((string) Settings::get('telegram_token')) . '/sendMessage', [
-            'chat_id' => (string) Settings::get('telegram_chat'),
+            'chat_id' => $chat,
             'text' => mb_substr($text, 0, 3900),
             'disable_web_page_preview' => 'true',
         ], 20);

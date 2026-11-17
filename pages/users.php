@@ -1,0 +1,180 @@
+<?php
+declare(strict_types=1);
+
+use App\Auth;
+use App\Db;
+use App\Notify\Notifier;
+use App\Services\Activity;
+use App\Settings;
+use App\View;
+
+/* Team members: invite, change role, disable, sign out everywhere. Admin only (see Kernel). */
+
+$me = Auth::userId();
+$newLink = null;
+
+if (is_post()) {
+    $do = input('do');
+    $id = (int) input('id');
+    $target = $id ? Db::one('SELECT * FROM users WHERE id = ?', [$id]) : null;
+    $admins = (int) Db::val("SELECT COUNT(*) FROM users WHERE role = 'admin' AND is_active = 1");
+
+    if ($do === 'invite') {
+        $email = mb_strtolower(input('email', '', 190));
+        $name = input('name', '', 80);
+        $role = isset(Auth::ROLES[input('role')]) ? input('role') : 'partner';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('That email address doesn’t look right.', 'err');
+            redirect('/users');
+        }
+        $existing = Db::one('SELECT * FROM users WHERE email = ?', [$email]);
+        if ($existing && $existing['password_hash'] !== '') {
+            flash($email . ' already has an account.', 'warn');
+            redirect('/users');
+        }
+        $uid = $existing ? (int) $existing['id'] : Db::insert('users', [
+            'email' => $email, 'name' => $name, 'role' => $role, 'password_hash' => '', 'is_active' => 1,
+            'invited_by' => $me, 'created_at' => now(),
+        ]);
+        $token = Auth::issueToken($uid, 'invite', 7 * 86400);
+        $link = abs_url('/invite', ['token' => $token]);
+        Activity::log('user', null, 'Invited ' . $email . ' as ' . Auth::ROLES[$role]);
+        $site = (string) Settings::get('site_name', 'Plat');
+        $sent = Notifier::send(
+            "You’re invited to $site",
+            Auth::name() . " added you to $site, the team’s property research workspace.\n\nSet your password here (link works for 7 days):\n$link\n\nIf you didn’t expect this, ignore the message.",
+            ['email'], null, ['email' => $email, 'telegram' => '']
+        )['email'] ?? ['ok' => false];
+        $_SESSION['invite_link'] = ['email' => $email, 'link' => $link, 'mailed' => $sent['ok']];
+        redirect('/users');
+    }
+
+    if (!$target) {
+        redirect('/users');
+    }
+    $isLastAdmin = $target['role'] === 'admin' && (int) $target['is_active'] === 1 && $admins <= 1;
+
+    switch ($do) {
+        case 'role':
+            $role = input('role');
+            if (!isset(Auth::ROLES[$role]) || $role === $target['role']) {
+                break;
+            }
+            if ($isLastAdmin) {
+                flash('Keep at least one admin. Make someone else admin first.', 'err');
+                break;
+            }
+            Db::run('UPDATE users SET role = ? WHERE id = ?', [$role, $id]);
+            Activity::log('user', null, ($target['name'] ?: $target['email']) . ' is now ' . Auth::ROLES[$role]);
+            flash(($target['name'] ?: $target['email']) . ' is now ' . Auth::ROLES[$role] . '.');
+            break;
+
+        case 'toggle':
+            if ($id === $me || $isLastAdmin) {
+                flash('You can’t disable yourself or the last admin.', 'err');
+                break;
+            }
+            Db::run('UPDATE users SET is_active = 1 - is_active, session_epoch = session_epoch + 1 WHERE id = ?', [$id]);
+            Activity::log('user', null, ($target['is_active'] ? 'Disabled ' : 'Re-enabled ') . $target['email']);
+            flash($target['is_active'] ? 'Account disabled and signed out.' : 'Account enabled again.');
+            break;
+
+        case 'signout':
+            Auth::signOutEverywhere($id);
+            flash(($target['name'] ?: $target['email']) . ' was signed out on every device.');
+            break;
+
+        case 'relink':
+            $token = Auth::issueToken($id, $target['password_hash'] === '' ? 'invite' : 'reset', $target['password_hash'] === '' ? 7 * 86400 : 3600);
+            $path = $target['password_hash'] === '' ? '/invite' : '/reset';
+            $_SESSION['invite_link'] = ['email' => $target['email'], 'link' => abs_url($path, ['token' => $token]), 'mailed' => false];
+            break;
+    }
+    redirect('/users');
+}
+
+$link = $_SESSION['invite_link'] ?? null;
+unset($_SESSION['invite_link']);
+$users = Db::all(
+    "SELECT u.*, (SELECT COUNT(*) FROM activity_log a WHERE a.user_id = u.id) AS actions FROM users u ORDER BY u.is_active DESC, FIELD(u.role,'admin','partner','viewer'), u.created_at"
+);
+
+View::header('Team', 'users');
+?>
+<header class="page-head">
+  <div>
+    <h1 class="display">Team</h1>
+    <p>Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.</p>
+  </div>
+</header>
+
+<?php if ($link): ?>
+<div class="card">
+  <h3>Invitation link for <?= e($link['email']) ?></h3>
+  <p class="small soft mb-m"><?= $link['mailed'] ? 'It was also emailed to them.' : 'Email isn’t set up, so send this link yourself (WhatsApp, text, email).' ?> Anyone with the link can claim the account, so send it only to them.</p>
+  <code class="block"><?= e($link['link']) ?></code>
+  <button class="btn btn-sm mt-m" type="button" data-copy="<?= e($link['link']) ?>"><?= icon('copy', 14) ?>Copy link</button>
+</div>
+<?php endif; ?>
+
+<section class="section">
+  <div class="section-head"><h2>Members</h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Person</th><th>Role</th><th>Sign-in</th><th>Last seen</th><th class="r">Actions taken</th><th></th></tr></thead>
+      <tbody>
+      <?php foreach ($users as $u): $pending = $u['password_hash'] === '' && !$u['google_sub']; ?>
+        <tr<?= $u['is_active'] ? '' : ' class="muted"' ?>>
+          <td><strong><?= e($u['name'] ?: '—') ?></strong><?= (int) $u['id'] === $me ? ' <span class="tag">You</span>' : '' ?><span class="sub"><?= e($u['email']) ?></span></td>
+          <td>
+            <form method="post" action="/users"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <label class="sr" for="r<?= (int) $u['id'] ?>">Role</label>
+              <select class="select stage" id="r<?= (int) $u['id'] ?>" name="role" data-autosubmit<?= $u['is_active'] ? '' : ' disabled' ?>>
+                <?php foreach (Auth::ROLES as $k => $label): ?><option value="<?= $k ?>"<?= selected($u['role'], $k) ?>><?= $label ?></option><?php endforeach; ?>
+              </select></form></td>
+          <td><?= $pending ? '<span class="tag tag-warn">Invite not accepted</span>' : ($u['google_sub'] ? 'Password · Google' : 'Password') ?>
+            <?= $u['is_active'] ? '' : '<span class="tag tag-bad">Disabled</span>' ?></td>
+          <td class="nowrap"><?= $u['last_login_at'] ? e(ago($u['last_login_at'])) : '<span class="muted">Never</span>' ?></td>
+          <td class="r"><?= (int) $u['actions'] ?></td>
+          <td class="r nowrap">
+            <?php if ($pending || (int) $u['id'] !== $me): ?>
+            <form method="post" action="/users" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="relink"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <button class="linkbtn" type="submit"><?= $pending ? 'New invite link' : 'Password reset link' ?></button></form>
+            <?php endif; ?>
+            <?php if ((int) $u['id'] !== $me): ?>
+            · <form method="post" action="/users" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="signout"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <button class="linkbtn" type="submit">Sign out everywhere</button></form>
+            · <form method="post" action="/users" class="inline" data-confirm="<?= $u['is_active'] ? 'Disable this account? They are signed out at once.' : 'Enable this account again?' ?>"><?= csrf_field() ?><input type="hidden" name="do" value="toggle"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+              <button class="linkbtn<?= $u['is_active'] ? ' danger' : '' ?>" type="submit"><?= $u['is_active'] ? 'Disable' : 'Enable' ?></button></form>
+            <?php endif; ?>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section narrow">
+  <div class="section-head"><h2>Invite someone</h2></div>
+  <form method="post" action="/users" class="mt-m">
+    <?= csrf_field() ?><input type="hidden" name="do" value="invite">
+    <div class="form-grid">
+      <label class="field c4"><span>Name</span><input class="input" name="name" placeholder="Ajmal Sultan" required></label>
+      <label class="field c5"><span>Email</span><input class="input" type="email" name="email" required></label>
+      <label class="field c3"><span>Role</span>
+        <select class="select" name="role">
+          <option value="partner">Partner</option><option value="viewer">Viewer</option><option value="admin">Admin</option>
+        </select></label>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('send', 15) ?>Create invite link</button>
+      <span class="small muted">They set their own password, or sign in with Google using this same email.</span></div>
+  </form>
+  <dl class="kv mt-l">
+    <div><dt>Admin</dt><dd>Everything, including team, data sources and settings</dd></div>
+    <div><dt>Partner</dt><dd>Search, statuses, notes, deal numbers, adding homes</dd></div>
+    <div><dt>Viewer</dt><dd>Reads homes, deals and reports; changes nothing</dd></div>
+  </dl>
+</section>
+<?php
+View::footer();

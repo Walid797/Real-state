@@ -6,7 +6,7 @@ use App\Services\Alerts;
 
 $id = (int) $params['id'];
 $alert = Db::one('SELECT * FROM alerts WHERE id = ?', [$id]);
-if (!$alert) {
+if (!$alert || ((int) $alert['user_id'] !== App\Auth::userId() && !App\Auth::can('admin'))) {
     redirect('/alerts');
 }
 

@@ -42,6 +42,11 @@
     if (e.target.matches('[data-autosubmit]') && e.target.form) e.target.form.submit();
   });
 
+  /* Print / save as PDF. */
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('[data-print]')) window.print();
+  });
+
   /* Copy-to-clipboard buttons. */
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-copy]');
@@ -78,7 +83,7 @@
     var bounds = [];
     var pins = {};
     mapData.points.forEach(function (p) {
-      var cls = 'pin' + (p.sold ? ' is-sold' : '') + (p.subject ? ' is-subject' : '');
+      var cls = 'pin' + (p.sold ? ' is-sold' : '') + (p.subject ? ' is-subject' : '') + (p.band && p.band !== 'none' ? ' band-' + p.band : '');
       var marker = L.marker([p.lat, p.lng], {
         icon: L.divIcon({ className: 'pin-wrap', html: '<span class="' + cls + '">' + esc(p.label) + '</span>', iconSize: [0, 0] }),
         zIndexOffset: p.subject ? 900 : 0,
@@ -164,6 +169,22 @@
       }
     });
   });
+
+  /* ── Places nearby (OpenStreetMap) ───────────────────── */
+  var near = $('[data-nearby-url]');
+  if (near) {
+    fetch(near.getAttribute('data-nearby-url'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (d) {
+        if (!d.places) { near.innerHTML = '<p class="small muted">OpenStreetMap didn’t answer. Reload to try again.</p>'; return; }
+        near.innerHTML = d.places.map(function (pl) {
+          var v = pl.count === 0 ? '<span class="muted">none within ' + pl.radius + ' mi</span>'
+            : pl.count + ' · nearest ' + Number(pl.nearest).toFixed(1) + ' mi';
+          return '<div class="ctx-row"><span>' + esc(pl.label) + '</span><span class="num" title="' + esc(pl.name || '') + '">' + v + '</span></div>';
+        }).join('') + '<p class="small muted">From OpenStreetMap. Distance is a straight line; it says nothing about quality.</p>';
+      })
+      .catch(function () { near.innerHTML = '<p class="small muted">Couldn’t load this. Reload to try again.</p>'; });
+  }
 
   /* ── Flood zone + neighbourhood (free lookups, loaded after the page) ── */
   var ctx = $('[data-context-url]');

@@ -18,12 +18,34 @@ final class Jobs
             return ['Another run is still in progress — skipped.'];
         }
         try {
+            if (Migrator::pending()) {
+                $log[] = 'Database updated: ' . implode(', ', Migrator::run()) . '.';
+            }
             if ($job === 'auto' || $job === 'alerts') {
                 $r = Alerts::runDue($ctx);
                 $log[] = 'Alerts: ' . $r['checked'] . ' checked, ' . $r['hits'] . ' new.';
                 foreach ($r['notes'] as $n) {
                     $log[] = '  ' . $n;
                 }
+                $d = Alerts::sendDigests();
+                if ($d) {
+                    $log[] = 'Daily summaries sent: ' . $d . '.';
+                }
+            }
+            if ($job === 'auto' || $job === 'score') {
+                // Homes never scored, or whose record changed since: oldest first, a slice per run.
+                $ids = array_column(Db::all(
+                    "SELECT id FROM properties WHERE status IN ('for_sale','pending') AND (scored_at IS NULL OR scored_at < updated_at OR scored_at < ?)
+                     ORDER BY scored_at IS NOT NULL, scored_at LIMIT 400",
+                    [gmdate('Y-m-d H:i:s', time() - 3 * 86400)]
+                ), 'id');
+                if ($ids) {
+                    $log[] = 'Scored ' . Services\Score::refreshMany($ids, $job === 'score' ? 240 : 90) . ' of ' . count($ids) . ' waiting homes.';
+                }
+            }
+            if ($job === 'backup' || ($job === 'auto' && self::due('job_backup_at', 23))) {
+                $log[] = 'Backup written: ' . Backup::run() . '.';
+                Settings::set('job_backup_at', now());
             }
             if ($job === 'prune' || ($job === 'auto' && self::due('job_prune_at', 20))) {
                 $n = Cache::prune();

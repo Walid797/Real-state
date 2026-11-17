@@ -30,9 +30,19 @@ $agents = [['Dana Whitfield', 'Lamar & Oak Realty'], ['Marcus Ibarra', 'Violet C
 $zips = ['78704' => [30.2460, -97.7680], '78745' => [30.2070, -97.7950], '78741' => [30.2310, -97.7200]];
 $types = ['Single Family', 'Single Family', 'Single Family', 'Condo', 'Townhouse'];
 $rand = static fn (float $a, float $b) => $a + ($b - $a) * (mt_rand() / mt_getrandmax());
+$texts = [
+    'Investor special, sold as-is. Original kitchen and dated bathrooms, roof is older. Cash or rehab loan only.',
+    'Needs TLC throughout. Bring your contractor — great bones on a quiet street.',
+    'Fully renovated in 2023: new roof, new HVAC, updated kitchen with quartz counters, remodeled baths, new LVP flooring.',
+    'Updated kitchen with stainless appliances. Bathrooms are original. Finished basement and 2-car garage.',
+    'Move-in ready and meticulously maintained. Fresh paint, new carpet in the bedrooms.',
+    'Estate sale. Foundation issues noted by seller; water damage in the basement. Priced accordingly.',
+    'Spacious home close to schools and parks.',
+    '',
+];
 
 $n = ['sale' => 0, 'sold' => 0];
-Db::tx(static function () use ($streets, $agents, $zips, $types, $rand, &$n) {
+Db::tx(static function () use ($streets, $agents, $zips, $types, $rand, $texts, &$n) {
     foreach (array_keys($zips) as $zi => $zip) {
         [$clat, $clng] = $zips[$zip];
         for ($i = 0; $i < 90; $i++) {
@@ -49,6 +59,7 @@ Db::tx(static function () use ($streets, $agents, $zips, $types, $rand, &$n) {
                 'sqft' => $sqft, 'lot_sqft' => $type === 'Condo' ? null : (int) round($rand(4200, 11000), -1),
                 'year_built' => mt_rand(1948, 2023), 'hoa_fee' => $type === 'Single Family' ? (mt_rand(0, 4) === 0 ? mt_rand(35, 90) : 0) : mt_rand(180, 460),
             ];
+            $base['description'] = $texts[mt_rand(0, count($texts) - 1)] ?: null;
             if ($i % 5 < 2) { // for sale
                 $days = mt_rand(0, 120);
                 [$agent, $office] = $agents[mt_rand(0, count($agents) - 1)];
@@ -88,4 +99,10 @@ Db::tx(static function () use ($streets, $agents, $zips, $types, $rand, &$n) {
     }
 });
 
-echo "Seeded {$n['sale']} listings and {$n['sold']} sales in Austin, TX.\n";
+// A partner and a viewer to test roles (password: "correct horse battery staple").
+foreach ([['partner@example.com', 'Ajmal Test', 'partner'], ['viewer@example.com', 'Vera Viewer', 'viewer']] as [$em, $nm, $role]) {
+    if (!Db::val('SELECT id FROM users WHERE email = ?', [$em])) {
+        Db::insert('users', ['email' => $em, 'name' => $nm, 'role' => $role, 'password_hash' => App\Auth::hash('correct horse battery staple'), 'created_at' => now()]);
+    }
+}
+echo "Seeded {$n['sale']} listings and {$n['sold']} sales in Austin, TX, plus a partner and a viewer.\n";

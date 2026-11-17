@@ -11,17 +11,28 @@ use App\View;
 
 $id = isset($params['id']) ? (int) $params['id'] : 0;
 $alert = $id ? Db::one('SELECT * FROM alerts WHERE id = ?', [$id]) : null;
+// Alerts are personal; admins may open anyone's to help.
+if ($alert && (int) $alert['user_id'] !== App\Auth::userId() && !App\Auth::can('admin')) {
+    $alert = null;
+    $id = 0;
+}
+$owner = $alert && $alert['user_id'] ? Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [$alert['user_id']]) : Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [App\Auth::userId()]);
+$ready = Notifier::ready(Notifier::recipient($owner));
 if ($id && !$alert) {
     redirect('/alerts');
 }
 
 $crit = $alert ? (json_decode((string) $alert['criteria'], true) ?: []) : Search::compact(Search::fromRequest($_GET));
+if (!$alert && empty($crit['types']) && !isset($_GET['q'])) {
+    $crit['types'] = ['Single Family', 'Townhouse'];
+}
 $form = [
     'name' => $alert['name'] ?? '',
     'kind' => $alert['kind'] ?? (isset(Alerts::KINDS[$_GET['kind'] ?? '']) ? $_GET['kind'] : 'new_listing'),
     'location' => $alert['location'] ?? input('q', '', 190),
     'every_hours' => (int) ($alert['every_hours'] ?? 24),
-    'channels' => $alert ? array_filter(explode(',', $alert['channels'])) : array_keys(array_filter(Notifier::ready())),
+    'channels' => $alert ? array_filter(explode(',', $alert['channels'])) : array_keys(array_filter($ready)),
+    'delivery' => $alert['delivery'] ?? 'instant',
     'use_quota' => (int) ($alert['use_quota'] ?? 1),
     'enabled' => (int) ($alert['enabled'] ?? 1),
 ];
@@ -32,6 +43,7 @@ if (is_post()) {
     $form['kind'] = isset(Alerts::KINDS[input('kind')]) ? input('kind') : 'new_listing';
     $form['location'] = input('location', '', 190);
     $form['every_hours'] = isset(Alerts::FREQUENCIES[(int) input('every_hours')]) ? (int) input('every_hours') : 24;
+    $form['delivery'] = input('delivery') === 'daily' ? 'daily' : 'instant';
     $form['channels'] = array_values(array_intersect(array_keys(Notifier::CHANNELS), (array) ($_POST['channels'] ?? [])));
     $form['use_quota'] = isset($_POST['use_quota']) ? 1 : 0;
     $form['enabled'] = isset($_POST['enabled']) ? 1 : 0;
@@ -66,7 +78,7 @@ if (is_post()) {
         $data = [
             'name' => $form['name'], 'kind' => $form['kind'], 'location' => $loc['label'] ?? '',
             'criteria' => json_encode($crit), 'every_hours' => $form['every_hours'],
-            'channels' => implode(',', $form['channels']), 'enabled' => $form['enabled'], 'use_quota' => $form['use_quota'],
+            'channels' => implode(',', $form['channels']), 'delivery' => $form['delivery'], 'enabled' => $form['enabled'], 'use_quota' => $form['use_quota'],
         ];
         if ($alert) {
             // Changed criteria → start from a fresh baseline so old matches are not re-announced as new.
@@ -78,7 +90,7 @@ if (is_post()) {
             Db::update('alerts', $data, $id);
             flash('Alert saved.');
         } else {
-            $id = Db::insert('alerts', $data + ['created_at' => now()]);
+            $id = Db::insert('alerts', $data + ['user_id' => App\Auth::userId(), 'created_at' => now()]);
             $first = Alerts::runOne(Db::one('SELECT * FROM alerts WHERE id = ?', [$id]), 'manual', false);
             flash('Alert is on. ' . $first['note']);
         }
@@ -92,7 +104,6 @@ $history = $alert ? Db::all(
      ORDER BY h.created_at DESC, h.id DESC LIMIT 40',
     [$id]
 ) : [];
-$ready = Notifier::ready();
 $v = static fn (string $k) => isset($crit[$k]) ? e(is_float($crit[$k]) && $crit[$k] >= 1000 ? number_format($crit[$k]) : (string) $crit[$k]) : '';
 
 View::header($alert ? $alert['name'] : 'New alert', 'alerts');
@@ -116,17 +127,30 @@ View::header($alert ? $alert['name'] : 'New alert', 'alerts');
           <?php foreach (Alerts::KINDS as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['kind'], $k) ?>><?= e($label) ?></option><?php endforeach; ?>
         </select></label>
       <label class="field c6"><span>Area</span>
-        <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Austin, TX or 78704">
-        <small data-kind="price_drop">Optional. Empty covers every home on your watchlist.</small></label>
+        <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Virginia · Fairfax County · Richmond · 22030, 20176">
+        <small data-kind="price_drop">Optional. Empty covers every home in the pipeline.</small></label>
 
-      <label class="field c3" data-kind="new_listing new_sale"><span>Price from</span><input class="input" name="price_min" inputmode="numeric" value="<?= $v('price_min') ?>" placeholder="$"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Price up to</span><input class="input" name="price_max" inputmode="numeric" value="<?= $v('price_max') ?>" placeholder="$"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Bedrooms, at least</span><input class="input" name="beds_min" inputmode="numeric" value="<?= $v('beds_min') ?>"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Bathrooms, at least</span><input class="input" name="baths_min" inputmode="decimal" value="<?= $v('baths_min') ?>"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Sqft from</span><input class="input" name="sqft_min" inputmode="numeric" value="<?= $v('sqft_min') ?>"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Sqft up to</span><input class="input" name="sqft_max" inputmode="numeric" value="<?= $v('sqft_max') ?>"></label>
-      <label class="field c3" data-kind="new_listing new_sale"><span>Built in or after</span><input class="input" name="year_min" inputmode="numeric" value="<?= $v('year_min') ?>" placeholder="1990"></label>
-      <label class="field c3" data-kind="new_listing"><span>HOA up to, $/mo</span><input class="input" name="hoa_max" inputmode="numeric" value="<?= $v('hoa_max') ?>" placeholder="0 = none"></label>
+      <?php foreach ([['Price ($)', 'price'], ['Bedrooms', 'beds'], ['Bathrooms', 'baths'], ['Living area (sqft)', 'sqft'], ['Year built', 'year'], ['Lot (sqft)', 'lot']] as [$label, $k]): ?>
+      <div class="field c4" data-kind="new_listing new_sale"><span><?= e($label) ?></span><div class="pair">
+        <input class="input" name="<?= $k ?>_min" inputmode="decimal" placeholder="Min" value="<?= $v($k . '_min') ?>" aria-label="<?= e($label) ?> minimum">
+        <input class="input" name="<?= $k ?>_max" inputmode="decimal" placeholder="Max" value="<?= $v($k . '_max') ?>" aria-label="<?= e($label) ?> maximum"></div></div>
+      <?php endforeach; ?>
+      <label class="field c4" data-kind="new_listing"><span>HOA up to, $/mo</span><input class="input" name="hoa_max" inputmode="numeric" value="<?= $v('hoa_max') ?>" placeholder="0 = none"></label>
+      <label class="field c4" data-kind="new_listing"><span>Opportunity score, at least</span><input class="input" name="score_min" inputmode="numeric" value="<?= $v('score_min') ?>" placeholder="e.g. 60"></label>
+      <label class="field c4" data-kind="new_listing"><span>Est. profit, at least ($)</span><input class="input" name="profit_min" inputmode="numeric" value="<?= $v('profit_min') ?>" placeholder="e.g. 35,000"></label>
+
+      <div class="field c12" data-kind="new_listing"><span>Listing status</span>
+        <div class="actions">
+          <?php foreach (PropertyRepo::LISTING as $k => $label): ?>
+          <label class="check"><input type="checkbox" name="listing[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['listing'] ?? []), true)) ?>><?= e($label) ?></label>
+          <?php endforeach; ?>
+        </div><small>None ticked = any active listing.</small></div>
+      <div class="field c12" data-kind="new_listing"><span>Condition</span>
+        <div class="actions">
+          <?php foreach (App\Services\Condition::OVERALL as $k => $label): ?>
+          <label class="check"><input type="checkbox" name="cond[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['cond'] ?? []), true)) ?>><?= e($label) ?></label>
+          <?php endforeach; ?>
+        </div><small>None ticked = any condition.</small></div>
 
       <div class="field c12" data-kind="new_listing new_sale"><span>Property type</span>
         <div class="actions">
@@ -147,13 +171,18 @@ View::header($alert ? $alert['name'] : 'New alert', 'alerts');
         <select class="select" name="every_hours">
           <?php foreach (Alerts::FREQUENCIES as $h => $label): ?><option value="<?= $h ?>"<?= selected($form['every_hours'], $h) ?>><?= e($label) ?> — about <?= (int) ceil(720 / $h) ?> requests a month</option><?php endforeach; ?>
         </select></label>
+      <div class="field c6"><span>When</span>
+        <span class="seg" role="group" aria-label="When to send">
+          <label><input type="radio" name="delivery" value="instant"<?= checked($form['delivery'] !== 'daily') ?>><span>As soon as found</span></label>
+          <label><input type="radio" name="delivery" value="daily"<?= checked($form['delivery'] === 'daily') ?>><span>Daily summary</span></label>
+        </span></div>
       <div class="field c6"><span>Send to</span>
         <div class="actions">
           <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
           <label class="check<?= empty($ready[$ch]) ? ' is-off' : '' ?>"><input type="checkbox" name="channels[]" value="<?= $ch ?>"<?= checked(in_array($ch, $form['channels'], true) && !empty($ready[$ch])) ?><?= empty($ready[$ch]) ? ' disabled' : '' ?>><?= $label ?></label>
           <?php endforeach; ?>
         </div>
-        <?php if (in_array(false, $ready, true)): ?><small>Greyed-out ones aren’t set up. <a href="/settings#notify">Set them up</a>.</small><?php endif; ?></div>
+        <?php if (in_array(false, $ready, true)): ?><small>Greyed-out ones aren’t set up. <a href="/account">Add your Telegram</a> · email needs an admin to set up the mailbox.</small><?php endif; ?></div>
 
       <div class="field c12">
         <label class="check"><input type="checkbox" name="use_quota"<?= checked($form['use_quota']) ?>>Pull fresh data for this area on each check</label>

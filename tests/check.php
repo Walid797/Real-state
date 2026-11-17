@@ -25,6 +25,9 @@ use App\Providers\ZillowResearch;
 use App\Quota;
 use App\Services\Alerts;
 use App\Services\Comps;
+use App\Services\Condition;
+use App\Services\Deal;
+use App\Services\Score;
 use App\Services\ExternalSites;
 use App\Services\Search;
 use App\Settings;
@@ -53,7 +56,7 @@ $eq(Address::parseLocation('austin, tx')['label'] ?? null, 'Austin, TX', 'city, 
 $eq(Address::parseLocation('San Antonio TX')['label'] ?? null, 'San Antonio, TX', 'city st without comma');
 $eq(Address::parseLocation('Salt Lake City, Utah')['label'] ?? null, 'Salt Lake City, UT', 'full state name');
 $eq(Address::parseLocation('McKinney, TX')['city'] ?? null, 'McKinney', 'keeps deliberate casing');
-$eq(Address::parseLocation('Austin'), null, 'city without state is refused');
+$eq(Address::parseLocation('Austin')['label'] ?? null, 'Austin, VA', 'city without state uses the home state');
 $a = Address::parseLocation('5500 Grand Lake Dr, San Antonio, TX 78244');
 $eq($a['type'] ?? null, 'address', 'street address detected');
 $eq([$a['address'], $a['city'], $a['state'], $a['zip']], ['5500 Grand Lake Dr', 'San Antonio', 'TX', '78244'], 'address parts');
@@ -253,11 +256,11 @@ PropertyRepo::upsert(['address' => '777 Checker Ln', 'city' => 'Austin', 'state'
 $cut = Alerts::runOne($alert(), 'cron', false);
 $ok(count($cut['hits']) === 1 && str_starts_with($cut['hits'][0]['why'], 'Price cut $555,000 → $529,000'), 'a later price cut is reported');
 [$subject, $text, $html] = Alerts::compose($alert(), $cut['hits'], Address::parseLocation('Austin, TX'));
-$ok(str_contains($subject, '1 new home') && str_contains($text, '$529,000 · 777 Checker Ln, Austin, TX 78704') && str_contains($text, '/property/' . $new['id']) && str_contains($text, 'zillow.com/homes/777-Checker-Ln'), 'message has price, address, own link and Zillow link');
+$ok(str_contains($subject, 'New investment property found') && str_contains($text, '$529,000 · 777 Checker Ln, Austin, TX 78704') && str_contains($text, '/property/' . $new['id']) && str_contains($text, 'zillow.com/homes/777-Checker-Ln'), 'message has price, address, own link and Zillow link');
 $ok(str_contains($html, 'href="http://127.0.0.1:8088/property/' . $new['id'] . '"'), 'HTML version links to the home');
 
 // price_drop on the watchlist
-Db::run('INSERT IGNORE INTO watchlist (property_id, stage, created_at, updated_at) VALUES (?, ?, ?, ?)', [$new['id'], 'considering', now(), now()]);
+Db::run('INSERT IGNORE INTO watchlist (property_id, stage, created_at, updated_at) VALUES (?, ?, ?, ?)', [$new['id'], 'under_review', now(), now()]);
 $did = Db::insert('alerts', ['name' => 'check: cuts', 'kind' => 'price_drop', 'location' => '', 'criteria' => json_encode(['min_drop_pct' => 2]),
     'every_hours' => 24, 'channels' => 'email', 'enabled' => 1, 'use_quota' => 0, 'created_at' => now()]);
 $drop = static fn () => Db::one('SELECT * FROM alerts WHERE id = ?', [$did]);
@@ -270,6 +273,96 @@ $eq(Alerts::monthlyCost(['use_quota' => 1, 'enabled' => 1, 'location' => 'Austin
 
 Db::run("DELETE FROM alerts WHERE name LIKE 'check:%'");
 Db::run("DELETE FROM properties WHERE address LIKE '77_ Checker Ln' OR zip = '78723'");
+
+/* ── Areas: state, county, several ZIPs, several areas ───────────────── */
+$eq(Address::parseLocation('Virginia')['key'] ?? null, 'state:VA', 'state by name');
+$eq(Address::parseLocation('all of VA')['type'] ?? null, 'state', 'state by abbreviation');
+$eq(Address::parseLocation('Fairfax County')['key'] ?? null, 'county:VA:fairfax', 'county, home state assumed');
+$eq(Address::parseLocation('Loudoun County, VA')['label'] ?? null, 'Loudoun County, VA', 'county with state');
+$multi = Address::parseLocation('22030, 20176 22102');
+$eq([$multi['type'] ?? null, count($multi['parts'] ?? [])], ['multi', 3], 'three ZIPs');
+$mix = Address::parseLocation('Fairfax County; Richmond; 22030');
+$eq(array_column($mix['parts'] ?? [], 'type'), ['county', 'city', 'zip'], 'mixed areas');
+$plan = Search::plan($mix, Search::fromRequest(['q' => 'x']));
+$eq(array_column($plan['needs'], 'key'), ['state:VA', 'city:VA:richmond', 'zip:22030'], 'a county is pulled through its state; one pull per area');
+$a2 = [];
+$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 7, 'several areas search with OR');
+
+/* ── Condition from listing text ─────────────────────────────────────── */
+$d = Condition::detect('Investor special, sold as-is. Original kitchen and dated bathrooms. Cash only.');
+$eq([$d['overall'], $d['parts']['kitchen'], in_array('fixer', $d['flags'], true), in_array('as_is', $d['flags'], true)], ['needs_renovation', 'original', true, true], 'fixer-upper text');
+$d = Condition::detect('Fully renovated in 2022: new roof, new HVAC, updated kitchen. Finished basement, 2-car garage.');
+$eq([$d['overall'], $d['parts']['roof'], $d['parts']['hvac'], $d['parts']['kitchen'], $d['basement'], $d['garage'], $d['renovated_year']],
+    ['recently_renovated', 'new', 'new', 'updated', true, 2, 2022], 'renovated text: parts, basement, garage, year');
+$d = Condition::detect('Spacious home near schools. Gutters cleaned.');
+$eq([$d['overall'], $d['flags']], ['not_disclosed', []], 'nothing said → not disclosed, no false "gut" match');
+$eq(Condition::detect('Foundation issues and water damage.')['overall'], 'major_repair', 'major repair');
+
+/* ── Deal arithmetic (numbers worked by hand) ───────────────────────── */
+Db::run("DELETE FROM properties WHERE address = '1 Calc Way'");
+$calcId = PropertyRepo::upsert(['address' => '1 Calc Way', 'city' => 'Richmond', 'state' => 'VA', 'zip' => '23220', 'status' => 'for_sale',
+    'list_price' => 200000, 'sqft' => 1500, 'lat' => 37.55, 'lng' => -77.46], 'manual')['id'];
+Deal::save($calcId, ['purchase_price' => '200000', 'arv' => '320000', 'reno_cost' => '40000', 'contingency_pct' => '10', 'closing_pct' => '2',
+    'selling_pct' => '7', 'holding_months' => '6', 'holding_monthly' => '500', 'loan_ltv_pct' => '0', 'loan_rate_pct' => '0', 'loan_points_pct' => '0']);
+$pc = PropertyRepo::find($calcId);
+$dl = Deal::analyse($pc);
+// total = 200000 + 4000 + 40000 + 4000 + 3000 = 251000; selling = 22400; profit = 320000 − 251000 − 22400 = 46600
+$eq([$dl['ok'], (int) round($dl['base']['total']), (int) round($dl['base']['selling']), (int) round($dl['base']['profit'])], [true, 251000, 22400, 46600], 'total, selling, profit');
+$eq(round($dl['base']['roi'], 2), round(46600 / 251000 * 100, 2), 'ROI = profit ÷ total');
+$eq((int) round($dl['rule70']), 184000, '70% rule: 320000 × 0.7 − 40000');
+$eq((int) round($dl['break_even']), (int) round(251000 / 0.93), 'break-even sale price');
+// max offer for the default $30,000 target: (320000×0.93 − 44000 − 3000 − 30000) ÷ 1.02
+$eq((int) round($dl['max_offer']), (int) round((320000 * 0.93 - 44000 - 3000 - 30000) / 1.02), 'max offer leaves the target profit');
+$ok($dl['scenarios']['pessimistic']['profit'] < $dl['base']['profit'] && $dl['scenarios']['optimistic']['profit'] > $dl['base']['profit'], 'scenarios bracket the typical case');
+$eq($dl['source']['arv'], 'set', 'typed figures are marked as set');
+Deal::save($calcId, ['purchase_price' => '', 'arv' => '']);
+$eq(Deal::analyse(PropertyRepo::find($calcId))['source']['purchase_price'], 'est', 'clearing a box goes back to the estimate');
+$sc = Score::compute($pc, $dl, Condition::get($calcId));
+$ok($sc['score'] !== null && $sc['score'] >= 0 && $sc['score'] <= 100 && $sc['risk'] >= 0 && $sc['risk'] <= 100, 'scores stay within 0–100');
+$ok(in_array('Condition not disclosed', $sc['risks'], true), 'unknown condition counts as a risk');
+
+/* ── Roles ──────────────────────────────────────────────────────────── */
+$_SESSION = [];
+foreach (['admin' => [true, true, true], 'partner' => [true, true, false], 'viewer' => [true, false, false]] as $role => $want) {
+    $u = Db::one('SELECT * FROM users WHERE role = ? LIMIT 1', [$role]);
+    $_SESSION = ['uid' => (int) $u['id'], 'epoch' => (int) $u['session_epoch']];
+    $r = new ReflectionProperty(App\Auth::class, 'user');
+    $r->setValue(null, null);
+    $eq([App\Auth::can('view'), App\Auth::can('edit'), App\Auth::can('admin')], $want, "$role permissions");
+}
+App\Auth::signOutEverywhere((int) $u['id']);
+(new ReflectionProperty(App\Auth::class, 'user'))->setValue(null, null);
+$eq(App\Auth::user(), null, 'signing out everywhere ends an existing session');
+$_SESSION = [];
+
+/* ── Invitation tokens ──────────────────────────────────────────────── */
+$tok = App\Auth::issueToken((int) $u['id'], 'reset', 60);
+$ok(App\Auth::peekToken($tok, 'reset') !== null, 'fresh token is valid');
+$ok(App\Auth::peekToken($tok, 'invite') === null, 'token only works for its kind');
+App\Auth::useToken((int) App\Auth::peekToken($tok, 'reset')['token_id']);
+$ok(App\Auth::peekToken($tok, 'reset') === null, 'token works once');
+$ok((int) Db::val('SELECT COUNT(*) FROM user_tokens WHERE token_hash = ?', [$tok]) === 0, 'only the hash is stored');
+
+/* ── Links from other sites ─────────────────────────────────────────── */
+$eq(App\Services\LinkImport::addressText('https://www.zillow.com/homedetails/139-E-Del-Rio-Dr-Tempe-AZ-85282/7594920_zpid/'), '139 E Del Rio Dr Tempe, AZ 85282', 'Zillow link');
+$eq(App\Services\LinkImport::addressText('https://www.realtor.com/realestateandhomes-detail/1234-Main-St_Richmond_VA_23220_M12345-67890'), '1234 Main St, Richmond, VA 23220', 'Realtor link');
+$eq(App\Services\LinkImport::addressText('https://www.redfin.com/VA/Richmond/1234-Main-St-23220/home/12345'), '1234 Main St, Richmond, VA 23220', 'Redfin link');
+$eq(App\Services\LinkImport::addressText('https://www.homes.com/homes-for-sale/'), null, 'a search page has no address');
+$eq(App\Services\LinkImport::site('https://www.homes.com/property/x/'), 'Homes.com', 'site name');
+
+/* ── Excel file is a valid workbook ─────────────────────────────────── */
+$xl = new App\Export\Xlsx();
+$xl->addSheet('Test <&>', ['Name', 'Price'], [['=1+1', 250000], ['Ünïcode “quotes”', 1.5]]);
+$tmp = tempnam(sys_get_temp_dir(), 'xl');
+$xl->save($tmp);
+$zip = new ZipArchive();
+$ok($zip->open($tmp) === true && $zip->locateName('xl/worksheets/sheet1.xml') !== false, 'xlsx has a worksheet');
+$sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+$ok(simplexml_load_string($sheet) !== false && str_contains($sheet, 't="inlineStr"') && str_contains($sheet, '<v>250000</v>'), 'well-formed XML, numbers stay numbers');
+$ok(!str_contains($sheet, '<f>'), 'text starting with = is never a formula');
+$zip->close();
+unlink($tmp);
+Db::run("DELETE FROM properties WHERE address = '1 Calc Way'");
 
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

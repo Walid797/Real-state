@@ -7,15 +7,22 @@ use App\PropertyRepo;
 use App\Providers\OpenWebNinja;
 use App\Providers\RentCast;
 use App\Quota;
+use App\Auth;
+use App\Db;
+use App\Services\Activity;
 use App\Services\Comps;
+use App\Services\Condition;
+use App\Services\Deal;
 use App\Services\ExternalSites;
+use App\Services\Pipeline;
+use App\Services\Score;
 use App\View;
 
 $p = PropertyRepo::find((int) $params['id']);
 if (!$p) {
     http_response_code(404);
     View::header('Not found');
-    echo '<div class="empty"><h1 class="display">That home isn’t on file.</h1><p>It may have been deleted. Search for the address to add it again.</p><p><a class="btn" href="/">Back to search</a></p></div>';
+    echo '<div class="empty"><h1 class="display">That home isn’t on file.</h1><p>It may have been deleted. Search for the address to add it again.</p><p><a class="btn" href="/search">Back to search</a></p></div>';
     View::footer();
     return;
 }
@@ -61,6 +68,25 @@ $ownLeft = $ownReady ? Quota::left('openwebninja') : 0;
 $eventLabel = ['listed' => 'Listed', 'price_change' => 'Price changed', 'sold' => 'Sold', 'removed' => 'Taken off the market', 'relisted' => 'Listed again'];
 $backQ = $p['city'] !== '' ? $p['city'] . ', ' . $p['state'] : $p['zip'];
 
+/* Investment analysis. Stored figures are refreshed when the record changed since the last scoring. */
+if ($p['scored_at'] === null || $p['scored_at'] < $p['updated_at'] || strtotime($p['scored_at'] . ' UTC') < time() - 86400) {
+    $an = Score::refresh($id);
+    $p = PropertyRepo::find($id);
+} else {
+    $cond = Condition::get($id);
+    $deal = Deal::analyse($p, $cond);
+    $an = ['deal' => $deal, 'condition' => $cond, 'score' => Score::compute($p, $deal, $cond)];
+}
+$deal = $an['deal'];
+$cond = $an['condition'];
+$sc = $an['score'];
+$canEdit = Auth::can('edit');
+$team = Db::all("SELECT id, COALESCE(NULLIF(name, ''), email) AS name FROM users WHERE is_active = 1 AND role <> 'viewer' ORDER BY name");
+$notes = Db::all('SELECT n.*, COALESCE(NULLIF(u.name, \'\'), u.email) AS author FROM notes n LEFT JOIN users u ON u.id = n.user_id WHERE n.property_id = ? ORDER BY n.id DESC', [$id]);
+$history = Activity::forProperty($id, 30);
+$original = $p['watch_url'] ?: $p['source_url'];
+$dataLabels = ['full' => 'Full details', 'limited' => 'Limited details', 'link_only' => 'Link only', 'link_dead' => 'Link no longer works', 'removed' => 'Listing removed or sold'];
+
 $pull = static function (string $do, string $label, string $cost, bool $on, string $confirm = '') use ($id): string {
     return '<form method="post" action="/property/' . $id . '/act"' . ($confirm ? ' data-confirm="' . e($confirm) . '"' : '') . '>' . csrf_field()
         . '<input type="hidden" name="do" value="' . e($do) . '">'
@@ -76,8 +102,8 @@ if (count($series) >= 2) {
 }
 ?>
 <nav class="crumbs" aria-label="Back">
-  <a href="<?= e(url('/', ['q' => $backQ])) ?>"><?= icon('arrow-left', 14) ?><?= e($backQ) ?></a>
-  <?php if ($p['watch_id']): ?><span>·</span><a href="/watchlist">Watchlist</a><?php endif; ?>
+  <a href="<?= e(url('/search', ['q' => $backQ])) ?>"><?= icon('arrow-left', 14) ?><?= e($backQ) ?></a>
+  <?php if ($p['watch_id']): ?><span>·</span><a href="/pipeline">Pipeline</a><?php endif; ?>
 </nav>
 
 <header class="p-head">
@@ -86,6 +112,8 @@ if (count($series) >= 2) {
       <?= View::statusTag($p) ?>
       <?php if ($p['property_type']): ?><span class="tag"><?= e($p['property_type']) ?></span><?php endif; ?>
       <?php if ($p['source'] === 'manual'): ?><span class="tag">Added by hand</span><?php endif; ?>
+      <span class="tag tag-data-<?= e($p['data_status']) ?>" title="How much of the listing we have"><?= e($dataLabels[$p['data_status']] ?? $p['data_status']) ?></span>
+      <?php foreach (array_filter(explode(',', (string) $p['flags'])) as $fl): ?><span class="tag tag-warn"><?= e(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
     </div>
     <h1 class="display"><?= e($p['address']) ?></h1>
     <p class="where"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
@@ -103,12 +131,25 @@ if (count($series) >= 2) {
     <?php else: ?>
       <p class="sub">No price on file yet.</p>
     <?php endif; ?>
-    <form method="post" action="/property/<?= $id ?>/act" class="inline">
-      <?= csrf_field() ?><input type="hidden" name="do" value="<?= $p['watch_id'] ? 'unwatch' : 'watch' ?>">
-      <button class="btn btn-sm<?= $p['watch_id'] ? '' : ' btn-primary' ?>" type="submit"><?= icon('star', 14) ?><?= $p['watch_id'] ? 'On watchlist' : 'Watch this home' ?></button>
-    </form>
+    <div class="actions head-actions">
+      <?php if ($original): ?>
+      <a class="btn btn-sm" href="<?= e($original) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>View original listing</a>
+      <?php endif; ?>
+      <?php if ($canEdit && !$p['watch_id']): ?>
+      <form method="post" action="/property/<?= $id ?>/act" class="inline">
+        <?= csrf_field() ?><input type="hidden" name="do" value="watch">
+        <button class="btn btn-sm btn-primary" type="submit"><?= icon('star', 14) ?>Add to pipeline</button>
+      </form>
+      <?php endif; ?>
+    </div>
   </div>
 </header>
+
+<?php if ($p['watch_id'] && in_array($p['watch_stage'], Pipeline::ACTIVE, true) && $p['owner_id'] && (int) $p['owner_id'] !== Auth::userId()): ?>
+<p class="claim-bar"><?= icon('user-check', 16) ?><span><strong><?= e($p['owner_name']) ?></strong> is handling this home — <?= e(Pipeline::STAGES[$p['watch_stage']]) ?> since <?= e(fmt_date($p['stage_at'], 'M j')) ?>. Coordinate before contacting the agent.</span></p>
+<?php endif; ?>
+
+<?php include APP_ROOT . '/pages/partials/scorebar.php'; ?>
 
 <div class="facts-strip">
   <div><b><?= $p['beds'] !== null ? e(trim_num($p['beds'])) : '—' ?></b><span>Bedrooms</span></div>
@@ -135,6 +176,9 @@ if (count($series) >= 2) {
       <p class="desc"><?= e($p['description']) ?></p>
     </section>
     <?php endif; ?>
+
+    <?php include APP_ROOT . '/pages/partials/deal.php'; ?>
+    <?php include APP_ROOT . '/pages/partials/condition.php'; ?>
 
     <section class="section" id="comps">
       <div class="section-head"><h2>Comparable sales</h2>
@@ -310,16 +354,7 @@ if (count($series) >= 2) {
     </section>
     <?php endif; ?>
 
-    <section class="section" id="notes">
-      <div class="section-head"><h2>My notes</h2></div>
-      <form method="post" action="/property/<?= $id ?>/act" class="mt-m">
-        <?= csrf_field() ?><input type="hidden" name="do" value="note">
-        <label class="sr" for="notes-box">Notes</label>
-        <textarea class="textarea" id="notes-box" name="notes" rows="4" placeholder="Roof looked new. Seller relocating — ask about closing date."><?= e($p['notes']) ?></textarea>
-        <div class="actions mt-m"><button class="btn btn-sm" type="submit">Save note</button>
-          <span class="small muted">Only you see this. First on file <?= e(fmt_date($p['first_seen_at'])) ?>, updated <?= e(ago($p['updated_at'])) ?>.</span></div>
-      </form>
-    </section>
+    <?php include APP_ROOT . '/pages/partials/team.php'; ?>
   </div>
 
   <aside class="rail">
@@ -327,6 +362,8 @@ if (count($series) >= 2) {
     <div class="mini-map"><div id="map"></div></div>
     <script type="application/json" id="map-data"><?= json_embed(['points' => $points, 'zoom' => 15, 'labels' => count($points) <= 20, 'circle' => $comps['comps'] ? ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng'], 'miles' => $comps['radius']] : null]) ?></script>
     <?php endif; ?>
+
+    <?php include APP_ROOT . '/pages/partials/pipeline_card.php'; ?>
 
     <?php if ($p['est_value'] || $p['est_rent']): ?>
     <div class="card estimate">
@@ -349,6 +386,7 @@ if (count($series) >= 2) {
     </div>
     <?php endif; ?>
 
+    <?php if ($canEdit): ?>
     <div class="card">
       <h3>Pull more on this home</h3>
       <p class="small muted mb-m">Each button spends one request and keeps the result for good.</p>
@@ -373,6 +411,8 @@ if (count($series) >= 2) {
       <?php endif; ?>
     </div>
 
+    <?php endif; ?>
+
     <?php if ($links): ?>
     <div class="card">
       <h3>Look it up elsewhere</h3>
@@ -392,6 +432,8 @@ if (count($series) >= 2) {
     <div class="card" data-context-url="/api/context/<?= $id ?>">
       <h3>Flood risk</h3>
       <div class="ctx" data-flood><div class="skeleton"></div><div class="skeleton"></div></div>
+      <h3 class="mt-l">Nearby, within a mile</h3>
+      <div class="ctx" data-nearby-url="/api/nearby/<?= $id ?>"><div class="skeleton"></div><div class="skeleton"></div></div>
       <h3 class="mt-l">Neighbourhood</h3>
       <div class="ctx" data-hood><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
     </div>
@@ -399,14 +441,25 @@ if (count($series) >= 2) {
 
     <div class="card">
       <h3>This record</h3>
-      <p class="small muted">Source: <?= e(['rentcast' => 'RentCast', 'openwebninja' => 'Zillow data', 'manual' => 'entered by hand', 'import' => 'CSV import'][$p['source']] ?? $p['source']) ?>.</p>
+      <p class="small muted">Source: <?= e(['rentcast' => 'RentCast', 'openwebninja' => 'Zillow data', 'manual' => 'entered by hand', 'import' => 'CSV import'][$p['source']] ?? $p['source']) ?><?= $p['source_site'] ? ' · found on ' . e($p['source_site']) : '' ?>. First on file <?= e(fmt_date($p['first_seen_at'])) ?>.</p>
+      <?php if ($canEdit): ?>
+      <form method="post" action="/property/<?= $id ?>/act" class="mt-m">
+        <?= csrf_field() ?><input type="hidden" name="do" value="data_status">
+        <label class="field"><span>What we have from the listing</span>
+          <select class="select" name="data_status" data-autosubmit>
+            <?php foreach ($dataLabels as $k => $label): ?><option value="<?= $k ?>"<?= selected($p['data_status'], $k) ?>><?= e($label) ?></option><?php endforeach; ?>
+          </select></label>
+      </form>
       <div class="actions mt-m">
         <a class="btn btn-sm" href="<?= e(url('/add', ['id' => $id])) ?>"><?= icon('pencil', 14) ?>Edit facts &amp; price</a>
-        <form method="post" action="/property/<?= $id ?>/act" class="inline" data-confirm="Delete this home and its history? This can’t be undone.">
+        <?php if (Auth::can('admin')): ?>
+        <form method="post" action="/property/<?= $id ?>/act" class="inline" data-confirm="Delete this home, its deal numbers, notes and history? This can’t be undone.">
           <?= csrf_field() ?><input type="hidden" name="do" value="delete">
           <button class="btn btn-sm btn-danger" type="submit"><?= icon('trash-2', 14) ?>Delete</button>
         </form>
+        <?php endif; ?>
       </div>
+      <?php endif; ?>
     </div>
   </aside>
 </div>

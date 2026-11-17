@@ -42,7 +42,9 @@ if (is_post()) {
     if (!$errors) {
         Config::appKey(); // fail early if app_key is malformed
         Db::runFile(APP_ROOT . '/sql/schema.sql');
-        Db::insert('users', ['email' => $email, 'password_hash' => Auth::hash($pass), 'created_at' => now()]);
+        App\Migrator::run();
+        Db::insert('users', ['email' => $email, 'name' => input('name', '', 80) ?: strstr($email, '@', true), 'role' => 'admin',
+            'password_hash' => Auth::hash($pass), 'created_at' => now()]);
         ExternalSites::seedDefaults();
         App\Settings::set('notify_email', $email);
         flash('Account created. Sign in to start.');
@@ -59,8 +61,10 @@ View::header('Set up', '', ['bare' => true]);
     <h1 class="display">Set up</h1>
     <p class="soft">Creates the database tables and your sign-in. This page closes afterwards.</p>
     <?php foreach ($errors as $err): ?><p class="err" role="alert"><?= e($err) ?></p><?php endforeach; ?>
+    <label class="field"><span>Your name</span>
+      <input class="input" name="name" autocomplete="name" required></label>
     <label class="field"><span>Your email</span>
-      <input class="input" type="email" name="email" value="<?= e($email) ?>" autocomplete="username" required autofocus></label>
+      <input class="input" type="email" name="email" value="<?= e($email) ?>" autocomplete="username" required></label>
     <label class="field"><span>Password</span>
       <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" required>
       <small>At least 12 characters. A sentence works well.</small></label>

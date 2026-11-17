@@ -27,8 +27,9 @@ if (!Config::loaded()) {
 Config::appKey();
 
 $n = Db::runFile(dirname(__DIR__) . '/sql/schema.sql');
+$applied = App\Migrator::run();
 ExternalSites::seedDefaults();
-echo "Schema ready ($n statements).\n";
+echo "Schema ready ($n statements" . ($applied ? '; applied ' . implode(', ', $applied) : '') . ").\n";
 
 $email = strtolower(trim($argv[1] ?? ''));
 if ($email === '') {
@@ -52,6 +53,6 @@ if ($problems) {
     fwrite(STDERR, implode(' ', $problems) . "\n");
     exit(1);
 }
-Db::insert('users', ['email' => $email, 'password_hash' => Auth::hash($pass), 'created_at' => now()]);
+Db::insert('users', ['email' => $email, 'name' => (string) strstr($email, '@', true), 'role' => 'admin', 'password_hash' => Auth::hash($pass), 'created_at' => now()]);
 App\Settings::set('notify_email', $email);
 echo "Account created for $email.\n";

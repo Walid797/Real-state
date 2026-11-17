@@ -108,7 +108,7 @@ if (isset($params['id'])) {
         <p><?php if ($zh): ?>Typical home value <strong><?= e(money($zh['value'])) ?></strong> in <?= e(fmt_date($zh['date'], 'F Y')) ?><?php if ($zh['yoy'] !== null): ?>, <span class="<?= $zh['yoy'] >= 0 ? 'up' : 'down' ?>"><?= e(pct($zh['yoy'])) ?></span> over twelve months<?php endif; ?>.<?php else: ?>No series on file yet.<?php endif; ?></p>
       </div>
       <div class="actions">
-        <a class="btn btn-sm" href="<?= e(url('/', ['q' => $label])) ?>"><?= icon('search', 14) ?>Homes for sale</a>
+        <a class="btn btn-sm" href="<?= e(url('/search', ['q' => $label])) ?>"><?= icon('search', 14) ?>Homes for sale</a>
         <form method="post" action="/market" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="import"><input type="hidden" name="id" value="<?= $rid ?>">
           <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?>Update from Zillow<span class="cost">free</span></button></form>
         <?php if ($region['kind'] === 'zip' && RentCast::enabled()): ?>

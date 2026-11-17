@@ -78,15 +78,69 @@ final class Address
         return ucwords(mb_strtolower($city), " -'");
     }
 
+    /** The state an "entire state" / county / bare-city search means (Settings → home state). */
+    public static function homeState(): string
+    {
+        try {
+            return \App\Settings::get('default_state', 'VA') ?: 'VA';
+        } catch (\Throwable) {
+            return 'VA';
+        }
+    }
+
     /**
-     * Understands "78704", "Austin, TX", "austin tx", "San Antonio, Texas"
-     * and "5500 Grand Lake Dr, San Antonio, TX 78244".
+     * Understands, case-insensitively:
+     *   "78704"                       one ZIP
+     *   "22030, 20176 22102"          several ZIPs
+     *   "Virginia", "VA", "all of VA" the whole state
+     *   "Fairfax County, VA"          a county (state optional: home state assumed)
+     *   "Austin, TX", "Richmond"      a city (state optional: home state assumed)
+     *   "Fairfax County; Richmond"    several areas, separated by ";"
+     *   "5500 Grand Lake Dr, San Antonio, TX 78244"   one street address
      *
-     * @return array{type:string, key:string, label:string, zip?:string, city?:string, state?:string, address?:string}|null
+     * @return array{type:string, key:string, label:string, ...}|null
+     *   type: zip | city | county | state | multi | address. "multi" carries "parts".
      */
     public static function parseLocation(string $q): ?array
     {
         $q = trim(preg_replace('/\s+/', ' ', $q) ?? '');
+        if ($q === '') {
+            return null;
+        }
+        // Several ZIPs, separated by commas and/or spaces.
+        if (preg_match('/^\d{5}(?:[\s,;]+\d{5})+$/', $q)) {
+            $zips = array_values(array_unique(preg_split('/[\s,;]+/', $q) ?: []));
+            return self::multi(array_map(static fn ($z) => self::parseOne($z), array_slice($zips, 0, 40)));
+        }
+        if (str_contains($q, ';')) {
+            $parts = array_values(array_filter(array_map(static fn ($x) => self::parseOne(trim($x)), explode(';', $q))));
+            $parts = array_values(array_filter($parts, static fn ($x) => $x['type'] !== 'address'));
+            return $parts ? (count($parts) === 1 ? $parts[0] : self::multi(array_slice($parts, 0, 40))) : null;
+        }
+        return self::parseOne($q);
+    }
+
+    private static function multi(array $parts): ?array
+    {
+        $parts = array_values(array_filter($parts));
+        if (!$parts) {
+            return null;
+        }
+        if (count($parts) === 1) {
+            return $parts[0];
+        }
+        $keys = array_column($parts, 'key');
+        sort($keys);
+        return [
+            'type' => 'multi', 'parts' => $parts,
+            'key' => 'multi:' . substr(sha1(implode('|', $keys)), 0, 16),
+            'label' => implode(' · ', array_column($parts, 'label')),
+        ];
+    }
+
+    private static function parseOne(string $q): ?array
+    {
+        $q = trim($q, " \t,");
         if ($q === '') {
             return null;
         }
@@ -102,31 +156,49 @@ final class Address
             }
             return null;
         }
-        // "City, ST" or "City ST" or "City, State name"
+        // The whole state: "Virginia", "VA", "all of Virginia", "entire VA", "Virginia statewide".
+        $bare = preg_replace('/^(?:all of|entire|whole|statewide)\s+|\s+(?:statewide|state)$/i', '', $q) ?? $q;
+        if (($st = self::stateAbbr($bare)) && (strlen($bare) === 2 ? strtoupper($bare) === $bare || $bare !== $q : true)) {
+            return ['type' => 'state', 'state' => $st, 'key' => 'state:' . $st, 'label' => self::STATES[$st]];
+        }
+
+        // Split off a trailing state: "X, ST", "X ST", "X, State name".
+        $state = null;
+        $head = $q;
         if (preg_match('/^(.+?)[,\s]\s*([A-Za-z]{2})$/', $q, $m) && ($st = self::stateAbbr($m[2]))) {
-            $city = self::titleCity(rtrim($m[1], ', '));
+            [$state, $head] = [$st, rtrim($m[1], ', ')];
         } elseif (str_contains($q, ',')) {
-            [$c, $s] = array_map('trim', explode(',', $q, 2));
-            $st = self::stateAbbr($s);
-            $city = self::titleCity($c);
+            [$c, $sn] = array_map('trim', explode(',', $q, 2));
+            if ($st = self::stateAbbr($sn)) {
+                [$state, $head] = [$st, $c];
+            }
         } else {
-            $st = null;
-            $city = '';
             foreach (self::STATES as $abbr => $name) {
                 if (preg_match('/^(.+)\s+' . preg_quote($name, '/') . '$/i', $q, $m)) {
-                    $st = $abbr;
-                    $city = self::titleCity($m[1]);
+                    [$state, $head] = [$abbr, $m[1]];
                     break;
                 }
             }
         }
-        if (empty($st) || $city === '') {
+        $state ??= self::homeState();
+        $head = trim($head);
+        if ($head === '' || preg_match('/\d/', $head)) {
             return null;
         }
-        return [
-            'type' => 'city', 'city' => $city, 'state' => $st,
-            'key' => 'city:' . $st . ':' . mb_strtolower($city), 'label' => $city . ', ' . $st,
-        ];
+        if (preg_match('/^(.+?)\s+(county|parish|borough)$/i', $head, $m)) {
+            $county = self::titleCity($m[1]);
+            return ['type' => 'county', 'county' => $county, 'state' => $state,
+                'key' => 'county:' . $state . ':' . mb_strtolower($county), 'label' => $county . ' County, ' . $state];
+        }
+        $city = self::titleCity($head);
+        return ['type' => 'city', 'city' => $city, 'state' => $state,
+            'key' => 'city:' . $state . ':' . mb_strtolower($city), 'label' => $city . ', ' . $state];
+    }
+
+    /** The areas a location stands for, flattened ("multi" → its parts). */
+    public static function areas(array $loc): array
+    {
+        return $loc['type'] === 'multi' ? $loc['parts'] : [$loc];
     }
 
     /** @return array{address:string, city:string, state:string, zip:string}|null */

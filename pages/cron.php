@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /*
  * HTTP entry for scheduled work, for hosts where a command-line cron is not available:
- *   GET /cron?key=<cron_key>&job=auto|alerts|market|prune
+ *   GET /cron?key=<cron_key>&job=auto|alerts|market|prune|score|backup
  * The command-line version (cron/run.php) is preferred — it has no time limit.
  */
 
@@ -15,7 +15,7 @@ if ($key === '' || strlen($key) < 16 || !hash_equals($key, $given)) {
 
 @set_time_limit(280);
 ignore_user_abort(true);
-$job = in_array(input('job', 'auto'), ['auto', 'alerts', 'market', 'prune'], true) ? input('job', 'auto') : 'auto';
+$job = in_array(input('job', 'auto'), ['auto', 'alerts', 'market', 'prune', 'score', 'backup'], true) ? input('job', 'auto') : 'auto';
 
 header('Content-Type: text/plain; charset=utf-8');
 echo implode("\n", App\Jobs::run($job)), "\n";

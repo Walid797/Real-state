@@ -9,13 +9,19 @@ use App\Services\Search;
 use App\Settings;
 use App\View;
 
-$alerts = Db::all('SELECT a.*, (SELECT COUNT(*) FROM alert_hits h WHERE h.alert_id = a.id AND h.notified = 1) AS sent FROM alerts a ORDER BY a.enabled DESC, a.created_at DESC');
+$mineOnly = !App\Auth::can('admin') || input('who') !== 'all';
+$alerts = Db::all(
+    'SELECT a.*, COALESCE(NULLIF(u.name, \'\'), u.email) AS owner,
+            (SELECT COUNT(*) FROM alert_hits h WHERE h.alert_id = a.id AND h.notified = 1) AS sent
+     FROM alerts a LEFT JOIN users u ON u.id = a.user_id' . ($mineOnly ? ' WHERE a.user_id = ' . App\Auth::userId() : '') . '
+     ORDER BY a.enabled DESC, a.created_at DESC'
+);
 $hits = Db::all(
     'SELECT h.created_at, h.summary, h.price, a.name AS alert_name, a.id AS alert_id, p.id AS pid, p.address, p.city, p.state
      FROM alert_hits h JOIN alerts a ON a.id = h.alert_id JOIN properties p ON p.id = h.property_id
-     WHERE h.notified = 1 ORDER BY h.created_at DESC, h.id DESC LIMIT 12'
+     WHERE h.notified = 1' . ($mineOnly ? ' AND a.user_id = ' . App\Auth::userId() : '') . ' ORDER BY h.created_at DESC, h.id DESC LIMIT 12'
 );
-$ready = Notifier::ready();
+$ready = Notifier::ready(Notifier::recipient(Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [App\Auth::userId()])));
 $lastRun = Settings::get('job_last_run');
 
 // What the alerts will cost against the allowance kept for them.
@@ -35,7 +41,7 @@ View::header('Alerts', 'alerts');
 </header>
 
 <?php if (!array_filter($ready)): ?>
-<p class="note"><?= icon('triangle-alert', 16) ?><span>No delivery channel is set up, so alerts have nowhere to go. <a href="/settings#notify">Add your email, WhatsApp or Telegram</a>.</span></p>
+<p class="note"><?= icon('triangle-alert', 16) ?><span>No delivery channel is set up, so alerts have nowhere to go. <a href="/account">Add your Telegram on My account</a>.</span></p>
 <?php endif; ?>
 <?php if ($alerts && (!$lastRun || strtotime($lastRun . ' UTC') < time() - 3 * 3600)): ?>
 <p class="note mt-s"><?= icon('clock', 16) ?><span>The scheduler <?= $lastRun ? 'last ran ' . e(ago($lastRun)) : 'has never run' ?>. Alerts are only checked when it runs — <a href="/settings#schedule">see the one-line cron setup</a>.</span></p>
@@ -79,7 +85,7 @@ View::header('Alerts', 'alerts');
             $crit = json_decode((string) $a['criteria'], true) ?: [];
             $desc = Search::describe($crit + ['q' => $a['location'], 'mode' => $a['kind'] === 'new_sale' ? 'sold' : 'sale', 'sold_days' => 90]);
             if ($a['kind'] === 'price_drop') {
-                $desc = trim(($a['location'] !== '' ? $a['location'] . ' · ' : '') . 'watchlist homes' . (!empty($crit['min_drop_pct']) ? ' · cut of ' . trim_num($crit['min_drop_pct']) . '% or more' : ''));
+                $desc = trim(($a['location'] !== '' ? $a['location'] . ' · ' : '') . 'pipeline homes' . (!empty($crit['min_drop_pct']) ? ' · cut of ' . trim_num($crit['min_drop_pct']) . '% or more' : ''));
             }
         ?>
           <tr>
@@ -90,7 +96,7 @@ View::header('Alerts', 'alerts');
               </form>
             </td>
             <td><a class="main" href="/alerts/<?= (int) $a['id'] ?>"><?= e($a['name']) ?></a>
-              <span class="sub"><?= e(Alerts::KINDS[$a['kind']]) ?> · <?= e($desc) ?></span></td>
+              <span class="sub"><?= e(Alerts::KINDS[$a['kind']]) ?> · <?= e($desc) ?><?= !$mineOnly ? ' · ' . e((string) $a['owner']) : '' ?><?= $a['delivery'] === 'daily' ? ' · daily summary' : '' ?></span></td>
             <td class="nowrap"><?= e(Alerts::FREQUENCIES[(int) $a['every_hours']] ?? 'Every ' . (int) $a['every_hours'] . 'h') ?>
               <span class="sub"><?= $a['use_quota'] && $a['location'] !== '' ? '≈ ' . Alerts::monthlyCost(['enabled' => 1] + $a) . ' requests/mo' : 'saved data only' ?></span></td>
             <td><?php foreach (array_filter(explode(',', $a['channels'])) as $ch): ?>

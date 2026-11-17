@@ -12,7 +12,7 @@ use App\PropertyRepo;
  * Alerts: a saved set of criteria that is re-checked on a schedule.
  *
  *   new_listing — a home matching the criteria appears (or one already matching gets cheaper)
- *   price_drop  — a home on the watchlist is re-priced lower
+ *   price_drop  — a home in the team pipeline is re-priced lower
  *   new_sale    — a sale matching the criteria is recorded in the area
  *
  * The first check of an alert only records what already matches (the baseline);
@@ -23,7 +23,7 @@ final class Alerts
 {
     public const KINDS = [
         'new_listing' => 'New listing',
-        'price_drop' => 'Price drop on my watchlist',
+        'price_drop' => 'Price cut on a pipeline home',
         'new_sale' => 'New sale nearby',
     ];
 
@@ -77,8 +77,16 @@ final class Alerts
         // Refresh the data for the alert's area — at most once per alert interval.
         if ($loc && $loc['type'] !== 'address' && !empty($alert['use_quota'])) {
             $f = Search::fromRequest($crit + ['q' => $alert['location'], 'mode' => $alert['kind'] === 'new_sale' ? 'sold' : 'sale', 'sold_days' => 90]);
-            $snap = Search::ensureSnapshot($loc, $f, $ctx, false, max(1, (int) $alert['every_hours'] - 1));
-            $notice = $snap['notice'];
+            // One pull per area (a county is pulled through its state); several alerts on one area share it.
+            foreach (Search::plan($loc, $f, $ctx)['needs'] as $fetchLoc) {
+                $snap = Search::ensureSnapshot($fetchLoc, $f, $ctx, false, max(1, (int) $alert['every_hours'] - 1));
+                if ($snap['notice']) {
+                    $notice = $snap['notice'];
+                    if (!$snap['fetched']) {
+                        break;
+                    }
+                }
+            }
         }
 
         $candidates = match ($alert['kind']) {
@@ -112,9 +120,11 @@ final class Alerts
                 $why = 'Price cut ' . money($prev) . ' → ' . money($price);
             }
             // Record every candidate so the next run compares against today's price.
+            // Daily alerts keep new hits unsent (notified = 0) until the digest goes out.
+            $instant = ($alert['delivery'] ?? 'instant') !== 'daily';
             $ins = Db::run(
                 'INSERT IGNORE INTO alert_hits (alert_id, property_id, price, summary, notified, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-                [$alert['id'], $pid, $price, mb_substr($why ?? 'baseline', 0, 255), ($why && !$baseline) ? 1 : 0, now()]
+                [$alert['id'], $pid, $price, mb_substr($why ?? 'baseline', 0, 255), ($why && !$baseline && $instant) ? 1 : 0, now()]
             );
             if ($why !== null && !$baseline && $ins->rowCount() > 0) {
                 $hits[] = $p + ['why' => $why, 'hit_price' => $price];
@@ -122,13 +132,16 @@ final class Alerts
         }
 
         $sent = [];
-        if ($hits && $notify) {
+        $daily = ($alert['delivery'] ?? 'instant') === 'daily';
+        if ($hits && $notify && !$daily) {
             [$subject, $text, $html] = self::compose($alert, $hits, $loc);
-            $sent = Notifier::send($subject, $text, array_filter(explode(',', (string) $alert['channels'])), $html);
+            $sent = Notifier::send($subject, $text, array_filter(explode(',', (string) $alert['channels'])), $html, self::recipient($alert));
         }
 
         if ($baseline) {
             $note = count($candidates) . ' already match — you’ll hear about what comes next.';
+        } elseif ($hits && $daily) {
+            $note = plural(count($hits), 'new match', 'new matches') . ' — in today’s digest';
         } elseif ($hits) {
             $failed = array_keys(array_filter($sent, static fn ($s) => !$s['ok']));
             $note = plural(count($hits), 'new match', 'new matches') . ($failed ? ' — could not send by ' . implode(', ', $failed) : ' — sent');
@@ -143,6 +156,38 @@ final class Alerts
             [now(), mb_substr($note, 0, 255), $hits ? now() : null, $alert['id']]
         );
         return ['hits' => $hits, 'note' => $note, 'baseline' => $baseline, 'sent' => $sent];
+    }
+
+    /** The alert owner's own email and Telegram (falls back to the site-wide ones). */
+    public static function recipient(array $alert): array
+    {
+        $u = !empty($alert['user_id']) ? Db::one('SELECT email, telegram_chat FROM users WHERE id = ? AND is_active = 1', [$alert['user_id']]) : null;
+        return Notifier::recipient($u);
+    }
+
+    /** Sends the once-a-day summary for daily alerts. */
+    public static function sendDigests(): int
+    {
+        $sent = 0;
+        $alerts = Db::all(
+            "SELECT * FROM alerts WHERE enabled = 1 AND delivery = 'daily' AND (last_digest_at IS NULL OR last_digest_at <= DATE_SUB(?, INTERVAL 23 HOUR))",
+            [now()]
+        );
+        foreach ($alerts as $alert) {
+            $rows = Db::all(
+                "SELECT h.id AS hit_id, h.price AS hit_price, h.summary AS why, p.* FROM alert_hits h JOIN properties p ON p.id = h.property_id
+                 WHERE h.alert_id = ? AND h.notified = 0 AND h.summary <> 'baseline' ORDER BY p.score DESC, h.id",
+                [$alert['id']]
+            );
+            if ($rows) {
+                [$subject, $text, $html] = self::compose($alert, $rows, Address::parseLocation((string) $alert['location']));
+                Notifier::send('Daily · ' . $subject, $text, array_filter(explode(',', (string) $alert['channels'])), $html, self::recipient($alert));
+                Db::run('UPDATE alert_hits SET notified = 1 WHERE id IN (' . implode(',', array_map('intval', array_column($rows, 'hit_id'))) . ')');
+                $sent++;
+            }
+            Db::run('UPDATE alerts SET last_digest_at = ? WHERE id = ?', [now(), $alert['id']]);
+        }
+        return $sent;
     }
 
     private static function searchCandidates(?array $loc, array $crit, array $alert, string $mode): array
@@ -184,7 +229,7 @@ final class Alerts
         $what = match ($alert['kind']) {
             'price_drop' => plural($n, 'price cut'),
             'new_sale' => plural($n, 'new sale'),
-            default => plural($n, 'new home'),
+            default => $n === 1 ? 'New investment property found' : $n . ' new investment properties',
         };
         $subject = "$site · $what — " . $alert['name'];
         $area = ($loc && $alert['kind'] !== 'new_sale') ? Search::areaPpsf($loc) : null;
@@ -200,9 +245,25 @@ final class Alerts
             $link = abs_url('/property/' . (int) $p['id']);
             $ext = ExternalSites::forProperty($p)[0] ?? null;
 
+            $invest = [];
+            if (!empty($p['property_type'])) {
+                $invest[] = 'Type: ' . $p['property_type'];
+            }
+            if (!empty($p['est_arv'])) {
+                $invest[] = 'Estimated ARV: ' . money($p['est_arv']);
+            }
+            if (isset($p['est_profit']) && $p['est_profit'] !== null) {
+                $invest[] = 'Estimated net profit: ' . ((int) $p['est_profit'] < 0 ? '−' : '') . money(abs((int) $p['est_profit']));
+            }
+            if (isset($p['score']) && $p['score'] !== null) {
+                $invest[] = 'Opportunity score: ' . (int) $p['score'] . '/100';
+            }
             $lines[] = money($p['hit_price']) . ' · ' . $addr;
             $lines[] = trim($p['why'] . ($facts ? ' · ' . $facts : '') . ($metric ? ' · ' . $metric : ''));
-            $lines[] = $link;
+            if ($invest) {
+                $lines[] = implode(' · ', $invest);
+            }
+            $lines[] = 'View in your system: ' . $link;
             if ($ext) {
                 $lines[] = $ext['name'] . ': ' . $ext['url'];
             }
@@ -212,6 +273,7 @@ final class Alerts
                 . '<div style="font-size:22px">' . e(money($p['hit_price'])) . '</div>'
                 . '<div style="font:14px/1.5 Arial,sans-serif"><a href="' . e($link) . '" style="color:#0369a1">' . e($addr) . '</a></div>'
                 . '<div style="font:13px/1.5 Arial,sans-serif;color:#55605b">' . e(trim($p['why'] . ($facts ? ' · ' . $facts : '') . ($metric ? ' · ' . $metric : ''))) . '</div>'
+                . ($invest ? '<div style="font:13px/1.5 Arial,sans-serif;color:#18211f;margin-top:4px">' . e(implode(' · ', $invest)) . '</div>' : '')
                 . ($ext ? '<div style="font:13px/1.5 Arial,sans-serif"><a href="' . e($ext['url']) . '" style="color:#0369a1">Open on ' . e($ext['name']) . '</a></div>' : '')
                 . '</div>';
         }
@@ -220,7 +282,7 @@ final class Alerts
             $lines[] = $more;
             $html .= '<p style="font:13px Arial,sans-serif"><a href="' . e(abs_url('/alerts/' . (int) $alert['id'])) . '" style="color:#0369a1">and ' . ($n - self::MAX_PER_MESSAGE) . ' more</a></p>';
         }
-        $html .= '</div>';
+        $html .= '<p style="font:12px/1.4 Arial,sans-serif;color:#7a837e;margin-top:14px">ARV, profit and score are estimates, not appraisals.</p></div>';
         return [$subject, rtrim(implode("\n", $lines)), $html];
     }
 }

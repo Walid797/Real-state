@@ -260,7 +260,17 @@ final class OpenWebNinja
         krsort($taxes);
         $latest = $taxes ? reset($taxes) : null;
 
+        $basement = $facts['basement'] ?? $facts['basementYN'] ?? null;
         return $p + [
+            'data_status' => 'full',
+            'source_site' => 'Zillow',
+            'garage_spaces' => $facts['garageParkingCapacity'] ?? (isset($facts['hasGarage']) && !$facts['hasGarage'] ? 0 : null),
+            'has_basement' => match (true) {
+                $basement === null => null,
+                is_bool($basement) => $basement,
+                is_array($basement) => $basement !== [] && !in_array('None', $basement, true),
+                default => !in_array(strtolower((string) $basement), ['', 'none', 'no', 'false', '0'], true),
+            },
             'county' => isset($d['county']) ? preg_replace('/\s+County$/i', '', (string) $d['county']) : null,
             'description' => $d['description'] ?? null,
             'hoa_fee' => $d['monthlyHoaFee'] ?? null,

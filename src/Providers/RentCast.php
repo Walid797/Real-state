@@ -78,6 +78,9 @@ final class RentCast
         return match ($loc['type'] ?? '') {
             'zip' => ['zipCode' => $loc['zip']],
             'city' => ['city' => $loc['city'], 'state' => $loc['state']],
+            'state' => ['state' => $loc['state']],
+            // RentCast has no county filter: pull the state with the filters, then narrow by county locally.
+            'county' => ['state' => $loc['state']],
             'point' => ['latitude' => $loc['lat'], 'longitude' => $loc['lng'], 'radius' => $loc['radius'] ?? 1],
             default => [],
         };
@@ -89,12 +92,14 @@ final class RentCast
         $types = array_values(array_intersect(PropertyRepo::TYPES, (array) ($f['types'] ?? [])));
         return array_filter([
             'propertyType' => $types ? implode('|', $types) : null,
-            'bedrooms' => self::range($f['beds_min'] ?? null, null),
-            'bathrooms' => self::range($f['baths_min'] ?? null, null),
+            'bedrooms' => self::range($f['beds_min'] ?? null, $f['beds_max'] ?? null),
+            'bathrooms' => self::range($f['baths_min'] ?? null, $f['baths_max'] ?? null),
             'squareFootage' => self::range($f['sqft_min'] ?? null, $f['sqft_max'] ?? null),
-            'lotSize' => self::range($f['lot_min'] ?? null, null),
+            'lotSize' => self::range($f['lot_min'] ?? null, $f['lot_max'] ?? null),
             'yearBuilt' => self::range($f['year_min'] ?? null, $f['year_max'] ?? null),
             'price' => $withPrice ? self::range($f['price_min'] ?? null, $f['price_max'] ?? null) : null,
+            // Listings only: days since listed. "New listings" alone means the last 7 days.
+            'daysOld' => $withPrice ? self::range($f['dom_min'] ?? null, $f['dom_max'] ?? ((array) ($f['listing'] ?? []) === ['new'] ? 7 : null)) : null,
         ]);
     }
 
@@ -284,6 +289,7 @@ final class RentCast
         $latestTax = $taxes ? reset($taxes) : null;
         $latestAssess = $assess ? reset($assess) : null;
         return $p + [
+            'garage_spaces' => $r['features']['garageSpaces'] ?? (isset($r['features']['garage']) && !$r['features']['garage'] ? 0 : null),
             'last_sale_price' => $r['lastSalePrice'] ?? null,
             'last_sale_date' => $r['lastSaleDate'] ?? null,
             'tax_annual' => $latestTax['total'] ?? null,

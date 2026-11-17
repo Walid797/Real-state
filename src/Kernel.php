@@ -6,28 +6,41 @@ namespace App;
 /** Front controller: security headers, session, auth gate, CSRF, routing. */
 final class Kernel
 {
-    /** method, pattern, page file, public? */
+    /**
+     * method, pattern, page file, permission for GET, permission for POST.
+     * Permissions: public | view (any signed-in role) | edit (admin, partner) | admin.
+     */
     private const ROUTES = [
-        ['GET|POST', '#^/login$#', 'login', true],
-        ['GET|POST', '#^/setup$#', 'setup', true],
-        ['GET', '#^/cron$#', 'cron', true],
-        ['POST', '#^/logout$#', 'logout', false],
-        ['GET', '#^/$#', 'search', false],
-        ['POST', '#^/search/act$#', 'search_act', false],
-        ['GET', '#^/export\.csv$#', 'export', false],
-        ['GET', '#^/property/(?<id>\d+)$#', 'property', false],
-        ['POST', '#^/property/(?<id>\d+)/act$#', 'property_act', false],
-        ['GET', '#^/api/context/(?<id>\d+)$#', 'context', false],
-        ['GET|POST', '#^/watchlist$#', 'watchlist', false],
-        ['GET', '#^/alerts$#', 'alerts', false],
-        ['GET|POST', '#^/alerts/new$#', 'alert_edit', false],
-        ['GET|POST', '#^/alerts/(?<id>\d+)$#', 'alert_edit', false],
-        ['POST', '#^/alerts/(?<id>\d+)/act$#', 'alert_act', false],
-        ['GET|POST', '#^/market$#', 'market', false],
-        ['GET', '#^/market/(?<id>\d+)$#', 'market', false],
-        ['GET|POST', '#^/add$#', 'add', false],
-        ['GET|POST', '#^/sites$#', 'sites', false],
-        ['GET|POST', '#^/settings$#', 'settings', false],
+        ['GET|POST', '#^/login$#', 'login', 'public', 'public'],
+        ['GET|POST', '#^/setup$#', 'setup', 'public', 'public'],
+        ['GET|POST', '#^/invite$#', 'invite', 'public', 'public'],
+        ['GET|POST', '#^/forgot$#', 'forgot', 'public', 'public'],
+        ['GET|POST', '#^/reset$#', 'reset', 'public', 'public'],
+        ['GET', '#^/auth/google(?<cb>/callback)?$#', 'auth_google', 'public', 'public'],
+        ['GET', '#^/cron$#', 'cron', 'public', 'public'],
+        ['POST', '#^/logout$#', 'logout', 'view', 'view'],
+        ['GET', '#^/$#', 'dashboard', 'view', 'view'],
+        ['GET', '#^/search$#', 'search', 'view', 'view'],
+        ['POST', '#^/search/act$#', 'search_act', 'view', 'view'],
+        ['GET', '#^/export\.(?<fmt>csv|xlsx)$#', 'export', 'view', 'view'],
+        ['GET', '#^/property/(?<id>\d+)$#', 'property', 'view', 'view'],
+        ['POST', '#^/property/(?<id>\d+)/act$#', 'property_act', 'edit', 'edit'],
+        ['GET', '#^/api/context/(?<id>\d+)$#', 'context', 'view', 'view'],
+        ['GET', '#^/api/nearby/(?<id>\d+)$#', 'nearby', 'view', 'view'],
+        ['GET', '#^/(pipeline|watchlist)$#', 'pipeline', 'view', 'edit'],
+        ['GET', '#^/alerts$#', 'alerts', 'view', 'view'],
+        ['GET|POST', '#^/alerts/new$#', 'alert_edit', 'view', 'view'],
+        ['GET|POST', '#^/alerts/(?<id>\d+)$#', 'alert_edit', 'view', 'view'],
+        ['POST', '#^/alerts/(?<id>\d+)/act$#', 'alert_act', 'view', 'view'],
+        ['GET|POST', '#^/market$#', 'market', 'view', 'edit'],
+        ['GET', '#^/market/(?<id>\d+)$#', 'market', 'view', 'edit'],
+        ['GET', '#^/reports$#', 'reports', 'view', 'view'],
+        ['GET|POST', '#^/add$#', 'add', 'edit', 'edit'],
+        ['GET|POST', '#^/sites$#', 'sites', 'admin', 'admin'],
+        ['GET|POST', '#^/settings$#', 'settings', 'admin', 'admin'],
+        ['GET|POST', '#^/users$#', 'users', 'admin', 'admin'],
+        ['GET|POST', '#^/account$#', 'account', 'view', 'view'],
+        ['GET', '#^/backup/(?<file>[a-z0-9_.-]+\.sql\.gz)$#', 'backup', 'admin', 'admin'],
     ];
 
     public static function handle(): void
@@ -45,6 +58,11 @@ final class Kernel
             self::plain(404, 'Not found', 'Nothing here.');
         }
 
+        // Database updates ship with the code: apply them on the first request after a deploy.
+        if (Migrator::pending() && (new Migrator())->hasTable('users')) {
+            Migrator::run();
+        }
+
         $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
         $path = $path === '' ? '/' : (strlen($path) > 1 ? rtrim($path, '/') : $path);
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -52,7 +70,7 @@ final class Kernel
             $method = 'GET';
         }
 
-        foreach (self::ROUTES as [$methods, $pattern, $page, $public]) {
+        foreach (self::ROUTES as [$methods, $pattern, $page, $getPerm, $postPerm]) {
             if (!preg_match($pattern, $path, $m)) {
                 continue;
             }
@@ -61,8 +79,10 @@ final class Kernel
                 self::plain(405, 'Method not allowed', 'That address doesn’t accept this kind of request.');
             }
             Auth::startSession();
-            if (!$public) {
+            $perm = $method === 'POST' ? $postPerm : $getPerm;
+            if ($perm !== 'public') {
                 Auth::requireLogin();
+                Auth::require($perm);
             }
             if ($method === 'POST') {
                 Auth::verifyCsrf();
@@ -80,7 +100,7 @@ final class Kernel
         }
         http_response_code(404);
         View::header('Not found');
-        echo '<div class="empty"><h1 class="display">That page isn’t here.</h1><p>The link may be old, or the record was deleted.</p><p><a class="btn" href="/">Back to search</a></p></div>';
+        echo '<div class="empty"><h1 class="display">That page isn’t here.</h1><p>The link may be old, or the record was deleted.</p><p><a class="btn" href="/">Back to the dashboard</a></p></div>';
         View::footer();
     }
 
