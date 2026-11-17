@@ -57,6 +57,13 @@ final class Diagnostics
         foreach (Db::all('SELECT provider, mode, loc_key, result_count, truncated, fetched_at FROM snapshots ORDER BY id DESC LIMIT 6') as $s) {
             $out[] = sprintf('  %s %s %s %s: %d%s', $s['fetched_at'], $s['provider'], $s['mode'], $s['loc_key'], $s['result_count'], $s['truncated'] ? ' (capped)' : '');
         }
+        $out[] = sprintf('Mail: mailbox %s via %s:%s (%s), password %s',
+            Settings::get('smtp_user', '') ?: '(none — server mailer)', Settings::get('smtp_host', ''), Settings::get('smtp_port', ''),
+            Settings::get('smtp_secure', ''), Settings::has('smtp_pass') ? 'set' : 'not set');
+        $out[] = 'Last messages sent:';
+        foreach (Db::all('SELECT channel, ok, subject, detail, created_at FROM notify_log ORDER BY id DESC LIMIT 8') as $m) {
+            $out[] = sprintf('  %s %s %s "%s" %s', $m['created_at'], $m['channel'], $m['ok'] ? 'OK' : 'FAILED', $m['subject'], $m['detail']);
+        }
         $out[] = 'PHP limits: memory ' . ini_get('memory_limit') . ', time ' . ini_get('max_execution_time') . 's, PHP ' . PHP_VERSION;
         $out[] = 'Log (last 12 lines):';
         foreach (self::logTail(12) ?: ['  (empty)'] as $l) {
