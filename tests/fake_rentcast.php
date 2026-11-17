@@ -19,6 +19,11 @@ if (empty($_SERVER['HTTP_X_API_KEY'])) {
     echo json_encode(['status' => 401, 'error' => 'auth/api-key-invalid', 'message' => 'No API key provided in request.']);
     return;
 }
+if ($_SERVER['HTTP_X_API_KEY'] === 'inactive-plan') { // what RentCast says for a key with no plan turned on
+    http_response_code(403);
+    echo json_encode(['status' => 403, 'error' => 'auth/subscription-inactive', 'message' => 'The provided API key is not associated with an active API subscription. View subscription status on your API dashboard: https://app.rentcast.io/app/api']);
+    return;
+}
 if ($d = (int) getenv('FAKE_DELAY')) {
     sleep($d);
 }

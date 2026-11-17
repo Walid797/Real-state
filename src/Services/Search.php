@@ -367,6 +367,16 @@ final class Search
         } finally {
             RentCast::$fresh = false;
         }
+        // RentCast refused the key (no active plan, wrong key): use the Zillow-data source instead if it is set up.
+        $fellBack = false;
+        if (!$res['ok'] && $provider === RentCast::ID && in_array(RentCast::$lastStatus, [401, 403], true)
+            && Settings::get('search_provider', 'auto') === 'auto' && OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx)) {
+            $res = OpenWebNinja::search($loc, $mode, $ctx);
+            $provider = OpenWebNinja::ID;
+            $sig = 'own';
+            $pushed = ['partial' => true];
+            $fellBack = $res['ok'];
+        }
         if (!$res['ok']) {
             return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null, 'notice' => $res['error']];
         }
@@ -402,7 +412,7 @@ final class Search
             $provider, $mode, $loc['key'], count($res['items']), $res['truncated'] ? ' (capped)' : '',
             $t1 - $t0, $t2 - $t1, $scored, microtime(true) - $t2
         ));
-        $notice = null;
+        $notice = $fellBack ? 'RentCast refused the key, so these came from the Zillow-data source (OpenWeb Ninja) instead.' : null;
         if ($res['truncated'] && $provider === RentCast::ID) {
             $notice = 'RentCast returns at most 500 homes per request and this area has more. Narrow the price or bedrooms to see the rest.';
         }

@@ -8,13 +8,13 @@ final class View
 {
     /** key => [href, label, permission] */
     private const NAV = [
-        'dashboard' => ['/', 'Dashboard', 'view'],
-        'search' => ['/search', 'Search', 'view'],
-        'pipeline' => ['/pipeline', 'Pipeline', 'view'],
-        'alerts' => ['/alerts', 'Alerts', 'view'],
-        'reports' => ['/reports', 'Reports', 'view'],
-        'market' => ['/market', 'Market', 'view'],
-        'add' => ['/add', 'Add a home', 'edit'],
+        'dashboard' => ['/', 'Dashboard', 'view', 'layout-dashboard'],
+        'search' => ['/search', 'Search', 'view', 'search'],
+        'pipeline' => ['/pipeline', 'Pipeline', 'view', 'kanban'],
+        'alerts' => ['/alerts', 'Alerts', 'view', 'bell'],
+        'reports' => ['/reports', 'Reports', 'view', 'file-spreadsheet'],
+        'market' => ['/market', 'Market', 'view', 'trending-up'],
+        'add' => ['/add', 'Add a home', 'edit', 'plus'],
     ];
 
     private static array $scripts = [];
@@ -57,11 +57,25 @@ final class View
 <?php if (!$bare): ?>
 <header class="top">
   <div class="top-in">
+    <button class="menu-btn" type="button" aria-controls="main-nav" aria-expanded="false" data-menu>
+      <span class="menu-open"><?= icon('menu', 22) ?></span><span class="menu-close"><?= icon('x', 22) ?></span><span class="sr">Menu</span>
+    </button>
     <a class="brand" href="/" aria-label="<?= e($site) ?> — dashboard"><?= e($site) ?></a>
-    <nav class="nav" aria-label="Main">
-      <?php foreach (self::NAV as $key => [$href, $label, $perm]): if (!Auth::can($perm)) { continue; } ?>
-      <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= $label ?></a>
+    <nav class="nav" id="main-nav" aria-label="Main">
+      <?php foreach (self::NAV as $key => [$href, $label, $perm, $ico]): if (!Auth::can($perm)) { continue; } ?>
+      <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon($ico, 18) ?></span><?= $label ?></a>
       <?php endforeach; ?>
+      <div class="nav-more">
+        <a href="/account"<?= $active === 'account' ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('user', 18) ?></span>My account<span class="nav-who"><?= e(Auth::name()) ?></span></a>
+        <?php if (Auth::can('admin')): ?>
+        <a href="/settings"<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('settings', 18) ?></span>Settings, team &amp; sites</a>
+        <div class="nav-quota"><?= self::quotaChip() ?></div>
+        <?php endif; ?>
+        <form method="post" action="/logout">
+          <?= csrf_field() ?>
+          <button type="submit"><span class="nav-ico" aria-hidden="true"><?= icon('log-out', 18) ?></span>Sign out</button>
+        </form>
+      </div>
     </nav>
     <div class="top-end">
       <?= Auth::can('admin') ? self::quotaChip() : '' ?>

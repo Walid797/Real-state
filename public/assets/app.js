@@ -31,6 +31,35 @@
     });
   });
 
+  /* Main menu on small screens: the button opens a panel with every page. */
+  var menuBtn = $('[data-menu]');
+  var top = $('.top');
+  if (menuBtn && top) {
+    var setMenu = function (open, refocus) {
+      top.classList.toggle('is-open', open);
+      document.body.classList.toggle('nav-locked', open);
+      menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open) {
+        var first = $('#main-nav a');
+        if (first) first.focus({ preventScroll: true });
+      } else if (refocus) {
+        menuBtn.focus();
+      }
+    };
+    menuBtn.addEventListener('click', function () { setMenu(!top.classList.contains('is-open'), false); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && top.classList.contains('is-open')) setMenu(false, true);
+    });
+    document.addEventListener('click', function (e) {
+      if (top.classList.contains('is-open') && !top.contains(e.target)) setMenu(false, false);
+    });
+    $$('#main-nav a').forEach(function (a) { a.addEventListener('click', function () { setMenu(false, false); }); });
+    // Back to a wide window with the panel open: drop the open state so the page scrolls again.
+    window.addEventListener('resize', function () {
+      if (window.innerWidth > 880 && top.classList.contains('is-open')) setMenu(false, false);
+    });
+  }
+
   /* Confirm before destructive or quota-spending posts. */
   document.addEventListener('submit', function (e) {
     var msg = (e.submitter && e.submitter.getAttribute('data-confirm')) || e.target.getAttribute('data-confirm');

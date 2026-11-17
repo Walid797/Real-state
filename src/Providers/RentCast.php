@@ -27,6 +27,29 @@ final class RentCast
     /** Set by a deliberate refresh: skip the kept answer and ask RentCast again. */
     public static bool $fresh = false;
 
+    /** HTTP status of the last request (0 = no answer); lets a search fall back to another source. */
+    public static int $lastStatus = 0;
+
+    public const DASHBOARD = 'https://app.rentcast.io/app/api';
+
+    /** A refused key: remember why, so Settings and Search can say what to do. */
+    public static function keyProblem(int $status, string $message, ?string $at = null): string
+    {
+        $inactive = $status === 403 && stripos($message, 'subscription') !== false;
+        $why = $inactive
+            ? 'RentCast says this key has no active API plan yet. Turn on the free Developer plan on the RentCast API dashboard, then search again.'
+            : 'RentCast did not accept the key. Check that it was copied whole into Settings, or create a new one on the RentCast API dashboard.';
+        Settings::set('rentcast_key_problem', json_encode(['why' => $why, 'status' => $status, 'at' => $at ?? now(), 'inactive' => $inactive]));
+        return $why;
+    }
+
+    /** @return array{why:string, status:int, at:string, inactive:bool}|null */
+    public static function problem(): ?array
+    {
+        $p = json_decode((string) Settings::get('rentcast_key_problem', ''), true);
+        return is_array($p) && isset($p['why']) ? $p : null;
+    }
+
     private static function baseUrl(): string
     {
         // Local tests point this at a fake server; the live site always talks to RentCast.
@@ -63,8 +86,11 @@ final class RentCast
             }
         }
         $res = Http::get(self::baseUrl() . $path . '?' . http_build_query($params), ['X-Api-Key' => (string) Settings::get('rentcast_key')], 30);
-        if ($res['status'] > 0) {
-            Quota::spend(self::ID); // counted on every answered request, to stay on the safe side of the allowance
+        self::$lastStatus = $res['status'];
+        // Counted on every answered request, to stay on the safe side of the allowance — except a refused
+        // key (401/403): RentCast does not bill those, and they say nothing was done.
+        if ($res['status'] > 0 && !in_array($res['status'], [401, 403], true)) {
+            Quota::spend(self::ID);
         }
         $json = json_decode($res['body'], true);
         $error = null;
@@ -73,7 +99,7 @@ final class RentCast
         } elseif ($res['status'] !== 200) {
             $error = match (true) {
                 $res['status'] === 0 => 'Could not reach RentCast (' . ($res['error'] ?: 'network error') . ').',
-                $res['status'] === 401 => 'RentCast rejected the API key, or the subscription is not active.',
+                in_array($res['status'], [401, 403], true) => self::keyProblem($res['status'], is_array($json) ? (string) ($json['message'] ?? '') : ''),
                 $res['status'] === 429 => 'RentCast is rate-limiting requests. Try again in a minute.',
                 default => 'RentCast answered ' . $res['status'] . (is_array($json) && !empty($json['message']) ? ': ' . $json['message'] : '.'),
             };
@@ -81,6 +107,9 @@ final class RentCast
             $error = 'RentCast sent a response that could not be read.';
         }
         Quota::log(self::ID, $path, $res['status'], $res['ms'], $error, $ctx);
+        if ($error === null && Settings::get('rentcast_key_problem') !== null) {
+            Settings::set('rentcast_key_problem', null);
+        }
         if ($error === null) {
             // Kept straight away: if the page is cut off after this point, asking again is free.
             Cache::put($cacheKey, self::ID, $json, self::KEEP);

@@ -301,7 +301,18 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </div>
       <?php endif; ?>
 
-      <?php if ($res['notice']): ?>
+      <?php $rcProblem = App\Providers\RentCast::problem(); ?>
+      <?php if ($res['notice'] && $rcProblem && $res['notice'] === $rcProblem['why']): ?>
+      <div class="callout callout-bad mt-s" role="alert"><?= icon('triangle-alert', 16) ?><div>
+        <strong>No new homes could be pulled: <?= e($rcProblem['why']) ?></strong>
+        <?php if (Auth::can('admin')): ?>
+        <span class="small soft">On the dashboard: API → choose the Developer plan (free, 50 requests a month). The key you already pasted starts working once the plan is on. Refused requests are not counted.</span>
+        <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>Open the RentCast API dashboard</a>
+        <?php else: ?>
+        <span class="small soft">Ask whoever runs the site to check the RentCast plan in Settings.</span>
+        <?php endif; ?>
+      </div></div>
+      <?php elseif ($res['notice']): ?>
       <p class="note mt-s" role="status"><?= icon('info', 16) ?><span><?= e($res['notice']) ?></span></p>
       <?php endif; ?>
 

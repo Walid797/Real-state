@@ -49,6 +49,13 @@ $hello = Auth::name() ? explode(' ', Auth::name())[0] : '';
 
 View::header('Dashboard', 'dashboard');
 ?>
+<?php if (Auth::can('admin') && Settings::has('rentcast_key') && ($rcProblem = App\Providers\RentCast::problem())): ?>
+<div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div>
+  <strong><?= e($rcProblem['why']) ?></strong>
+  <span class="small soft">Until then searches show only homes already on file<?= App\Providers\OpenWebNinja::enabled() ? ' or come from the Zillow-data source' : '' ?>.</span>
+  <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>Open the RentCast API dashboard</a>
+</div></div>
+<?php endif; ?>
 <header class="page-head">
   <div>
     <p class="eyebrow"><?= e(fmt_date(now(), 'l, F j')) ?></p>

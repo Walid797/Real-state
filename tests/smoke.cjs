@@ -35,6 +35,9 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
   await run('admin', { width: 1440, height: 900 }, async (page, shot) => {
     await page.goto(BASE + '/login'); await shot('01-login');
     await login(page, 'owner@example.com');
+    if (await page.locator('button[data-menu]').isVisible()) throw new Error('menu button shows on a wide screen');
+    if (!(await page.locator('.nav a[href="/reports"]').isVisible())) throw new Error('top links missing on a wide screen');
+    if (await page.locator('.nav-more').isVisible()) throw new Error('phone-only links show on a wide screen');
     await has(page, 'Strong opportunities'); await shot('02-dashboard', true);
     await page.goto(BASE + '/search'); await has(page, 'Renovation &amp; condition'); await shot('03-search-filters', true);
     await page.fill('#dq', 'x').catch(() => {});
@@ -114,6 +117,22 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
   await run('mobile', { width: 390, height: 844 }, async (page, shot) => {
     await login(page, 'owner@example.com');
     await shot('01-dashboard', true); await noOverflow(page, 'dashboard');
+    // main menu: a button opens a panel with every page; Esc and a link close it
+    const btn = page.locator('button[data-menu]');
+    if (!(await btn.isVisible())) throw new Error('no menu button on a phone');
+    if (await page.locator('#main-nav a[href="/reports"]').isVisible()) throw new Error('menu links show before the button is pressed');
+    await btn.click();
+    if ((await btn.getAttribute('aria-expanded')) !== 'true') throw new Error('menu button does not report open');
+    for (const href of ['/', '/search', '/pipeline', '/alerts', '/reports', '/market', '/add', '/account', '/settings']) {
+      if (!(await page.locator(`#main-nav a[href="${href}"]`).isVisible())) throw new Error('menu is missing ' + href);
+    }
+    if (!(await page.locator('#main-nav button:has-text("Sign out")').isVisible())) throw new Error('menu has no sign out');
+    await noOverflow(page, 'open menu'); await shot('01b-menu-open');
+    await page.keyboard.press('Escape');
+    if (await page.locator('#main-nav a[href="/reports"]').isVisible()) throw new Error('Esc does not close the menu');
+    await btn.click();
+    await Promise.all([page.waitForURL(BASE + '/pipeline'), page.locator('#main-nav a[href="/pipeline"]').click()]);
+    if (await page.locator('#main-nav a[href="/reports"]').isVisible()) throw new Error('menu stays open after moving page');
     await page.goto(BASE + '/search?q=Austin%2C+TX&sort=score'); await page.waitForTimeout(400); await shot('02-results');
     await noOverflow(page, 'results');
     await page.goto(propertyUrl); await page.waitForLoadState(); await shot('03-property', true);

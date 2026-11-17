@@ -37,7 +37,8 @@ the list is editable under **Sites**.
 4. Open `https://your-site/setup?token=<setup_token>` and create the account —
    or run `php bin/install.php you@example.com`.
 5. Sign in, open **Settings**, paste the free API keys, set up a delivery channel.
-6. Add an hourly cron job: `php /path/to/project/cron/run.php`
+6. Add an hourly cron job: `php /path/to/project/cron/run.php`, and one every 10 minutes: `php /path/to/project/cron/run.php score` (scores newly pulled homes).
+   `php cron/run.php status` prints usage, recent provider calls and the error log.
    (or call `https://your-site/cron?key=<cron_key>` hourly).
 
 ## Layout

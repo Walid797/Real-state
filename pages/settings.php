@@ -29,6 +29,9 @@ if (is_post()) {
     $anchor = '';
     switch ($do) {
         case 'sources':
+            if (trim((string) ($_POST['rentcast_key'] ?? '')) !== '') {
+                Settings::set('rentcast_key_problem', null); // a new key gets a fresh start
+            }
             $secret('rentcast_key');
             $secret('openwebninja_key');
             $secret('census_key');
@@ -135,7 +138,13 @@ View::header('Settings', 'settings');
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="sources">
     <div class="card">
-      <h3>RentCast <span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= Settings::has('rentcast_key') ? 'Connected' : 'Not connected' ?></span></h3>
+      <?php $rcProblem = App\Providers\RentCast::problem(); ?>
+      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad">Key refused</span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= Settings::has('rentcast_key') ? 'Connected' : 'Not connected' ?></span><?php endif; ?></h3>
+      <?php if ($rcProblem && Settings::has('rentcast_key')): ?>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($rcProblem['why']) ?></strong>
+        <span class="small soft">Last refused <?= e(ago($rcProblem['at'])) ?>. Refused requests are not counted against your 50.</span>
+        <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>Open the RentCast API dashboard</a></div></div>
+      <?php endif; ?>
       <p class="small soft mb-m">Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.</p>
       <ol class="steps mb-m">
         <li>Create an account at <a href="https://app.rentcast.io/app/api" target="_blank" rel="noopener noreferrer">app.rentcast.io → API</a> and choose the free Developer plan.</li>

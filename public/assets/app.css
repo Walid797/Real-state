@@ -93,6 +93,14 @@ button { cursor: pointer; }
 .nav a:hover { color: var(--ink); }
 .nav a[aria-current] { color: var(--ink); border-bottom-color: var(--teal); }
 .top-end { display: flex; align-items: center; gap: 6px; }
+/* Menu button and the extra panel links exist for small screens only. */
+.menu-btn, .nav-ico, .nav-more { display: none; }
+.menu-btn { place-items: center; width: 44px; height: 44px; margin-left: -10px; border: 0; background: none; color: var(--ink); border-radius: var(--r); cursor: pointer; }
+.menu-btn:hover { background: var(--sunk); }
+.menu-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.menu-close { display: none; }
+.top.is-open .menu-open { display: none; }
+.top.is-open .menu-close { display: inline; }
 .top-link { display: grid; place-items: center; width: 34px; height: 34px; border: 0; background: none; color: var(--ink-2); border-radius: var(--r); transition: background .15s, color .15s; }
 .top-link:hover, .top-link.is-on { background: var(--sunk); color: var(--ink); }
 
@@ -558,6 +566,31 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
   .stage-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cond-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 880px) {
+  .top-in { gap: 10px; }
+  .menu-btn { display: grid; }
+  .brand { margin-right: auto; }
+  .top-end > .quota, .top-end > .top-link, .top-end > form { display: none; }
+  .nav { display: none; position: fixed; top: 58px; left: 0; right: 0; bottom: 0; z-index: 29; flex-direction: column; gap: 0;
+    padding: 6px 16px 32px; background: var(--paper); border-top: 1px solid var(--rule); overflow-y: auto; overscroll-behavior: contain; }
+  .top.is-open .nav { display: flex; animation: nav-in .16s ease-out; }
+  .nav a, .nav-more button { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 52px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--rule);
+    background: none; color: var(--ink); font: 500 16px/1.2 var(--sans); text-align: left; text-decoration: none; cursor: pointer; }
+  .nav a[aria-current] { color: var(--teal-ink); border-bottom-color: var(--rule); box-shadow: inset 3px 0 0 var(--teal); padding-left: 12px; }
+  .nav-ico { display: inline-grid; place-items: center; width: 22px; color: var(--ink-3); }
+  .nav a[aria-current] .nav-ico { color: var(--teal); }
+  .nav-more { display: block; margin-top: 18px; border-top: 1px solid var(--rule-2); }
+  .nav-who { margin-left: auto; color: var(--ink-3); font-size: 13.5px; font-weight: 400; }
+  .nav-quota { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+  .nav-quota .quota { display: inline-grid; }
+  .nav-quota .quota-label { display: inline; }
+  .nav-more form { margin: 0; }
+  .nav-more button { color: var(--ink-2); }
+  body.nav-locked { overflow: hidden; }
+  .top.is-open { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--paper); }
+}
+@keyframes nav-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .top.is-open .nav { animation: none; } }
 @media (max-width: 760px) {
   .top-in { padding: 0 16px; gap: 16px; }
   .quota-label, .quota-none { display: none; }
@@ -621,3 +654,10 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .logtail span:last-child { border-bottom: 0; }
 .logtail .is-bad { color: #9b2c1f; }
 .logtail .is-warn { color: #8f5206; }
+
+/* A problem that needs the reader to do something */
+.callout { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--rule-2); border-left: 3px solid var(--amber); border-radius: var(--r); background: var(--amber-tint); color: var(--ink); font-size: 14px; }
+.callout > .icon { flex: none; margin-top: 2px; color: var(--amber); }
+.callout > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.callout-bad { border-left-color: var(--red); background: var(--red-tint); }
+.callout-bad > .icon { color: var(--red); }
