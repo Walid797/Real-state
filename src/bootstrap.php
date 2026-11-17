@@ -38,18 +38,52 @@ if (!is_dir($logDir)) {
 }
 ini_set('error_log', $logDir . '/php-error.log');
 
-set_exception_handler(static function (Throwable $e) use ($debug): void {
-    error_log('[uncaught] ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
-    if (PHP_SAPI === 'cli') {
-        fwrite(STDERR, 'Error: ' . $e->getMessage() . PHP_EOL);
-        exit(1);
+/** A plain error page that still looks like the site (no inline styles: the CSP forbids them). */
+function fail_page(string $detail = ''): void
+{
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
     }
     if (!headers_sent()) {
         http_response_code(500);
         header('Content-Type: text/html; charset=utf-8');
+        header('Cache-Control: no-store');
     }
-    echo '<!doctype html><meta charset="utf-8"><title>Error</title><body style="font-family:sans-serif;padding:2rem">';
-    echo '<h1>Something went wrong</h1>';
-    echo $debug ? '<pre>' . e($e->getMessage() . "\n" . $e->getTraceAsString()) . '</pre>' : '<p>The error was logged.</p>';
-    echo '</body>';
+    $again = e($_SERVER['REQUEST_URI'] ?? '/');
+    echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>Something went wrong</title><link rel="stylesheet" href="/assets/app.css">'
+        . '<body class="bare"><main class="page"><div class="empty"><h1 class="display">That didn’t work.</h1>'
+        . '<p>The page stopped part-way. It has been logged, so it can be looked into.</p>'
+        . ($detail !== '' ? '<pre class="small">' . e($detail) . '</pre>' : '')
+        . '<p><a class="btn btn-primary" href="' . $again . '">Try again</a> <a class="btn" href="/">Dashboard</a></p></div></main></body></html>';
+}
+
+set_exception_handler(static function (Throwable $e) use ($debug): void {
+    error_log('[uncaught] ' . get_class($e) . ': ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine()
+        . (PHP_SAPI === 'cli' ? '' : ' · ' . ($_SERVER['REQUEST_METHOD'] ?? '') . ' ' . ($_SERVER['REQUEST_URI'] ?? '')));
+    if (PHP_SAPI === 'cli') {
+        fwrite(STDERR, 'Error: ' . $e->getMessage() . PHP_EOL);
+        exit(1);
+    }
+    fail_page($debug ? $e->getMessage() . "\n" . $e->getTraceAsString() : '');
+});
+
+// Out of memory or out of time never reaches the exception handler: catch those here so the
+// visitor gets a page instead of a blank screen, and the log says which address it was.
+if (PHP_SAPI !== 'cli') {
+    ob_start(); // lets the fatal handler replace a half-drawn page
+}
+register_shutdown_function(static function () use ($debug): void {
+    $err = error_get_last();
+    if ($err === null || !in_array($err['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE, E_USER_ERROR], true)) {
+        if (PHP_SAPI !== 'cli' && ($t = microtime(true) - APP_START) > 20) {
+            error_log(sprintf('[slow] %.1fs · %s %s', $t, $_SERVER['REQUEST_METHOD'] ?? '', $_SERVER['REQUEST_URI'] ?? ''));
+        }
+        return;
+    }
+    error_log('[fatal] ' . $err['message'] . ' @ ' . $err['file'] . ':' . $err['line']
+        . (PHP_SAPI === 'cli' ? '' : ' · ' . ($_SERVER['REQUEST_METHOD'] ?? '') . ' ' . ($_SERVER['REQUEST_URI'] ?? '')));
+    if (PHP_SAPI !== 'cli') {
+        fail_page($debug ? $err['message'] : '');
+    }
 });

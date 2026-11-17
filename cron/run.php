@@ -7,6 +7,8 @@ declare(strict_types=1);
  *   php /path/to/app/cron/run.php            everything that is due
  *   php /path/to/app/cron/run.php alerts     only the alerts
  *   php /path/to/app/cron/run.php market     re-import market data now
+ *   php /path/to/app/cron/run.php score      score homes waiting for it (every 10 minutes)
+ *   php /path/to/app/cron/run.php status     print usage, recent API calls and the error log
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -22,8 +24,12 @@ if (!App\Config::loaded()) {
 }
 
 $job = $argv[1] ?? 'auto';
+if ($job === 'status') {
+    echo '[' . gmdate('Y-m-d H:i') . " UTC]\n" . implode("\n", App\Diagnostics::report()) . "\n";
+    exit(0);
+}
 if (!in_array($job, ['auto', 'alerts', 'market', 'prune', 'score', 'backup'], true)) {
-    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune | score | backup\n");
+    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune | score | backup | status\n");
     exit(1);
 }
 

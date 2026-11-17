@@ -14,6 +14,9 @@ final class Http
     public static function request(string $method, string $url, array $headers = [], ?string $body = null, int $timeout = 20): array
     {
         $respHeaders = [];
+        // Plain http is allowed for one case only: a local test copy talking to a fake provider on this machine.
+        $proto = str_starts_with($url, 'http://127.0.0.1:') && str_starts_with((string) Config::get('base_url', ''), 'http://127.0.0.1:')
+            ? CURLPROTO_HTTP : CURLPROTO_HTTPS;
         $ch = curl_init($url);
         $h = [];
         foreach ($headers as $k => $v) {
@@ -24,8 +27,8 @@ final class Http
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
-            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_PROTOCOLS => $proto,
+            CURLOPT_REDIR_PROTOCOLS => $proto,
             CURLOPT_CONNECTTIMEOUT => 8,
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_HTTPHEADER => $h,
@@ -77,8 +80,8 @@ final class Http
         curl_setopt_array($ch, [
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
-            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_PROTOCOLS => $proto,
+            CURLOPT_REDIR_PROTOCOLS => $proto,
             CURLOPT_CONNECTTIMEOUT => 10,
             CURLOPT_TIMEOUT => $timeout,
             CURLOPT_USERAGENT => self::UA,

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Cache;
 use App\Http;
 use App\Quota;
 use App\Settings;
@@ -42,6 +43,13 @@ final class OpenWebNinja
         if (!Quota::can(self::ID, $ctx)) {
             return ['ok' => false, 'data' => null, 'error' => 'This month’s Zillow-data requests are used up. They reset in ' . plural(Quota::resetsIn(), 'day') . '.'];
         }
+        $cacheKey = Cache::key(self::ID, $path, $params);
+        if (!RentCast::$fresh) {
+            $kept = Cache::get($cacheKey);
+            if (is_array($kept)) {
+                return ['ok' => true, 'data' => $kept, 'error' => null];
+            }
+        }
         $res = Http::get(self::BASE . $path . '?' . http_build_query($params), ['x-api-key' => (string) Settings::get('openwebninja_key')], 40);
         if ($res['status'] > 0) {
             Quota::spend(self::ID);
@@ -60,6 +68,9 @@ final class OpenWebNinja
         }
         Quota::log(self::ID, $path, $res['status'], $res['ms'], $error, $ctx);
         $data = is_array($json) ? ($json['data'] ?? $json) : null;
+        if ($error === null && is_array($data)) {
+            Cache::put($cacheKey, self::ID, $data, 12 * 3600); // a retry after a dropped page costs nothing
+        }
         return ['ok' => $error === null, 'data' => $error === null ? $data : null, 'error' => $error];
     }
 

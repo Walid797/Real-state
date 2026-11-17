@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Cache;
 use App\Http;
 use App\PropertyRepo;
 use App\Quota;
@@ -20,6 +21,19 @@ final class RentCast
     public const ID = 'rentcast';
     private const BASE = 'https://api.rentcast.io/v1';
     public const PAGE = 500;
+    /** How long an answered request is kept, so a repeat (or a retry after a dropped page) costs nothing. */
+    private const KEEP = 12 * 3600;
+
+    /** Set by a deliberate refresh: skip the kept answer and ask RentCast again. */
+    public static bool $fresh = false;
+
+    private static function baseUrl(): string
+    {
+        // Local tests point this at a fake server; the live site always talks to RentCast.
+        $local = (string) \App\Config::get('rentcast_base', '');
+        $site = (string) \App\Config::get('base_url', '');
+        return $local !== '' && preg_match('~^https?://(127\.0\.0\.1|localhost)[:/]~', $site) ? rtrim($local, '/') : self::BASE;
+    }
 
     public static function enabled(): bool
     {
@@ -41,7 +55,14 @@ final class RentCast
             return ['ok' => false, 'status' => 0, 'data' => null, 'error' => $why];
         }
         $params = array_filter($params, static fn ($v) => $v !== null && $v !== '');
-        $res = Http::get(self::BASE . $path . '?' . http_build_query($params), ['X-Api-Key' => (string) Settings::get('rentcast_key')], 30);
+        $cacheKey = Cache::key(self::ID, $path, $params);
+        if (!self::$fresh) {
+            $kept = Cache::get($cacheKey);
+            if (is_array($kept)) {
+                return ['ok' => true, 'status' => 200, 'data' => $kept, 'error' => null, 'cached' => true];
+            }
+        }
+        $res = Http::get(self::baseUrl() . $path . '?' . http_build_query($params), ['X-Api-Key' => (string) Settings::get('rentcast_key')], 30);
         if ($res['status'] > 0) {
             Quota::spend(self::ID); // counted on every answered request, to stay on the safe side of the allowance
         }
@@ -60,7 +81,11 @@ final class RentCast
             $error = 'RentCast sent a response that could not be read.';
         }
         Quota::log(self::ID, $path, $res['status'], $res['ms'], $error, $ctx);
-        return ['ok' => $error === null, 'status' => $res['status'], 'data' => $error === null ? $json : null, 'error' => $error];
+        if ($error === null) {
+            // Kept straight away: if the page is cut off after this point, asking again is free.
+            Cache::put($cacheKey, self::ID, $json, self::KEEP);
+        }
+        return ['ok' => $error === null, 'status' => $res['status'], 'data' => $error === null ? $json : null, 'error' => $error, 'cached' => false];
     }
 
     private static function range(mixed $min, mixed $max): ?string

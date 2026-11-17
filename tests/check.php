@@ -364,5 +364,31 @@ $zip->close();
 unlink($tmp);
 Db::run("DELETE FROM properties WHERE address = '1 Calc Way'");
 
+/* ── A kept provider answer is reused, and costs nothing ────────────── */
+$hadKey = App\Settings::has('rentcast_key');
+if (!$hadKey) {
+    App\Settings::set('rentcast_key', 'check-only');
+}
+$kLoc = ['type' => 'city', 'city' => 'Keptville', 'state' => 'VA', 'key' => 'city:VA:keptville', 'label' => 'Keptville, VA'];
+App\Cache::put(App\Cache::key('rentcast', '/listings/sale', ['city' => 'Keptville', 'state' => 'VA', 'status' => 'Active', 'limit' => 500]), 'rentcast',
+    [['id' => 'k1', 'addressLine1' => '1 Kept St', 'city' => 'Keptville', 'state' => 'VA', 'zipCode' => '24999', 'status' => 'Active', 'price' => 100000]], 3600);
+$before = App\Quota::used('rentcast');
+$kr = App\Providers\RentCast::saleListings($kLoc, [], 'manual');
+$ok($kr['ok'] && count($kr['items']) === 1 && $kr['items'][0]['address'] === '1 Kept St', 'kept answer is served');
+$ok(App\Quota::used('rentcast') === $before, 'serving a kept answer spends no request');
+Db::run("DELETE FROM api_cache WHERE provider = 'rentcast'");
+if (!$hadKey) {
+    App\Settings::set('rentcast_key', null);
+}
+
+/* ── Scoring order and the log reader ───────────────────────────────── */
+$a = PropertyRepo::upsert(['address' => '1 Order St', 'city' => 'Orderton', 'state' => 'VA', 'zip' => '24998', 'status' => 'for_sale', 'list_price' => 300000, 'sqft' => 1000], 'manual')['id'];
+$b = PropertyRepo::upsert(['address' => '2 Order St', 'city' => 'Orderton', 'state' => 'VA', 'zip' => '24998', 'status' => 'for_sale', 'list_price' => 150000, 'sqft' => 1000], 'manual')['id'];
+$c = PropertyRepo::upsert(['address' => '3 Order St', 'city' => 'Orderton', 'state' => 'VA', 'zip' => '24998', 'status' => 'for_sale', 'list_price' => 90000], 'manual')['id'];
+$eq(App\Services\Search::scoreFirst([$a, $b, $c], 2), [$b, $a], 'cheapest per sqft are scored first; homes without size wait');
+Db::run("DELETE FROM properties WHERE city = 'Orderton'");
+$ok(is_array(App\Diagnostics::logTail(5)) && count(App\Diagnostics::logTail(5)) <= 5, 'log tail reads at most what was asked');
+$ok(count(App\Diagnostics::report()) > 4, 'status report has content');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

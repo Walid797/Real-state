@@ -283,6 +283,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             From saved data only.
           <?php endif; ?>
           <?php if ($mode === 'sale'): ?> Profit, ARV and scores are estimates — open a home to see how each was worked out.<?php endif; ?>
+          <?php $waiting = $mode === 'sale' ? count(array_filter($res['rows'], static fn ($r) => $r['score'] === null && empty($r['scored_at']))) : 0; ?>
+          <?php if ($waiting): ?> <span class="wait-note"><?= plural($waiting, 'home') ?> on this page still being scored — reload in a few minutes.</span><?php endif; ?>
         </p>
       </header>
 
@@ -371,7 +373,11 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             </div>
             <div class="side">
               <?php if ($mode === 'sale'): ?>
+              <?php if ($r['score'] === null && empty($r['scored_at'])): ?>
+              <span class="score-badge score-wait" title="Being scored — ready within a few minutes">…</span>
+              <?php else: ?>
               <span class="score-badge score-<?= $band ?>" title="Opportunity score<?= $r['risk'] !== null ? ' · risk ' . (int) $r['risk'] : '' ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span>
+              <?php endif; ?>
               <?php endif; ?>
               <span class="side-meta">
                 <?php if ($mode === 'sold'): ?>Sold <?= e(fmt_date($r['last_sale_date'])) ?>

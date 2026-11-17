@@ -298,6 +298,29 @@ final class Search
      * Makes sure one area (zip, city or state) is in the local database for these filters.
      * @return array{snapshot:?array, fetched:bool, partial:bool, notice:?string}
      */
+    /** Scoring done inside a page request; the rest is left to the scheduler. */
+    public const WEB_SCORE_MAX = 500;
+    public const WEB_SCORE_SECONDS = 6;
+
+    /**
+     * Which fresh homes to score first: the cheapest per square foot are the likeliest
+     * opportunities and the ones people open first.
+     * @param int[] $ids
+     * @return int[]
+     */
+    public static function scoreFirst(array $ids, int $max): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $ids)));
+        if (count($ids) <= $max) {
+            return $ids;
+        }
+        $in = implode(',', $ids);
+        return array_map('intval', array_column(Db::all(
+            "SELECT id FROM properties WHERE id IN ($in)
+             ORDER BY (sqft IS NULL OR sqft = 0), list_price / NULLIF(sqft, 0), list_price LIMIT " . (int) $max
+        ), 'id'));
+    }
+
     public static function ensureSnapshot(array $loc, array $f, string $ctx = 'manual', bool $force = false, ?int $maxAgeHours = null): array
     {
         $mode = ($f['mode'] ?? 'sale') === 'sold' ? 'sold' : 'sale';
@@ -323,19 +346,31 @@ final class Search
             return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null, 'notice' => $notice];
         }
 
+        // Fetching can take a while; finish and save even if the browser or the CDN gives up waiting.
+        @set_time_limit(150);
+        if ($ctx !== 'cron') {
+            ignore_user_abort(true);
+        }
         $started = now();
-        if ($provider === RentCast::ID) {
-            $res = $mode === 'sold'
-                ? RentCast::soldRecords($loc, (int) ($f['sold_days'] ?? 180), $f, $ctx)
-                : RentCast::saleListings($loc, $f, $ctx);
-        } else {
-            $res = OpenWebNinja::search($loc, $mode, $ctx);
-            $sig = 'own';
-            $pushed = ['partial' => true];
+        $t0 = microtime(true);
+        RentCast::$fresh = $force; // a deliberate refresh asks the provider again; anything else may reuse a kept answer
+        try {
+            if ($provider === RentCast::ID) {
+                $res = $mode === 'sold'
+                    ? RentCast::soldRecords($loc, (int) ($f['sold_days'] ?? 180), $f, $ctx)
+                    : RentCast::saleListings($loc, $f, $ctx);
+            } else {
+                $res = OpenWebNinja::search($loc, $mode, $ctx);
+                $sig = 'own';
+                $pushed = ['partial' => true];
+            }
+        } finally {
+            RentCast::$fresh = false;
         }
         if (!$res['ok']) {
             return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null, 'notice' => $res['error']];
         }
+        $t1 = microtime(true);
 
         $ids = [];
         Db::tx(static function () use ($res, $provider, &$ids) {
@@ -347,18 +382,26 @@ final class Search
                 }
             }
         });
-        // Score what just arrived; anything left over is scored by the scheduler.
-        if ($mode === 'sale') {
-            Score::refreshMany($ids, $ctx === 'cron' ? 60 : 25);
-        }
         if ($mode === 'sale' && $provider === RentCast::ID && $sig === '' && !$res['truncated']) {
             PropertyRepo::retireMissing($loc, $provider, $started);
         }
+        // Recorded before any scoring, so a page cut off from here on never pays for the same pull twice.
         $id = Db::insert('snapshots', [
             'provider' => $provider, 'mode' => $mode, 'loc_key' => $loc['key'], 'filter_sig' => $sig,
             'filter_json' => json_encode($pushed), 'result_count' => count($res['items']),
             'truncated' => $res['truncated'] ? 1 : 0, 'fetched_at' => now(),
         ]);
+        $t2 = microtime(true);
+        // Score a first handful now so the list is useful at once; the scheduler does the rest within minutes.
+        $scored = 0;
+        if ($mode === 'sale' && $ids) {
+            $scored = $ctx === 'cron' ? Score::refreshMany($ids, 60) : Score::refreshMany(self::scoreFirst($ids, self::WEB_SCORE_MAX), self::WEB_SCORE_SECONDS);
+        }
+        error_log(sprintf(
+            '[info] pull %s %s %s: %d homes%s · provider %.1fs · saved %.1fs · scored %d in %.1fs',
+            $provider, $mode, $loc['key'], count($res['items']), $res['truncated'] ? ' (capped)' : '',
+            $t1 - $t0, $t2 - $t1, $scored, microtime(true) - $t2
+        ));
         $notice = null;
         if ($res['truncated'] && $provider === RentCast::ID) {
             $notice = 'RentCast returns at most 500 homes per request and this area has more. Narrow the price or bedrooms to see the rest.';

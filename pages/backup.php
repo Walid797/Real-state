@@ -11,4 +11,5 @@ App\Services\Activity::log('user', null, 'Downloaded backup ' . basename($path))
 header('Content-Type: application/gzip');
 header('Content-Disposition: attachment; filename="' . basename($path) . '"');
 header('Content-Length: ' . filesize($path));
+end_buffers();
 readfile($path);

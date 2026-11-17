@@ -29,6 +29,7 @@ if (isset($_GET['report'])) {
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="' . $site . '-report-' . gmdate('Y-m-d') . '.xlsx"');
     header('Content-Length: ' . filesize($tmp));
+    end_buffers();
     readfile($tmp);
     unlink($tmp);
     exit;
@@ -73,6 +74,7 @@ if ($fmt === 'xlsx') {
     header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     header('Content-Disposition: attachment; filename="' . $name . '.xlsx"');
     header('Content-Length: ' . filesize($tmp));
+    end_buffers();
     readfile($tmp);
     unlink($tmp);
     exit;
@@ -85,6 +87,7 @@ $safe = static function (mixed $v): string {
 };
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $name . '.csv"');
+end_buffers();
 $out = fopen('php://output', 'w');
 fwrite($out, "\xEF\xBB\xBF");
 fputcsv($out, $header, ',', '"', '');

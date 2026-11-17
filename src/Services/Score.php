@@ -47,12 +47,12 @@ final class Score
     }
 
     /** @param int[] $ids */
-    public static function refreshMany(array $ids, int $budgetSeconds = 60): int
+    public static function refreshMany(array $ids, float $budgetSeconds = 60): int
     {
-        $t = time();
+        $t = microtime(true);
         $n = 0;
         foreach ($ids as $id) {
-            if (time() - $t > $budgetSeconds) {
+            if (microtime(true) - $t > $budgetSeconds) {
                 break;
             }
             self::refresh((int) $id);

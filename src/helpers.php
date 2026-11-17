@@ -301,3 +301,11 @@ function percentile(array $values, float $p): ?float
     $hi = (int) ceil($pos);
     return $values[$lo] + ($values[$hi] - $values[$lo]) * ($pos - $lo);
 }
+
+/** Before streaming a file: drop the page buffer so large downloads go straight out. */
+function end_buffers(): void
+{
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+}

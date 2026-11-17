@@ -346,6 +346,15 @@ View::header('Settings', 'settings');
     <?= csrf_field() ?><input type="hidden" name="do" value="cache">
     <button class="linkbtn small" type="submit">Clear caches and force fresh pulls</button>
   </form>
+  <h3 class="eyebrow mt-l">Recent log</h3>
+  <?php $tail = App\Diagnostics::logTail(20); ?>
+  <?php if ($tail): ?>
+  <pre class="logtail"><?php foreach (array_reverse($tail) as $line): ?><span class="<?= preg_match('/\[(fatal|uncaught)\]|PHP (Fatal|Warning)/', $line) ? 'is-bad' : (str_contains($line, '[slow]') ? 'is-warn' : '') ?>"><?= e(mb_substr($line, 0, 500)) ?></span>
+<?php endforeach; ?></pre>
+  <p class="section-note">Newest first. Errors are marked red, slow pages amber; each data pull writes one line with how long each step took.</p>
+  <?php else: ?>
+  <p class="blank">Nothing logged — no errors so far.</p>
+  <?php endif; ?>
   <h3 class="eyebrow mt-l">Backups</h3>
   <?php $backups = App\Backup::list(); ?>
   <?php if ($backups): ?>
