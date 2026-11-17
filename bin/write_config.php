@@ -5,10 +5,13 @@ declare(strict_types=1);
  * Writes config.php once, from values passed on the command line.
  * For hosts where files can't be uploaded but a command can be run (a one-off cron job):
  *
- *   php bin/write_config.php <base64 of a JSON object>
+ *   php bin/write_config.php <database> <db password> <site host> <setup token>
+ *       the database user is taken to have the same name as the database;
+ *       app_key and cron_key are generated here and never leave the server
  *
- * JSON keys: db_name, db_user, db_pass, app_key, setup_token, cron_key, base_url
- *            optional: db_host (127.0.0.1), db_port (3306), timezone (America/New_York)
+ *   php bin/write_config.php <base64 of a JSON object>
+ *       JSON keys: db_name, db_user, db_pass, app_key, setup_token, cron_key, base_url
+ *       optional:  db_host (127.0.0.1), db_port (3306), timezone (America/New_York)
  *
  * It never overwrites an existing config.php.
  */
@@ -24,14 +27,22 @@ if (is_file($target)) {
     exit(0);
 }
 
-$in = json_decode((string) base64_decode((string) ($argv[1] ?? ''), true), true);
+if ($argc === 5) {
+    $in = [
+        'db_name' => $argv[1], 'db_user' => $argv[1], 'db_pass' => $argv[2],
+        'base_url' => 'https://' . strtolower($argv[3]), 'setup_token' => $argv[4],
+        'app_key' => bin2hex(random_bytes(32)), 'cron_key' => bin2hex(random_bytes(24)),
+    ];
+} else {
+    $in = json_decode((string) base64_decode((string) ($argv[1] ?? ''), true), true);
+}
 $need = ['db_name', 'db_user', 'db_pass', 'app_key', 'setup_token', 'cron_key', 'base_url'];
 if (!is_array($in) || array_diff($need, array_keys(array_filter($in, 'is_string')))) {
     fwrite(STDERR, "Expected base64 JSON with: " . implode(', ', $need) . "\n");
     exit(1);
 }
-if (!preg_match('/^[0-9a-f]{64}$/', $in['app_key']) || !preg_match('#^https://[a-z0-9.-]+$#', $in['base_url'])) {
-    fwrite(STDERR, "app_key must be 64 hex characters and base_url an https:// origin.\n");
+if (!preg_match('/^[0-9a-f]{64}$/', $in['app_key']) || !preg_match('#^https://[a-z0-9.-]+$#', $in['base_url']) || strlen($in['setup_token']) < 16) {
+    fwrite(STDERR, "app_key must be 64 hex characters, base_url an https:// origin, setup_token at least 16 characters.\n");
     exit(1);
 }
 

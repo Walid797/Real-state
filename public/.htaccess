@@ -18,6 +18,10 @@ DirectoryIndex index.php
   RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$
   RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
+  # The front controller is the only PHP file allowed to run from here.
+  RewriteCond %{REQUEST_URI} !^/index\.php$
+  RewriteRule \.php$ index.php [L]
+
   # Real files (assets) are served as they are; everything else goes to the app.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^ index.php [L]
