@@ -57,8 +57,6 @@ if (is_post()) {
             Settings::set('smtp_secure', in_array(input('smtp_secure'), ['ssl', 'tls', 'none'], true) ? input('smtp_secure') : 'ssl');
             Settings::set('smtp_user', input('smtp_user', '', 190));
             $secret('smtp_pass');
-            Settings::set('callmebot_phone', preg_replace('/[^0-9+]/', '', input('callmebot_phone', '', 24)));
-            $secret('callmebot_key');
             $secret('telegram_token');
             Settings::set('telegram_chat', preg_replace('/[^0-9@a-zA-Z_\-]/', '', input('telegram_chat', '', 64)));
             flash('Delivery settings saved. Send yourself a test below.');
@@ -69,7 +67,12 @@ if (is_post()) {
             $ch = input('channel');
             if (isset(Notifier::CHANNELS[$ch])) {
                 $site = (string) Settings::get('site_name', 'Plat');
-                $r = Notifier::send("$site · test message", "If you can read this, alerts will reach you here.\n\n" . abs_url('/alerts'), [$ch])[$ch] ?? ['ok' => false, 'detail' => 'Unknown channel'];
+                $me = Db::one('SELECT * FROM users WHERE id = ?', [App\Auth::userId()]);
+                $r = Notifier::send(
+                    "Alerts from $site are set up",
+                    "This is the test you asked for from $site's settings. Alerts — new listings, price cuts and strong opportunities — will arrive here, with the price, the estimated profit and a link to the home.\n\nYour alerts: " . abs_url('/alerts'),
+                    [$ch], null, Notifier::recipient($me)
+                )[$ch] ?? ['ok' => false, 'detail' => 'Unknown channel'];
                 flash(Notifier::CHANNELS[$ch] . ': ' . ($r['ok'] ? 'sent — check that it arrived.' : 'failed. ' . $r['detail']), $r['ok'] ? 'ok' : 'err');
             }
             $anchor = '#notify';
@@ -104,7 +107,7 @@ if (is_post()) {
     redirect('/settings' . $anchor);
 }
 
-$ready = Notifier::ready();
+$ready = Notifier::ready(Notifier::recipient(Db::one('SELECT * FROM users WHERE id = ?', [Auth::userId()])));
 $log = Db::all('SELECT * FROM api_log ORDER BY id DESC LIMIT 12');
 $sent = Db::all('SELECT * FROM notify_log ORDER BY id DESC LIMIT 6');
 $counts = [
@@ -263,17 +266,8 @@ View::header('Settings', 'settings');
     </div>
 
     <div class="card">
-      <h3>WhatsApp <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= $ready['whatsapp'] ? 'Ready' : 'Not set' ?></span></h3>
-      <p class="small soft">Through CallMeBot, a free relay that can only message your own number.</p>
-      <ol class="steps mb-m">
-        <li>Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer">callmebot.com → Free API for WhatsApp</a> and save the phone number shown there in your contacts.</li>
-        <li>Send it the WhatsApp message <span class="mono">I allow callmebot to send me messages</span>.</li>
-        <li>It replies with an API key. Enter your number and that key here.</li>
-      </ol>
-      <div class="form-grid">
-        <label class="field c6"><span>Your WhatsApp number</span><input class="input mono" name="callmebot_phone" value="<?= $s('callmebot_phone') ?>" placeholder="+15125550123"></label>
-        <?= $secretField('callmebot_key', 'CallMeBot API key') ?>
-      </div>
+      <h3>WhatsApp <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= $ready['whatsapp'] ? 'Yours is ready' : 'Per person' ?></span></h3>
+      <p class="small soft">CallMeBot can only message the number that asked it for a key, so each person turns WhatsApp on for themselves under <a href="/account#whatsapp">My account → WhatsApp</a>. It takes about three minutes.</p>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit">Save delivery settings</button></div>
   </form>

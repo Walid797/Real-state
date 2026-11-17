@@ -24,7 +24,8 @@ final class Smtp
     }
 
     /** @return true|string true, or a short reason it failed */
-    public function send(string $from, string $fromName, string $to, string $subject, string $text, ?string $html = null): bool|string
+    /** @param array<string,string> $extra additional headers (Reply-To, List-Unsubscribe …) */
+    public function send(string $from, string $fromName, string $to, string $subject, string $text, ?string $html = null, array $extra = []): bool|string
     {
         foreach ([$from, $to] as $addr) {
             if (!filter_var($addr, FILTER_VALIDATE_EMAIL)) {
@@ -36,7 +37,7 @@ final class Smtp
             $this->cmd('MAIL FROM:<' . $from . '>', 250);
             $this->cmd('RCPT TO:<' . $to . '>', 250);
             $this->cmd('DATA', 354);
-            $this->write($this->message($from, $fromName, $to, $subject, $text, $html) . "\r\n.");
+            $this->write(self::dotStuff($this->message($from, $fromName, $to, $subject, $text, $html, $extra)) . "\r\n.");
             $this->expect(250);
             $this->write('QUIT');
             return true;
@@ -81,7 +82,13 @@ final class Smtp
         }
     }
 
-    private function message(string $from, string $fromName, string $to, string $subject, string $text, ?string $html): string
+    /** A line that starts with a dot would end the message early (RFC 5321 §4.5.2). */
+    private static function dotStuff(string $data): string
+    {
+        return preg_replace('/^\./m', '..', $data) ?? $data;
+    }
+
+    public function message(string $from, string $fromName, string $to, string $subject, string $text, ?string $html, array $extra = []): string
     {
         $clean = static fn (string $s) => trim(preg_replace('/[\r\n]+/', ' ', $s) ?? '');
         $enc = static fn (string $s) => preg_match('/[^\x20-\x7E]/', $s) ? '=?UTF-8?B?' . base64_encode($s) . '?=' : $s;
@@ -94,6 +101,11 @@ final class Smtp
             'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $host . '>',
             'MIME-Version: 1.0',
         ];
+        foreach ($extra as $name => $value) {
+            if (preg_match('/^[A-Za-z][A-Za-z0-9-]{1,40}$/', (string) $name) && $value !== '') {
+                $headers[] = $name . ': ' . $clean((string) $value);
+            }
+        }
         $part = static fn (string $type, string $body) => "Content-Type: $type; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
             . rtrim(chunk_split(base64_encode($body), 76, "\r\n"));
         if ($html === null) {

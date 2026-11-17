@@ -161,8 +161,12 @@ final class Alerts
     /** The alert owner's own email and Telegram (falls back to the site-wide ones). */
     public static function recipient(array $alert): array
     {
-        $u = !empty($alert['user_id']) ? Db::one('SELECT email, telegram_chat FROM users WHERE id = ? AND is_active = 1', [$alert['user_id']]) : null;
-        return Notifier::recipient($u);
+        if (empty($alert['user_id'])) {
+            return Notifier::recipient(); // alerts from before the team: the admin's
+        }
+        $u = Db::one('SELECT * FROM users WHERE id = ? AND is_active = 1', [$alert['user_id']]);
+        // A disabled person's alerts go nowhere — never to someone else.
+        return $u ? Notifier::recipient($u) : ['email' => '', 'telegram' => '', 'whatsapp_phone' => '', 'whatsapp_key' => ''];
     }
 
     /** Sends the once-a-day summary for daily alerts. */

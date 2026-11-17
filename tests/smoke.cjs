@@ -100,6 +100,14 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await has(page, 'is handling this home'); await shot('01-claimed');
     const r = await page.request.get(BASE + '/users');
     if (r.status() !== 403) throw new Error('partner could open the team page: ' + r.status());
+    // their own WhatsApp, kept apart from everyone else's
+    await page.goto(BASE + '/account');
+    await page.fill('input[name=whatsapp_phone]', '+1 804 555 0123');
+    await page.fill('input[name=callmebot_key]', '123456');
+    await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save WhatsApp")')]);
+    await has(page, 'WhatsApp saved'); await has(page, 'on for your alerts');
+    if (!(await page.locator('form:has(input[name=channel][value=whatsapp]) button').isEnabled())) throw new Error('WhatsApp test button stays disabled');
+    await shot('02-account-whatsapp', true);
   });
 
   await run('viewer', { width: 1440, height: 900 }, async (page, shot) => {

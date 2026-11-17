@@ -21,7 +21,7 @@ $hits = Db::all(
      FROM alert_hits h JOIN alerts a ON a.id = h.alert_id JOIN properties p ON p.id = h.property_id
      WHERE h.notified = 1' . ($mineOnly ? ' AND a.user_id = ' . App\Auth::userId() : '') . ' ORDER BY h.created_at DESC, h.id DESC LIMIT 12'
 );
-$ready = Notifier::ready(Notifier::recipient(Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [App\Auth::userId()])));
+$ready = Notifier::ready(Notifier::recipient(Db::one('SELECT * FROM users WHERE id = ?', [App\Auth::userId()])));
 $lastRun = Settings::get('job_last_run');
 
 // What the alerts will cost against the allowance kept for them.

@@ -390,5 +390,35 @@ Db::run("DELETE FROM properties WHERE city = 'Orderton'");
 $ok(is_array(App\Diagnostics::logTail(5)) && count(App\Diagnostics::logTail(5)) <= 5, 'log tail reads at most what was asked');
 $ok(count(App\Diagnostics::report()) > 4, 'status report has content');
 
+/* ── Email and WhatsApp delivery ─────────────────────────────────── */
+$smtp = new App\Notify\Smtp('smtp.example.com', 465, 'ssl', 'alerts@example.com', 'x');
+$msg = $smtp->message('alerts@example.com', 'Plat Alerts', 'you@example.com', 'Subject', "Body\n.dot line", '<p>Body</p>',
+    ['Reply-To' => 'alerts@example.com', 'List-Unsubscribe' => '<https://example.com/alerts>', 'Bad Header' => 'x', 'X-Inject' => "a\r\nBcc: evil@example.com"]);
+$ok(str_contains($msg, "Reply-To: alerts@example.com") && str_contains($msg, 'List-Unsubscribe: <https://example.com/alerts>'), 'mail carries Reply-To and List-Unsubscribe');
+$ok(str_contains($msg, 'multipart/alternative'), 'mail has text and HTML parts');
+$ok(!str_contains($msg, 'Bad Header') && !preg_match('/^Bcc:/mi', $msg), 'odd header names and injected lines are dropped');
+$html = App\Notify\Mail::fromText("Hi <b>you</b>\n\nSee https://example.com/x?a=1&b=2");
+$ok(str_contains($html, '&lt;b&gt;') && str_contains($html, '<a href="https://example.com/x?a=1&amp;b=2"'), 'text becomes safe HTML with links');
+$ok(str_contains(App\Notify\Mail::layout('T', '<p>x</p>'), 'Change or stop alerts'), 'every email says how to stop it');
+
+$hadUser = App\Settings::get('smtp_user');
+$hadPass = App\Settings::has('smtp_pass');
+App\Settings::set('smtp_user', null);
+$r = App\Notify\Notifier::send('t', 'b', ['email'], null, ['email' => 'you@example.com', 'telegram' => '', 'whatsapp_phone' => '', 'whatsapp_key' => '']);
+$ok(!$r['email']['ok'] && str_contains($r['email']['detail'], 'No mailbox'), 'without a mailbox nothing is sent through the server mailer');
+App\Settings::set('smtp_user', $hadUser);
+
+$wu = Db::insert('users', ['email' => 'wa@example.com', 'name' => 'WA', 'role' => 'partner', 'password_hash' => '', 'created_at' => now()]);
+$ok(!App\Notify\Notifier::ready(App\Notify\Notifier::recipient(Db::one('SELECT * FROM users WHERE id = ?', [$wu])))['whatsapp'], 'no WhatsApp until the person sets it up');
+Db::run('UPDATE users SET whatsapp_phone = ?, callmebot_key = ? WHERE id = ?', ['+18045550123', App\Settings::seal('987654'), $wu]);
+$row = Db::one('SELECT * FROM users WHERE id = ?', [$wu]);
+$rec = App\Notify\Notifier::recipient($row);
+$ok(App\Notify\Notifier::ready($rec)['whatsapp'] && $rec['whatsapp_key'] === '987654', 'a person’s own WhatsApp key is used');
+$ok(!str_contains((string) $row['callmebot_key'], '987654'), 'the key is stored encrypted');
+Db::run("UPDATE alerts SET user_id = NULL WHERE user_id = ?", [$wu]);
+Db::run('UPDATE users SET is_active = 0 WHERE id = ?', [$wu]);
+$ok(App\Services\Alerts::recipient(['user_id' => $wu])['email'] === '', 'a disabled person’s alerts go to nobody');
+Db::run('DELETE FROM users WHERE id = ?', [$wu]);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

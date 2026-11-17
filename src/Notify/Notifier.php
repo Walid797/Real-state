@@ -13,15 +13,18 @@ final class Notifier
     public const CHANNELS = ['email' => 'Email', 'whatsapp' => 'WhatsApp', 'telegram' => 'Telegram'];
 
     /**
-     * Where a message goes. Defaults to the site-wide settings; an alert passes its owner's
-     * own email and Telegram chat instead (a Telegram group id works too).
-     * @return array{email:string, telegram:string}
+     * Where a message goes: a person's own email, Telegram chat (a group id works too) and WhatsApp.
+     * Without a person, the first admin — the one who set the site up.
+     * @return array{email:string, telegram:string, whatsapp_phone:string, whatsapp_key:string}
      */
     public static function recipient(?array $user = null): array
     {
+        $user ??= Db::one("SELECT * FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1") ?? [];
         return [
-            'email' => (string) ($user['email'] ?? Settings::get('notify_email', '')),
+            'email' => (string) (($user['email'] ?? '') ?: Settings::get('notify_email', '')),
             'telegram' => (string) (($user['telegram_chat'] ?? '') ?: Settings::get('telegram_chat', '')),
+            'whatsapp_phone' => (string) ($user['whatsapp_phone'] ?? ''),
+            'whatsapp_key' => (string) (Settings::unseal($user['callmebot_key'] ?? null) ?? ''),
         ];
     }
 
@@ -30,10 +33,16 @@ final class Notifier
     {
         $to ??= self::recipient();
         return [
-            'email' => $to['email'] !== '',
-            'whatsapp' => Settings::has('callmebot_phone') && Settings::has('callmebot_key'),
-            'telegram' => Settings::has('telegram_token') && $to['telegram'] !== '',
+            'email' => ($to['email'] ?? '') !== '' && self::mailboxReady(),
+            'whatsapp' => ($to['whatsapp_phone'] ?? '') !== '' && ($to['whatsapp_key'] ?? '') !== '',
+            'telegram' => Settings::has('telegram_token') && ($to['telegram'] ?? '') !== '',
         ];
+    }
+
+    /** Email goes out only through a real mailbox: the server's bare mailer lands in spam and hurts the domain. */
+    public static function mailboxReady(): bool
+    {
+        return (string) Settings::get('smtp_user', '') !== '' && Settings::has('smtp_pass');
     }
 
     /**
@@ -47,12 +56,13 @@ final class Notifier
         $ready = self::ready($to);
         foreach (array_intersect(array_keys(self::CHANNELS), $channels) as $ch) {
             if (empty($ready[$ch])) {
-                $out[$ch] = ['ok' => false, 'detail' => 'Not set up yet.'];
+                $out[$ch] = ['ok' => false, 'detail' => $ch === 'email' && !self::mailboxReady()
+                    ? 'No mailbox set up — add one under Settings → Delivery.' : 'Not set up yet.'];
             } else {
                 try {
                     $out[$ch] = match ($ch) {
                         'email' => self::email($to['email'], $subject, $text, $html),
-                        'whatsapp' => self::whatsapp($subject . "\n\n" . $text),
+                        'whatsapp' => self::whatsapp($to['whatsapp_phone'], $to['whatsapp_key'], $subject . "\n\n" . $text),
                         'telegram' => self::telegram($to['telegram'], $subject . "\n\n" . $text),
                     };
                 } catch (\Throwable $e) {
@@ -70,28 +80,24 @@ final class Notifier
     private static function email(string $to, string $subject, string $text, ?string $html): array
     {
         $user = (string) Settings::get('smtp_user', '');
-        $name = (string) Settings::get('site_name', 'Plat');
-        if ($user !== '' && Settings::has('smtp_pass')) {
-            $smtp = new Smtp(
-                (string) Settings::get('smtp_host'), Settings::int('smtp_port', 465),
-                (string) Settings::get('smtp_secure', 'ssl'), $user, (string) Settings::get('smtp_pass')
-            );
-            $r = $smtp->send($user, $name, $to, $subject, $text, $html);
-            return $r === true ? ['ok' => true, 'detail' => 'Sent to ' . $to] : ['ok' => false, 'detail' => (string) $r];
-        }
-        // No mailbox configured: fall back to the server's own mailer. Works, but Gmail often files it under spam.
-        $host = parse_url((string) \App\Config::get('base_url', ''), PHP_URL_HOST) ?: 'localhost';
-        $from = 'alerts@' . preg_replace('/^www\./', '', (string) $host);
-        $headers = "From: $name <$from>\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8";
-        $ok = @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $text, $headers, '-f' . $from);
-        return $ok ? ['ok' => true, 'detail' => 'Handed to the server mailer for ' . $to] : ['ok' => false, 'detail' => 'The server mailer refused the message. Add a mailbox under Settings.'];
+        $site = (string) Settings::get('site_name', 'Plat');
+        $smtp = new Smtp(
+            (string) Settings::get('smtp_host', 'smtp.hostinger.com'), Settings::int('smtp_port', 465),
+            (string) Settings::get('smtp_secure', 'ssl'), $user, (string) Settings::get('smtp_pass')
+        );
+        $r = $smtp->send($user, $site . ' Alerts', $to, $subject, $text . Mail::textFooter(), Mail::layout($subject, $html ?? Mail::fromText($text)), [
+            'Reply-To' => $user,
+            'List-Unsubscribe' => '<' . abs_url('/alerts') . '>',
+            'Auto-Submitted' => 'auto-generated',
+        ]);
+        return $r === true ? ['ok' => true, 'detail' => 'Sent to ' . $to] : ['ok' => false, 'detail' => (string) $r];
     }
 
-    private static function whatsapp(string $text): array
+    private static function whatsapp(string $phone, string $key, string $text): array
     {
-        $phone = '+' . preg_replace('/\D/', '', (string) Settings::get('callmebot_phone'));
+        $phone = '+' . preg_replace('/\D/', '', $phone);
         $res = Http::get('https://api.callmebot.com/whatsapp.php?' . http_build_query([
-            'phone' => $phone, 'text' => mb_substr($text, 0, 1400), 'apikey' => (string) Settings::get('callmebot_key'),
+            'phone' => $phone, 'text' => mb_substr($text, 0, 1400), 'apikey' => $key,
         ]), [], 25);
         $ok = $res['status'] === 200 && !preg_match('/error|invalid|not (found|allowed|activated)/i', $res['body']);
         return ['ok' => $ok, 'detail' => $ok ? 'Queued for ' . $phone : 'CallMeBot answered ' . $res['status'] . ': ' . mb_substr(trim(strip_tags($res['body'])), 0, 140)];

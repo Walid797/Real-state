@@ -16,7 +16,7 @@ if ($alert && (int) $alert['user_id'] !== App\Auth::userId() && !App\Auth::can('
     $alert = null;
     $id = 0;
 }
-$owner = $alert && $alert['user_id'] ? Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [$alert['user_id']]) : Db::one('SELECT email, telegram_chat FROM users WHERE id = ?', [App\Auth::userId()]);
+$owner = $alert && $alert['user_id'] ? Db::one('SELECT * FROM users WHERE id = ?', [$alert['user_id']]) : Db::one('SELECT * FROM users WHERE id = ?', [App\Auth::userId()]);
 $ready = Notifier::ready(Notifier::recipient($owner));
 if ($id && !$alert) {
     redirect('/alerts');

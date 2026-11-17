@@ -18,6 +18,21 @@ if (is_post()) {
         $chat = preg_replace('/[^0-9@a-zA-Z_\-]/', '', input('telegram_chat', '', 64));
         Db::run('UPDATE users SET name = ?, telegram_chat = ? WHERE id = ?', [$name ?: $me['name'], $chat ?: null, $me['id']]);
         flash('Saved.');
+    } elseif ($do === 'whatsapp') {
+        $phone = preg_replace('/[^0-9]/', '', input('whatsapp_phone', '', 24));
+        $key = trim((string) ($_POST['callmebot_key'] ?? ''));
+        if ($phone === '') {
+            Db::run('UPDATE users SET whatsapp_phone = NULL, callmebot_key = NULL WHERE id = ?', [$me['id']]);
+            flash('WhatsApp turned off for your alerts.');
+        } elseif (strlen($phone) < 8 || strlen($phone) > 15) {
+            flash('Write the number with its country code, e.g. +1 804 555 0123.', 'err');
+        } elseif ($key === '' && empty($me['callmebot_key'])) {
+            flash('Paste the API key CallMeBot sent you.', 'err');
+        } else {
+            Db::run('UPDATE users SET whatsapp_phone = ?, callmebot_key = COALESCE(?, callmebot_key) WHERE id = ?',
+                ['+' . $phone, $key !== '' ? Settings::seal(mb_substr(preg_replace('/\s+/', '', $key), 0, 64)) : null, $me['id']]);
+            flash('WhatsApp saved. Send yourself a test below.');
+        }
     } elseif ($do === 'password') {
         $new = (string) ($_POST['new_password'] ?? '');
         $problems = Auth::passwordProblems($new);
@@ -40,7 +55,12 @@ if (is_post()) {
         redirect('/login');
     } elseif ($do === 'test') {
         $ch = input('channel');
-        $r = Notifier::send((string) Settings::get('site_name', 'Plat') . ' · test', 'Your alerts will arrive here.', [$ch], null, Notifier::recipient($me))[$ch] ?? null;
+        $site = (string) Settings::get('site_name', 'Plat');
+        $r = isset(Notifier::CHANNELS[$ch]) ? (Notifier::send(
+            "Alerts from $site are set up",
+            "Hi " . ($me['name'] ?: 'there') . ",\n\nThis is the test you asked for from $site. Alerts you create — new listings, price cuts and strong opportunities — will arrive here, with the price, the estimated profit and a link to the home.\n\nYour alerts: " . abs_url('/alerts'),
+            [$ch], null, Notifier::recipient($me)
+        )[$ch] ?? null) : null;
         if ($r) {
             flash(($r['ok'] ? 'Sent — check that it arrived. ' : 'Failed: ') . $r['detail'], $r['ok'] ? 'ok' : 'err');
         }
@@ -68,11 +88,32 @@ View::header('My account', 'account');
   </form>
   <div class="actions mt-m">
     <span class="small muted">Send yourself a test:</span>
-    <?php foreach (['email' => 'Email', 'telegram' => 'Telegram'] as $ch => $label): ?>
+    <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
     <form method="post" action="/account" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="test"><input type="hidden" name="channel" value="<?= $ch ?>">
       <button class="btn btn-sm" type="submit"<?= $ready[$ch] ? '' : ' disabled' ?>><?= icon('send', 14) ?><?= $label ?></button></form>
     <?php endforeach; ?>
   </div>
+</section>
+
+<section class="section" id="whatsapp">
+  <div class="section-head"><h2>WhatsApp</h2><span class="aside"><?= $ready['whatsapp'] ? 'on for your alerts' : 'not set' ?></span></div>
+  <p class="small soft mt-s">Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.</p>
+  <ol class="steps mt-s mb-m">
+    <li>Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer">CallMeBot’s WhatsApp page</a> and save the bot’s number shown there in your phone’s contacts.</li>
+    <li>From your WhatsApp, send it exactly: <span class="mono">I allow callmebot to send me messages</span></li>
+    <li>It replies with an API key, usually within a few minutes. Enter your number and that key here.</li>
+  </ol>
+  <form method="post" action="/account" autocomplete="off">
+    <?= csrf_field() ?><input type="hidden" name="do" value="whatsapp">
+    <div class="form-grid">
+      <label class="field c6"><span>Your WhatsApp number</span><input class="input mono" name="whatsapp_phone" value="<?= e($me['whatsapp_phone'] ?? '') ?>" placeholder="+1 804 555 0123" inputmode="tel">
+        <small>With the country code. Leave empty to stop WhatsApp alerts.</small></label>
+      <label class="field c6"><span>CallMeBot API key</span><input class="input mono" name="callmebot_key" value="" placeholder="<?= !empty($me['callmebot_key']) ? 'saved — leave empty to keep' : '123456' ?>">
+        <small>Stored encrypted.</small></label>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit">Save WhatsApp</button>
+      <span class="small muted">CallMeBot is free and sometimes slow; Telegram is the most reliable.</span></div>
+  </form>
 </section>
 
 <section class="section">

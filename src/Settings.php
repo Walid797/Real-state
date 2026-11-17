@@ -88,6 +88,17 @@ final class Settings
         return str_repeat('•', 8) . substr($v, -4);
     }
 
+    /** Encrypt a value for storage outside this table (e.g. a person's own API key). */
+    public static function seal(string $plain): string
+    {
+        return self::encrypt($plain);
+    }
+
+    public static function unseal(?string $stored): ?string
+    {
+        return $stored === null || $stored === '' ? null : self::decrypt($stored);
+    }
+
     private static function encrypt(string $plain): string
     {
         $iv = random_bytes(12);
