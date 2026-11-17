@@ -13,7 +13,8 @@ Plain PHP 8.1+ and MySQL (or MariaDB). No framework, no build step, no Composer.
 | --- | --- | --- |
 | [RentCast](https://developers.rentcast.io) | Listings for sale, county sale records, value and rent estimates | Free plan: 50 requests / month |
 | [OpenWeb Ninja – Zillow data](https://www.openwebninja.com/api/real-time-zillow-data) (optional) | Photos, description, price and tax history, Zestimate, sold comparables | Free plan: 100 requests / month |
-| U.S. Census geocoder + ACS | Map position, neighbourhood income / value / rent | Free |
+| U.S. Census geocoder | Map position, county, census tract | Free, no key |
+| U.S. Census ACS | Neighbourhood income / home value / rent | Free key |
 | FEMA flood hazard layer | Flood zone | Free |
 | Zillow Research files | Monthly home values and market trends by ZIP / city | Free |
 | OpenStreetMap | Map tiles | Free |

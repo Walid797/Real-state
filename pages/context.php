@@ -32,4 +32,4 @@ if ($tract) {
     }
 }
 
-json_out(['flood' => $flood, 'census' => $census]);
+json_out(['flood' => $flood, 'census' => $census, 'census_key' => Census::hasKey()]);

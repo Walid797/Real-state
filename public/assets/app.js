@@ -185,7 +185,9 @@
         }
         if (hood) {
           var c = d.census;
-          if (!c) {
+          if (!c && d.census_key === false) {
+            hood.innerHTML = '<p class="small soft">Income, home values and rents for this neighbourhood need a free Census key. <a href="/settings#sources">Add it in Settings</a> — it takes a minute.</p>';
+          } else if (!c) {
             hood.innerHTML = '<p class="small muted">No census figures for this spot.</p>';
           } else {
             var n = function (v, pre, post) { return v == null ? '—' : (pre || '') + Math.round(v).toLocaleString('en-US') + (post || ''); };

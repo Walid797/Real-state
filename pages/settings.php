@@ -187,12 +187,12 @@ View::header('Settings', 'settings');
           </select></label>
         <label class="field c6"><span>Reuse a pulled area for, hours</span><input class="input" name="snapshot_hours" value="<?= $s('snapshot_hours') ?>" inputmode="numeric">
           <small>Within this time the same area is answered from your own database, free.</small></label>
-        <?= $secretField('census_key', 'Census API key (optional)', 'Neighbourhood figures work without it; a free key from api.census.gov lifts the daily limit.') ?>
+        <?= $secretField('census_key', 'Census API key', 'Free, and needed for the neighbourhood panel (income, home values, rents). Request one at <a href="https://api.census.gov/data/key_signup.html" target="_blank" rel="noopener noreferrer">api.census.gov/data/key_signup.html</a> — it arrives by email.') ?>
       </div>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit">Save data sources</button></div>
   </form>
-  <p class="section-note">Always free and already on: map position and neighbourhood figures (U.S. Census), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).</p>
+  <p class="section-note">Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).</p>
 </section>
 
 <section class="section" id="usage">

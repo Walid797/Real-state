@@ -8,9 +8,10 @@ use App\Http;
 use App\Settings;
 
 /**
- * U.S. Census Bureau — free, no key required.
- *  - Geocoder: address → coordinates + census tract
+ * U.S. Census Bureau — free.
+ *  - Geocoder: address → coordinates + census tract (no key)
  *  - ACS 5-year: income, home value, rent, tenure for that tract
+ *    (the data API answers only with a key; keys are free at api.census.gov/data/key_signup.html)
  */
 final class Census
 {
@@ -75,8 +76,16 @@ final class Census
     }
 
     /** Neighbourhood numbers for a census tract. Null values mean the Census suppressed them. */
+    public static function hasKey(): bool
+    {
+        return Settings::has('census_key');
+    }
+
     public static function tractStats(array $tract): ?array
     {
+        if (!self::hasKey()) {
+            return null; // without a key the API only redirects to a "missing key" page
+        }
         $id = ['s' => $tract['state'], 'c' => $tract['county'], 't' => $tract['tract']];
         return Cache::remember('census', 'acs', $id, 86400 * 120, static function () use ($tract) {
             foreach (self::ACS_YEARS as $year) {
@@ -85,9 +94,7 @@ final class Census
                     'for' => 'tract:' . $tract['tract'],
                     'in' => 'state:' . $tract['state'] . ' county:' . $tract['county'],
                 ];
-                if (Settings::has('census_key')) {
-                    $q['key'] = Settings::get('census_key');
-                }
+                $q['key'] = (string) Settings::get('census_key');
                 $res = Http::get("https://api.census.gov/data/$year/acs/acs5?" . http_build_query($q), [], 20);
                 $rows = json_decode($res['body'], true);
                 if ($res['status'] !== 200 || !is_array($rows) || count($rows) < 2) {
