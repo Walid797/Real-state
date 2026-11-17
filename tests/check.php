@@ -140,6 +140,30 @@ $ok($res['total'] >= 100 && !$res['fetched'] && $res['snapshot'] !== null, 'seed
 $res = Search::run(Search::fromRequest(['q' => 'Dallas, TX']));
 $ok(!$res['fetched'] && str_contains((string) $res['notice'], 'No data source'), 'unknown area without provider explains itself');
 
+/* ── Which earlier pulls answer a new request for free ───────────────── */
+$ok(Search::covers([], ['price' => '*:600000', 'bedrooms' => '3:*']), 'an unfiltered pull covers any filter');
+$ok(Search::covers(['price' => '*:600000'], ['price' => '200000:500000', 'bedrooms' => '3:*']), 'wider price range covers a narrower one');
+$ok(!Search::covers(['price' => '*:600000'], ['price' => '*:700000']), 'narrower price range does not cover a wider one');
+$ok(!Search::covers(['bedrooms' => '3:*'], ['price' => '*:600000']), 'a pull limited to 3+ beds does not cover "any beds"');
+$ok(Search::covers(['propertyType' => 'Condo|Townhouse'], ['propertyType' => 'Condo']), 'type subset is covered');
+$ok(!Search::covers(['propertyType' => 'Condo'], ['propertyType' => 'Condo|Townhouse']), 'type superset is not');
+$ok(Search::covers(['days' => 365], ['days' => 180, 'bedrooms' => '2:*']) && !Search::covers(['days' => 90], ['days' => 180]), 'sold window');
+$ok(!Search::covers(['partial' => true], []), 'a partial (Zillow-data) pull never counts as complete');
+
+// A truncated pull exists for Dallas and a key is set: filtering by hand must NOT spend a request on its own.
+Settings::set('rentcast_key', 'dummy-key-never-sent');
+Db::run("DELETE FROM snapshots WHERE loc_key = 'city:TX:dallas'");
+Db::run('DELETE FROM api_log');
+Db::insert('snapshots', ['provider' => 'rentcast', 'mode' => 'sale', 'loc_key' => 'city:TX:dallas', 'filter_sig' => '', 'filter_json' => '[]',
+    'result_count' => 500, 'truncated' => 1, 'fetched_at' => now()]);
+$res = Search::run(Search::fromRequest(['q' => 'Dallas, TX', 'price_max' => '300000']));
+$ok($res['partial'] && !$res['fetched'], 'changed filters after a truncated pull → saved data, flagged as partial');
+$eq((int) Db::val('SELECT COUNT(*) FROM api_log'), 0, 'and no request was attempted');
+$res = Search::run(Search::fromRequest(['q' => 'Dallas, TX']));
+$ok(!$res['partial'] && !$res['fetched'], 'the same request as the pull is simply reused');
+Db::run("DELETE FROM snapshots WHERE loc_key = 'city:TX:dallas'");
+Settings::set('rentcast_key', null);
+
 /* ── Quota guard ─────────────────────────────────────────────────────── */
 Settings::set('rentcast_key', 'dummy-key-for-quota-test');
 Settings::set('rentcast_limit', '3');

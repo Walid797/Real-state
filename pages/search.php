@@ -246,7 +246,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <header class="results-head">
         <h1 class="display"><?= number_format($res['total']) ?> <?= $mode === 'sold' ? ($res['total'] === 1 ? 'sale' : 'sales') : ($res['total'] === 1 ? 'home for sale' : 'homes for sale') ?> in <?= e($loc['label']) ?></h1>
         <p class="results-meta">
-          <?php if ($snap): ?>
+          <?php if ($snap && $res['partial']): ?>
+            From what was saved when <strong><?= e(App\Quota::PROVIDERS[$snap['provider']] ?? $snap['provider']) ?></strong> was last asked about this area, <?= e(ago($snap['fetched_at'])) ?>.
+            These exact filters weren’t part of that pull, so there may be more<?= $provider ? ' — “Pull these filters” fetches them.' : '.' ?>
+          <?php elseif ($snap): ?>
             <?= $res['fetched'] ? 'Just pulled' : 'Pulled' ?> from <strong><?= e(App\Quota::PROVIDERS[$snap['provider']] ?? $snap['provider']) ?></strong>
             <?= $res['fetched'] ? '— one request used.' : e(ago($snap['fetched_at'])) . ' — this search cost nothing.' ?>
           <?php else: ?>
@@ -271,10 +274,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         <a class="btn btn-sm" href="<?= e(url('/export.csv', $query)) ?>"><?= icon('download', 14) ?>CSV</a>
         <?php endif; ?>
         <?php if ($provider): ?>
-        <form method="post" action="/search/act" class="inline" data-confirm="Pull this area again? It uses one request.">
+        <form method="post" action="/search/act" class="inline"<?= $res['partial'] ? '' : ' data-confirm="Pull this area again? It uses one request."' ?>>
           <?= csrf_field() ?><input type="hidden" name="do" value="refresh">
           <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
-          <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?>Refresh<span class="cost">1 request</span></button>
+          <button class="btn btn-sm<?= $res['partial'] ? ' btn-primary' : '' ?>" type="submit"><?= icon('refresh-cw', 14) ?><?= $res['partial'] ? 'Pull these filters' : 'Refresh' ?><span class="cost">1 request</span></button>
         </form>
         <?php endif; ?>
         <span class="grow"></span>
