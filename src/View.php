@@ -1,0 +1,157 @@
+<?php
+declare(strict_types=1);
+
+namespace App;
+
+/** Page chrome and the handful of fragments shared by more than one page. */
+final class View
+{
+    private const NAV = [
+        'search' => ['/', 'Search'],
+        'watchlist' => ['/watchlist', 'Watchlist'],
+        'alerts' => ['/alerts', 'Alerts'],
+        'market' => ['/market', 'Market'],
+        'add' => ['/add', 'Add a home'],
+        'sites' => ['/sites', 'Sites'],
+    ];
+
+    private static array $scripts = [];
+
+    public static function script(string $src): void
+    {
+        self::$scripts[$src] = true;
+    }
+
+    public static function asset(string $path): string
+    {
+        $file = APP_ROOT . '/public' . $path;
+        return $path . (is_file($file) ? '?v=' . substr(md5((string) filemtime($file)), 0, 8) : '');
+    }
+
+    public static function header(string $title, string $active = '', array $opt = []): void
+    {
+        $site = Auth::check() ? (string) Settings::get('site_name', 'Plat') : 'Plat';
+        $bare = !empty($opt['bare']);
+        header('Content-Type: text/html; charset=utf-8');
+        ?>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title><?= e($title) ?> · <?= e($site) ?></title>
+<link rel="preload" href="/assets/fonts/public-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
+<?php if (!empty($opt['map'])): ?>
+<link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+<?php endif; ?>
+<link rel="stylesheet" href="<?= e(self::asset('/assets/app.css')) ?>">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body class="<?= $bare ? 'bare' : '' ?><?= !empty($opt['wide']) ? ' wide' : '' ?>">
+<a class="skip" href="#main">Skip to content</a>
+<?php if (!$bare): ?>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="/" aria-label="<?= e($site) ?> — search"><?= e($site) ?></a>
+    <nav class="nav" aria-label="Main">
+      <?php foreach (self::NAV as $key => [$href, $label]): ?>
+      <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><?= $label ?></a>
+      <?php endforeach; ?>
+    </nav>
+    <div class="top-end">
+      <?= self::quotaChip() ?>
+      <a class="top-link<?= $active === 'settings' ? ' is-on' : '' ?>" href="/settings" title="Settings"><?= icon('settings', 17) ?><span class="sr">Settings</span></a>
+      <form method="post" action="/logout" class="inline">
+        <?= csrf_field() ?>
+        <button class="top-link" type="submit" title="Sign out"><?= icon('log-out', 17) ?><span class="sr">Sign out</span></button>
+      </form>
+    </div>
+  </div>
+</header>
+<?php endif; ?>
+<main id="main" class="<?= $bare ? 'bare-main' : 'page' ?>">
+<?php
+        $flash = flash();
+        if ($flash) {
+            echo '<div class="flash flash-' . e($flash['type']) . '" role="status">' . e($flash['msg']) . '</div>';
+        }
+    }
+
+    public static function footer(): void
+    {
+        ?>
+</main>
+<?php foreach (array_keys(self::$scripts) as $src): ?>
+<script src="<?= e(self::asset($src)) ?>" defer></script>
+<?php endforeach; ?>
+<script src="<?= e(self::asset('/assets/app.js')) ?>" defer></script>
+</body>
+</html>
+<?php
+    }
+
+    /** "RentCast 13 / 50" with a thin bar — the one number worth watching on a free plan. */
+    public static function quotaChip(): string
+    {
+        $out = '';
+        foreach (Quota::PROVIDERS as $id => $label) {
+            if (!Settings::has($id . '_key')) {
+                continue;
+            }
+            $limit = Quota::limit($id);
+            $used = min($limit, Quota::used($id));
+            $share = $limit > 0 ? (int) round($used / $limit * 100) : 100;
+            $state = $share >= 100 ? 'out' : ($share >= 80 ? 'low' : 'ok');
+            $out .= '<a class="quota quota-' . $state . '" href="/settings#usage" title="' . e($label . ': ' . $used . ' of ' . $limit . ' requests used this month. Resets in ' . plural(Quota::resetsIn(), 'day') . '.') . '">'
+                . '<span class="quota-label">' . e($label) . '</span>'
+                . '<span class="quota-num">' . $used . '<i>/' . $limit . '</i></span>'
+                . '<svg class="quota-bar" viewBox="0 0 100 3" preserveAspectRatio="none" aria-hidden="true"><rect class="t" width="100" height="3"/><rect class="f" width="' . $share . '" height="3"/></svg>'
+                . '</a>';
+        }
+        if ($out === '') {
+            $out = '<a class="quota quota-none" href="/settings#sources">Connect a data source</a>';
+        }
+        return $out;
+    }
+
+    public static function statusTag(array $p, string $mode = 'sale'): string
+    {
+        if ($mode === 'sold') {
+            return '<span class="tag tag-sold">Sold</span>';
+        }
+        return match ($p['status'] ?? '') {
+            'for_sale' => (($p['listing_type'] ?? '') && $p['listing_type'] !== 'Standard')
+                ? '<span class="tag tag-warn">' . e($p['listing_type']) . '</span>'
+                : '<span class="tag tag-live">For sale</span>',
+            'pending' => '<span class="tag tag-warn">Pending</span>',
+            'sold' => '<span class="tag tag-sold">Sold</span>',
+            default => '<span class="tag">Off market</span>',
+        };
+    }
+
+    /** A compact horizontal bar: where $value sits between $low and $high. */
+    public static function rangeBar(float $low, float $high, float $value): string
+    {
+        $span = max(1.0, $high - $low);
+        $pos = max(0, min(100, ($value - $low) / $span * 100));
+        return '<svg class="range" viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true">'
+            . '<rect class="t" y="4" width="100" height="2"/><rect class="m" x="' . round($pos, 1) . '" y="0" width="1.4" height="10"/></svg>';
+    }
+
+    public static function pager(int $total, int $perPage, int $page, array $query): string
+    {
+        $pages = (int) ceil($total / $perPage);
+        if ($pages <= 1) {
+            return '';
+        }
+        $link = static fn (int $p, string $label, bool $on = true) => $on
+            ? '<a class="btn btn-ghost" href="' . e(url('/', $query + ['page' => $p > 1 ? $p : null])) . '">' . $label . '</a>'
+            : '<span class="btn btn-ghost is-off">' . $label . '</span>';
+        return '<nav class="pager" aria-label="Pages">' . $link($page - 1, 'Previous', $page > 1)
+            . '<span class="pager-at">Page ' . $page . ' of ' . $pages . '</span>'
+            . $link($page + 1, 'Next', $page < $pages) . '</nav>';
+    }
+}

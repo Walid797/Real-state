@@ -1,0 +1,18 @@
+# Secrets / local config — never commit
+config.php
+realestate-config.php
+.env
+*.local.php
+
+# Runtime data
+storage/*
+!storage/.htaccess
+!storage/.gitkeep
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
+vendor/

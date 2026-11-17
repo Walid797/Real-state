@@ -1,0 +1,414 @@
+<?php
+declare(strict_types=1);
+
+use App\Address;
+use App\Geo;
+use App\PropertyRepo;
+use App\Providers\OpenWebNinja;
+use App\Providers\RentCast;
+use App\Quota;
+use App\Services\Comps;
+use App\Services\ExternalSites;
+use App\View;
+
+$p = PropertyRepo::find((int) $params['id']);
+if (!$p) {
+    http_response_code(404);
+    View::header('Not found');
+    echo '<div class="empty"><h1 class="display">That home isn’t on file.</h1><p>It may have been deleted. Search for the address to add it again.</p><p><a class="btn" href="/">Back to search</a></p></div>';
+    View::footer();
+    return;
+}
+
+$id = (int) $p['id'];
+$d = $p['details'];
+$events = PropertyRepo::events($id);
+$hasGeo = Geo::valid($p['lat'], $p['lng']);
+$forSale = in_array($p['status'], ['for_sale', 'pending'], true) && (int) $p['list_price'] > 0;
+$headline = $forSale ? (int) $p['list_price'] : (int) ($p['last_sale_price'] ?? 0);
+$pp = ppsf($headline, $p['sqft']);
+$dom = $forSale ? PropertyRepo::dom($p) : null;
+
+/* Comparable sales, with the radius / period picked in the toolbar. */
+$optR = isset($_GET['r']) && in_array((float) $_GET['r'], Comps::RADII, true) ? (float) $_GET['r'] : null;
+$optM = isset($_GET['m']) && in_array((int) $_GET['m'], Comps::MONTHS, true) ? (int) $_GET['m'] : null;
+$compOpt = array_filter(['radius' => $optR, 'months' => $optM], static fn ($v) => $v !== null);
+$comps = Comps::find($p, $compOpt);
+$stats = $comps['stats'];
+
+$points = [];
+if ($hasGeo) {
+    $points[] = ['id' => $id, 'lat' => (float) $p['lat'], 'lng' => (float) $p['lng'], 'label' => $headline ? money_short($headline) : 'Here', 'subject' => true];
+    foreach ($comps['comps'] as $c) {
+        $points[] = ['id' => (int) $c['id'], 'lat' => (float) $c['lat'], 'lng' => (float) $c['lng'], 'label' => money_short($c['last_sale_price']),
+            'price' => money($c['last_sale_price']), 'title' => $c['address'], 'sub' => 'Sold ' . fmt_date($c['last_sale_date']), 'href' => '/property/' . (int) $c['id'], 'sold' => true];
+    }
+}
+
+/* Price history chart: every dated price we know, oldest first. */
+$series = [];
+foreach (array_reverse($events) as $ev) {
+    if ((int) $ev['price'] > 0) {
+        $series[] = ['x' => fmt_date($ev['event_date'], 'M Y'), 'y' => (int) $ev['price']];
+    }
+}
+
+$links = ExternalSites::forProperty($p);
+$rcReady = RentCast::enabled();
+$ownReady = OpenWebNinja::enabled();
+$rcLeft = $rcReady ? Quota::left('rentcast') : 0;
+$ownLeft = $ownReady ? Quota::left('openwebninja') : 0;
+$eventLabel = ['listed' => 'Listed', 'price_change' => 'Price changed', 'sold' => 'Sold', 'removed' => 'Taken off the market', 'relisted' => 'Listed again'];
+$backQ = $p['city'] !== '' ? $p['city'] . ', ' . $p['state'] : $p['zip'];
+
+$pull = static function (string $do, string $label, string $cost, bool $on, string $confirm = '') use ($id): string {
+    return '<form method="post" action="/property/' . $id . '/act"' . ($confirm ? ' data-confirm="' . e($confirm) . '"' : '') . '>' . csrf_field()
+        . '<input type="hidden" name="do" value="' . e($do) . '">'
+        . '<button class="btn" type="submit"' . ($on ? '' : ' disabled') . '>' . e($label) . '<span class="cost">' . e($cost) . '</span></button></form>';
+};
+
+View::header($p['address'], '', ['map' => $hasGeo]);
+if ($hasGeo) {
+    View::script('/assets/vendor/leaflet/leaflet.js');
+}
+if (count($series) >= 2) {
+    View::script('/assets/vendor/chart.umd.js');
+}
+?>
+<nav class="crumbs" aria-label="Back">
+  <a href="<?= e(url('/', ['q' => $backQ])) ?>"><?= icon('arrow-left', 14) ?><?= e($backQ) ?></a>
+  <?php if ($p['watch_id']): ?><span>·</span><a href="/watchlist">Watchlist</a><?php endif; ?>
+</nav>
+
+<header class="p-head">
+  <div>
+    <div class="tags">
+      <?= View::statusTag($p) ?>
+      <?php if ($p['property_type']): ?><span class="tag"><?= e($p['property_type']) ?></span><?php endif; ?>
+      <?php if ($p['source'] === 'manual'): ?><span class="tag">Added by hand</span><?php endif; ?>
+    </div>
+    <h1 class="display"><?= e($p['address']) ?></h1>
+    <p class="where"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
+  </div>
+  <div class="p-price">
+    <?php if ($headline): ?>
+      <div class="price"><?= e(money($headline)) ?></div>
+      <p class="sub">
+        <?php if ($forSale): ?>
+          <?= $pp ? '$' . number_format($pp) . '/sqft' : 'Asking price' ?><?= $dom !== null ? ' · ' . ($dom === 0 ? 'listed today' : plural($dom, 'day') . ' on the market') : '' ?>
+        <?php else: ?>
+          Last sold <?= e(fmt_date($p['last_sale_date'])) ?><?= $pp ? ' · $' . number_format($pp) . '/sqft' : '' ?>
+        <?php endif; ?>
+      </p>
+    <?php else: ?>
+      <p class="sub">No price on file yet.</p>
+    <?php endif; ?>
+    <form method="post" action="/property/<?= $id ?>/act" class="inline">
+      <?= csrf_field() ?><input type="hidden" name="do" value="<?= $p['watch_id'] ? 'unwatch' : 'watch' ?>">
+      <button class="btn btn-sm<?= $p['watch_id'] ? '' : ' btn-primary' ?>" type="submit"><?= icon('star', 14) ?><?= $p['watch_id'] ? 'On watchlist' : 'Watch this home' ?></button>
+    </form>
+  </div>
+</header>
+
+<div class="facts-strip">
+  <div><b><?= $p['beds'] !== null ? e(trim_num($p['beds'])) : '—' ?></b><span>Bedrooms</span></div>
+  <div><b><?= $p['baths'] !== null ? e(trim_num($p['baths'])) : '—' ?></b><span>Bathrooms</span></div>
+  <div><b><?= $p['sqft'] ? number_format((int) $p['sqft']) : '—' ?></b><span>Sqft living area</span></div>
+  <div><b><?= e(PropertyRepo::lot($p['lot_sqft'])) ?></b><span>Lot</span></div>
+  <div><b><?= $p['year_built'] ? (int) $p['year_built'] : '—' ?></b><span>Year built</span></div>
+  <div><b><?= $p['hoa_fee'] !== null ? ((float) $p['hoa_fee'] > 0 ? '$' . number_format((float) $p['hoa_fee']) : 'None') : '—' ?></b><span>HOA per month</span></div>
+</div>
+
+<?php if (!empty($d['photos'])): ?>
+<div class="photos" aria-label="Listing photos">
+  <?php foreach (array_slice($d['photos'], 0, 24) as $i => $src): ?>
+  <img src="<?= e($src) ?>" alt="Photo <?= $i + 1 ?> of <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="p-cols">
+  <div>
+    <?php if ($p['description']): ?>
+    <section class="section">
+      <div class="section-head"><h2>From the listing</h2></div>
+      <p class="desc"><?= e($p['description']) ?></p>
+    </section>
+    <?php endif; ?>
+
+    <section class="section" id="comps">
+      <div class="section-head"><h2>Comparable sales</h2>
+        <span class="aside">within <?= e(trim_num($comps['radius'])) ?> mi · last <?= (int) $comps['months'] ?> months<?= $comps['widened'] ? ' (widened)' : '' ?></span></div>
+
+      <?php if (!$hasGeo): ?>
+        <p class="blank">This address has no map position, so nearby sales can’t be matched. Edit the address or pull its public record.</p>
+      <?php elseif (!$comps['comps']): ?>
+        <p class="blank">No recorded sales on file within <?= e(trim_num($comps['radius'])) ?> mile<?= $comps['radius'] == 1 ? '' : 's' ?>. Pull sales for this neighbourhood from the panel on the right, or add ones you find elsewhere by hand.</p>
+      <?php else: ?>
+        <div class="comp-sum">
+          <div><b><?= (int) $stats['count'] ?></b><span>Sales matched</span></div>
+          <div><b><?= e(money($stats['median_price'])) ?></b><span>Median price</span></div>
+          <div><b><?= $stats['median_ppsf'] ? '$' . number_format($stats['median_ppsf']) : '—' ?></b><span>Median $/sqft<?= $pp && $stats['median_ppsf'] ? ' · this home ' . e(pct(($pp - $stats['median_ppsf']) / $stats['median_ppsf'] * 100, 0)) : '' ?></span></div>
+          <div><b><?= $stats['value'] ? e(money($stats['value'])) : '—' ?></b><span><?= $stats['value'] ? 'Implied value · ' . e(money_short($stats['value_low'])) . '–' . e(money_short($stats['value_high'])) : 'Needs 3 sales with sqft' ?></span></div>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Address</th><th>Sold</th><th class="r">Price</th><th class="r">$/sqft</th><th class="r">Size</th><th class="r">Away</th><th class="r" title="How alike: distance, size, age, recency">Match</th></tr></thead>
+            <tbody>
+            <?php foreach ($comps['comps'] as $c): $sc = (int) $c['score']; ?>
+              <tr data-pid="<?= (int) $c['id'] ?>">
+                <td><a class="main" href="/property/<?= (int) $c['id'] ?>"><?= e($c['address']) ?></a>
+                  <span class="sub"><?= e(PropertyRepo::facts($c + ['year_built' => $c['year_built']]) ?: '—') ?></span></td>
+                <td class="nowrap"><?= e(fmt_date($c['last_sale_date'], 'M j, Y')) ?></td>
+                <td class="r"><?= e(money($c['last_sale_price'])) ?></td>
+                <td class="r"><?= $c['ppsf'] ? '$' . number_format($c['ppsf']) : '—' ?></td>
+                <td class="r"><?= $c['sqft'] ? number_format((int) $c['sqft']) : '—' ?></td>
+                <td class="r"><?= number_format($c['distance'], 2) ?> mi</td>
+                <td class="r"><span class="score<?= $sc >= 70 ? '' : ($sc >= 50 ? ' mid' : ' low') ?>"><?= $sc ?></span></td>
+              </tr>
+            <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($hasGeo): ?>
+      <form class="toolbar" method="get" action="/property/<?= $id ?>#comps">
+        <label class="small muted" for="r">Radius</label>
+        <select class="select" id="r" name="r" data-autosubmit>
+          <?php foreach (Comps::RADII as $r): ?><option value="<?= $r ?>"<?= selected($comps['radius'], $r) ?>><?= $r ?> mi</option><?php endforeach; ?>
+        </select>
+        <label class="small muted" for="m">Sold in the last</label>
+        <select class="select" id="m" name="m" data-autosubmit>
+          <?php foreach (Comps::MONTHS as $m): ?><option value="<?= $m ?>"<?= selected($comps['months'], $m) ?>><?= $m ?> months</option><?php endforeach; ?>
+        </select>
+        <a class="small" href="<?= e(url('/add', ['near' => $id])) ?>">Add a sale by hand</a>
+      </form>
+      <p class="section-note">Same property type, living area within 35%. Sale prices are public-record figures; Texas, Utah and a few other states don’t disclose them.</p>
+      <?php endif; ?>
+    </section>
+
+    <?php if (!empty($d['rc_comps'])): ?>
+    <section class="section">
+      <div class="section-head"><h2>Comparable listings</h2><span class="aside">asking prices RentCast used for its estimate</span></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Address</th><th>Status</th><th class="r">Asking</th><th class="r">Size</th><th class="r">Away</th><th class="r">Match</th></tr></thead>
+          <tbody>
+          <?php foreach (array_slice($d['rc_comps'], 0, 12) as $c): ?>
+            <tr>
+              <td><?php if (!empty($c['id'])): ?><a class="main" href="/property/<?= (int) $c['id'] ?>"><?= e($c['address']) ?></a><?php else: ?><?= e($c['address']) ?><?php endif; ?>
+                <span class="sub"><?= e(trim(($c['beds'] !== null ? trim_num($c['beds']) . ' bd · ' : '') . ($c['baths'] !== null ? trim_num($c['baths']) . ' ba' : ''))) ?></span></td>
+              <td><?= ($c['status'] ?? '') === 'for_sale' ? '<span class="tag tag-live">Active</span>' : '<span class="tag">Ended</span>' ?></td>
+              <td class="r"><?= e(money($c['price'])) ?></td>
+              <td class="r"><?= !empty($c['sqft']) ? number_format((int) $c['sqft']) : '—' ?></td>
+              <td class="r"><?= isset($c['distance']) ? number_format((float) $c['distance'], 2) . ' mi' : '—' ?></td>
+              <td class="r"><?= isset($c['correlation']) ? '<span class="score">' . (int) round($c['correlation'] * 100) . '</span>' : '—' ?></td>
+            </tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <section class="section">
+      <div class="section-head"><h2>Price history</h2></div>
+      <?php if (!$events): ?>
+        <p class="blank">No listing or sale events on file. Pull the public record for past sales, or the Zillow-data history for every listing and price change.</p>
+      <?php else: ?>
+        <?php if (count($series) >= 2): ?>
+        <div class="chart-box short"><canvas data-chart="price-chart" aria-label="Price history chart" role="img"></canvas></div>
+        <script type="application/json" id="price-chart"><?= json_embed(['format' => 'usd', 'labels' => array_column($series, 'x'), 'series' => [['name' => 'Price', 'data' => array_column($series, 'y'), 'points' => true, 'stepped' => true]]]) ?></script>
+        <?php endif; ?>
+        <ol class="timeline">
+          <?php foreach ($events as $i => $ev):
+              $prev = null;
+              for ($j = $i + 1; $j < count($events); $j++) { if ((int) $events[$j]['price'] > 0) { $prev = (int) $events[$j]['price']; break; } }
+              $chg = ($ev['event'] === 'price_change' && $prev && (int) $ev['price'] > 0) ? ((int) $ev['price'] - $prev) / $prev * 100 : null;
+          ?>
+          <li>
+            <span class="when"><?= e(fmt_date($ev['event_date'])) ?></span>
+            <span><?= e($eventLabel[$ev['event']] ?? $ev['event']) ?><?php if ($chg !== null): ?> <span class="<?= $chg < 0 ? 'down' : 'up' ?> num"><?= e(pct($chg)) ?></span><?php endif; ?></span>
+            <span class="amt"><?= e(money($ev['price'])) ?></span>
+          </li>
+          <?php endforeach; ?>
+        </ol>
+      <?php endif; ?>
+    </section>
+
+    <?php
+    $taxYears = [];
+    foreach ((array) ($d['taxes'] ?? []) as $y => $t) { $taxYears[(int) $y]['tax'] = $t['total'] ?? null; }
+    foreach ((array) ($d['assessments'] ?? []) as $y => $a) { $taxYears[(int) $y] = ($taxYears[(int) $y] ?? []) + ['value' => $a['value'] ?? null, 'land' => $a['land'] ?? null, 'impr' => $a['improvements'] ?? null]; }
+    foreach ((array) ($d['zillow_taxes'] ?? []) as $y => $t) { $taxYears[(int) $y] = ($taxYears[(int) $y] ?? []) + ['tax' => $t['total'] ?? null, 'value' => $t['value'] ?? null]; }
+    krsort($taxYears);
+    ?>
+    <?php if ($taxYears): ?>
+    <section class="section">
+      <div class="section-head"><h2>Taxes and assessed value</h2>
+        <?php if ($p['tax_annual'] && $headline): ?><span class="aside">effective rate <?= number_format((int) $p['tax_annual'] / $headline * 100, 2) ?>% of price</span><?php endif; ?></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Year</th><th class="r">Tax bill</th><th class="r">Assessed</th><th class="r">Land</th><th class="r">Building</th></tr></thead>
+          <tbody>
+          <?php foreach (array_slice($taxYears, 0, 8, true) as $y => $t): ?>
+            <tr><td><?= (int) $y ?></td><td class="r"><?= e(money($t['tax'] ?? null)) ?></td><td class="r"><?= e(money($t['value'] ?? null)) ?></td>
+              <td class="r"><?= e(money($t['land'] ?? null)) ?></td><td class="r"><?= e(money($t['impr'] ?? null)) ?></td></tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <?php endif; ?>
+
+    <?php
+    $featureLabels = ['architectureType' => 'Style', 'floorCount' => 'Floors', 'roomCount' => 'Rooms', 'unitCount' => 'Units', 'exteriorType' => 'Exterior',
+        'roofType' => 'Roof', 'foundationType' => 'Foundation', 'heatingType' => 'Heating', 'coolingType' => 'Cooling', 'garageType' => 'Parking',
+        'garageSpaces' => 'Garage spaces', 'fireplaceType' => 'Fireplace', 'poolType' => 'Pool', 'viewType' => 'View'];
+    $rec = [];
+    foreach ($featureLabels as $k => $label) {
+        if (isset($d['features'][$k]) && $d['features'][$k] !== '') { $rec[$label] = (string) $d['features'][$k]; }
+    }
+    foreach (['pool' => 'Pool', 'fireplace' => 'Fireplace', 'garage' => 'Parking'] as $k => $label) {
+        if (!isset($rec[$label]) && isset($d['features'][$k])) { $rec[$label] = $d['features'][$k] ? 'Yes' : 'No'; }
+    }
+    foreach (['heating' => 'Heating', 'cooling' => 'Cooling', 'parking' => 'Parking'] as $k => $label) {
+        if (!isset($rec[$label]) && !empty($d[$k])) { $rec[$label] = implode(', ', array_slice((array) $d[$k], 0, 3)); }
+    }
+    $record = array_filter([
+        'Parcel number' => $d['assessor_id'] ?? ($d['parcel_id'] ?? null),
+        'Subdivision' => $d['subdivision'] ?? null,
+        'Zoning' => $d['zoning'] ?? null,
+        'Owner' => !empty($d['owner']['names']) ? implode(', ', (array) $d['owner']['names']) : null,
+        'Owner type' => $d['owner']['type'] ?? null,
+        'Owner lives here' => isset($d['owner_occupied']) ? ($d['owner_occupied'] ? 'Yes' : 'No') : null,
+        'Tax mailing address' => $d['owner']['mailing'] ?? null,
+        'Legal description' => $d['legal'] ?? null,
+    ]);
+    ?>
+    <?php if ($rec || $record): ?>
+    <section class="section">
+      <div class="section-head"><h2>Building and public record</h2></div>
+      <dl class="kv">
+        <?php foreach ($rec + $record as $k => $v): ?><div><dt><?= e($k) ?></dt><dd><?= e($v) ?></dd></div><?php endforeach; ?>
+      </dl>
+      <?php if (!empty($d['interior'])): ?><p class="section-note">Interior: <?= e(implode(', ', (array) $d['interior'])) ?>.</p><?php endif; ?>
+    </section>
+    <?php endif; ?>
+
+    <?php if ($p['agent_name'] || $p['office_name'] || $p['mls_number']): ?>
+    <section class="section">
+      <div class="section-head"><h2>Listed by</h2></div>
+      <dl class="kv">
+        <?php if ($p['agent_name']): ?><div><dt>Agent</dt><dd><?= e($p['agent_name']) ?></dd></div><?php endif; ?>
+        <?php if ($p['agent_phone']): ?><div><dt>Phone</dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $p['agent_phone'])) ?>"><?= e($p['agent_phone']) ?></a></dd></div><?php endif; ?>
+        <?php if ($p['agent_email']): ?><div><dt>Email</dt><dd><a href="mailto:<?= e($p['agent_email']) ?>"><?= e($p['agent_email']) ?></a></dd></div><?php endif; ?>
+        <?php if ($p['office_name']): ?><div><dt>Brokerage</dt><dd><?= e($p['office_name']) ?></dd></div><?php endif; ?>
+        <?php if ($p['mls_number']): ?><div><dt>MLS #</dt><dd class="mono"><?= e($p['mls_number']) ?><?= $p['mls_name'] ? ' · ' . e($p['mls_name']) : '' ?></dd></div><?php endif; ?>
+      </dl>
+    </section>
+    <?php endif; ?>
+
+    <section class="section" id="notes">
+      <div class="section-head"><h2>My notes</h2></div>
+      <form method="post" action="/property/<?= $id ?>/act" class="mt-m">
+        <?= csrf_field() ?><input type="hidden" name="do" value="note">
+        <label class="sr" for="notes-box">Notes</label>
+        <textarea class="textarea" id="notes-box" name="notes" rows="4" placeholder="Roof looked new. Seller relocating — ask about closing date."><?= e($p['notes']) ?></textarea>
+        <div class="actions mt-m"><button class="btn btn-sm" type="submit">Save note</button>
+          <span class="small muted">Only you see this. First on file <?= e(fmt_date($p['first_seen_at'])) ?>, updated <?= e(ago($p['updated_at'])) ?>.</span></div>
+      </form>
+    </section>
+  </div>
+
+  <aside class="rail">
+    <?php if ($hasGeo): ?>
+    <div class="mini-map"><div id="map"></div></div>
+    <script type="application/json" id="map-data"><?= json_embed(['points' => $points, 'zoom' => 15, 'circle' => $comps['comps'] ? ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng'], 'miles' => $comps['radius']] : null]) ?></script>
+    <?php endif; ?>
+
+    <?php if ($p['est_value'] || $p['est_rent']): ?>
+    <div class="card estimate">
+      <span class="eyebrow"><?= $p['est_source'] === 'zestimate' ? 'Zestimate' : 'RentCast estimate' ?></span>
+      <?php if ($p['est_value']): ?>
+        <div class="price"><?= e(money($p['est_value'])) ?></div>
+        <?php if ($p['est_value_low'] && $p['est_value_high']): ?>
+          <?= View::rangeBar((float) $p['est_value_low'], (float) $p['est_value_high'], (float) ($forSale ? $p['list_price'] : $p['est_value'])) ?>
+          <div class="range-ends"><span><?= e(money_short($p['est_value_low'])) ?></span><span><?= $forSale ? 'marker = asking price' : '' ?></span><span><?= e(money_short($p['est_value_high'])) ?></span></div>
+        <?php endif; ?>
+        <?php if ($forSale): $gap = ((int) $p['list_price'] - (int) $p['est_value']) / (int) $p['est_value'] * 100; ?>
+          <p class="small soft">Asking is <span class="<?= $gap > 0 ? 'up' : 'down' ?>"><?= e(pct($gap)) ?></span> against the estimate.</p>
+        <?php endif; ?>
+      <?php endif; ?>
+      <?php if ($p['est_rent']): ?>
+        <div class="ctx-row"><span>Rent estimate</span><span class="num"><?= e(money($p['est_rent'])) ?>/mo</span></div>
+        <?php if ($headline): ?><div class="ctx-row"><span>Gross yield</span><span class="num"><?= number_format((int) $p['est_rent'] * 12 / $headline * 100, 1) ?>%</span></div><?php endif; ?>
+      <?php endif; ?>
+      <p class="small muted">An automated figure, checked <?= e(ago($p['est_at'])) ?>. Trust the sold comps more.</p>
+    </div>
+    <?php endif; ?>
+
+    <div class="card">
+      <h3>Pull more on this home</h3>
+      <p class="small muted mb-m">Each button spends one request and keeps the result for good.</p>
+      <div class="pulls">
+        <?php if ($rcReady): ?>
+          <?= $pull('record', 'Public record & past sales', '1 request', $rcLeft > 0) ?>
+          <?= $pull('sales', 'Sales in this neighbourhood', '1 request', $rcLeft > 0 && $hasGeo) ?>
+          <?= $pull('value', 'Value estimate', '1 request', $rcLeft > 0) ?>
+          <?= $pull('rent', 'Rent estimate', '1 request', $rcLeft > 0) ?>
+        <?php endif; ?>
+        <?php if ($ownReady): ?>
+          <?= $pull('zillow', 'Photos, history, Zillow comps', '1 request', $ownLeft > 0) ?>
+        <?php endif; ?>
+        <?php if (!$rcReady && !$ownReady): ?>
+          <p class="small">No data source connected. <a href="/settings#sources">Add a free key</a> to enable these.</p>
+        <?php endif; ?>
+      </div>
+      <?php if ($rcReady || $ownReady): ?>
+      <p class="small muted mt-m">
+        <?= $rcReady ? plural($rcLeft, 'RentCast request') . ' left' : '' ?><?= $rcReady && $ownReady ? ' · ' : '' ?><?= $ownReady ? $ownLeft . ' Zillow-data left' : '' ?> this month.
+      </p>
+      <?php endif; ?>
+    </div>
+
+    <?php if ($links): ?>
+    <div class="card">
+      <h3>Look it up elsewhere</h3>
+      <div class="linklist">
+        <?php foreach ($links as $l): ?>
+        <a href="<?= e($l['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e($l['name']) ?><?= icon('arrow-up-right', 14) ?></a>
+        <?php endforeach; ?>
+      </div>
+      <?php if ($p['watch_url'] || $p['source_url']): ?>
+      <p class="small mt-m"><a href="<?= e($p['watch_url'] ?: $p['source_url']) ?>" target="_blank" rel="noopener noreferrer">Original listing link</a></p>
+      <?php endif; ?>
+      <p class="small muted mt-s"><a href="/sites">Edit this list</a></p>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($hasGeo): ?>
+    <div class="card" data-context-url="/api/context/<?= $id ?>">
+      <h3>Flood risk</h3>
+      <div class="ctx" data-flood><div class="skeleton"></div><div class="skeleton"></div></div>
+      <h3 class="mt-l">Neighbourhood</h3>
+      <div class="ctx" data-hood><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    </div>
+    <?php endif; ?>
+
+    <div class="card">
+      <h3>This record</h3>
+      <p class="small muted">Source: <?= e(['rentcast' => 'RentCast', 'openwebninja' => 'Zillow data', 'manual' => 'entered by hand', 'import' => 'CSV import'][$p['source']] ?? $p['source']) ?>.</p>
+      <div class="actions mt-m">
+        <a class="btn btn-sm" href="<?= e(url('/add', ['id' => $id])) ?>"><?= icon('pencil', 14) ?>Edit facts &amp; price</a>
+        <form method="post" action="/property/<?= $id ?>/act" class="inline" data-confirm="Delete this home and its history? This can’t be undone.">
+          <?= csrf_field() ?><input type="hidden" name="do" value="delete">
+          <button class="btn btn-sm btn-danger" type="submit"><?= icon('trash-2', 14) ?>Delete</button>
+        </form>
+      </div>
+    </div>
+  </aside>
+</div>
+<?php
+View::footer();
