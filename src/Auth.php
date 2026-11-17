@@ -25,6 +25,8 @@ final class Auth
         }
         $life = self::SESSION_DAYS * 86400;
         ini_set('session.gc_maxlifetime', (string) $life);
+        ini_set('session.gc_probability', '1'); // some hosts disable GC and clean only their own directory
+        ini_set('session.gc_divisor', '100');
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         session_name('plat_sid');

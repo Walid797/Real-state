@@ -322,16 +322,16 @@ View::script('/assets/vendor/leaflet/leaflet.js');
               <div class="facts"><?= e(PropertyRepo::facts($r) ?: 'Details not on file') ?><?= $r['property_type'] ? ' · ' . e($r['property_type']) : '' ?></div>
             </div>
             <div class="side">
+              <?php if ($mode === 'sold'): ?>
+                <span>Sold <?= e(fmt_date($r['last_sale_date'])) ?></span>
+              <?php else: ?>
+                <?php if ($r['status'] === 'pending' || ($r['listing_type'] && $r['listing_type'] !== 'Standard')): ?><?= View::statusTag($r) ?><?php endif; ?>
+                <?php if ($dom !== null): ?><span><?= $dom === 0 ? 'Listed today' : ($dom === 1 ? 'Listed yesterday' : $dom . ' days listed') ?></span><?php endif; ?>
+              <?php endif; ?>
               <form method="post" action="/property/<?= (int) $r['id'] ?>/act">
                 <?= csrf_field() ?><input type="hidden" name="do" value="<?= $r['watch_id'] ? 'unwatch' : 'watch' ?>"><input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '/') ?>">
                 <button class="star<?= $r['watch_id'] ? ' is-on' : '' ?>" type="submit" title="<?= $r['watch_id'] ? 'On your watchlist — remove' : 'Add to watchlist' ?>"><?= icon('star', 17) ?><span class="sr"><?= $r['watch_id'] ? 'Remove from watchlist' : 'Add to watchlist' ?></span></button>
               </form>
-              <?php if ($mode === 'sold'): ?>
-                <span>Sold <?= e(fmt_date($r['last_sale_date'])) ?></span>
-              <?php else: ?>
-                <?= View::statusTag($r) ?>
-                <?php if ($dom !== null): ?><span><?= $dom === 0 ? 'Listed today' : plural($dom, 'day') . ' listed' ?></span><?php endif; ?>
-              <?php endif; ?>
             </div>
           </article>
         <?php endforeach; ?>

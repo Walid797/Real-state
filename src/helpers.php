@@ -136,6 +136,16 @@ function trim_num(mixed $v, string $dash = '—'): string
     return rtrim(rtrim(number_format((float) $v, 1), '0'), '.');
 }
 
+/** 5125553695 → (512) 555-3695; anything else is returned as typed. */
+function fmt_phone(?string $v): string
+{
+    $d = preg_replace('/\D/', '', (string) $v) ?? '';
+    if (strlen($d) === 11 && $d[0] === '1') {
+        $d = substr($d, 1);
+    }
+    return strlen($d) === 10 ? '(' . substr($d, 0, 3) . ') ' . substr($d, 3, 3) . '-' . substr($d, 6) : (string) $v;
+}
+
 function ppsf(mixed $price, mixed $sqft): ?float
 {
     $p = (float) $price;

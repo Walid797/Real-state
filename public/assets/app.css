@@ -78,11 +78,12 @@ button { cursor: pointer; }
 .up { color: var(--red); }
 .down { color: var(--teal-ink); }
 .nowrap { white-space: nowrap; }
-.mt-s { margin-top: 8px; } .mt-m { margin-top: 12px; } .mt-l { margin-top: 18px; } .mb-m { margin-bottom: 12px; }
+.mt-s { margin-top: 8px !important; } .mt-m { margin-top: 12px !important; } .mt-l { margin-top: 18px !important; } .mb-m { margin-bottom: 12px !important; }
 
 /* ── Top bar ──────────────────────────────────────────── */
 .top { position: sticky; top: 0; z-index: 30; background: rgba(246, 244, 238, .94); backdrop-filter: saturate(1.4) blur(8px); border-bottom: 1px solid var(--rule); }
 .top-in { max-width: var(--w); margin: 0 auto; padding: 0 24px; height: 58px; display: flex; align-items: center; gap: 28px; }
+.wide .top-in { max-width: none; }
 .brand { font: italic 600 27px/1 var(--serif); color: var(--ink); text-decoration: none; letter-spacing: -.02em; display: inline-flex; align-items: baseline; gap: 5px; }
 .brand::after { content: ""; width: 7px; height: 7px; background: var(--teal); transform: translateY(-1px); }
 .brand:hover { color: var(--ink); }
@@ -120,10 +121,13 @@ button { cursor: pointer; }
 .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); margin-bottom: 4px; }
 .section-head h2 { font: 600 11.5px/1.3 var(--sans); letter-spacing: .09em; text-transform: uppercase; }
 .section-head .aside { font-size: 13px; color: var(--ink-3); }
+.section-head > * { line-height: 16px; }
 .section-note { font-size: 13px; color: var(--ink-3); margin-top: 10px; max-width: 70ch; }
 
 .card { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--r); padding: 18px 20px; }
 .card + .card { margin-top: 14px; }
+.rail .card + .card { margin-top: 0; }
+.card h3 .tag { margin-left: 6px; vertical-align: 1px; }
 .card h3 { font: 600 14px/1.3 var(--sans); margin-bottom: 4px; }
 
 .flash { border: 1px solid var(--rule-2); border-left: 3px solid var(--teal); background: var(--surface); padding: 10px 14px; border-radius: var(--r); margin-bottom: 18px; font-size: 14px; }
@@ -186,6 +190,7 @@ button { cursor: pointer; }
 .table tr:last-child td { border-bottom: 0; }
 .table .r { text-align: right; padding-right: 0; padding-left: 12px; font-variant-numeric: tabular-nums; }
 .table th.r { padding-left: 12px; }
+.table td:first-child { min-width: 168px; }
 .table a.main { color: var(--ink); font-weight: 500; text-decoration: none; }
 .table a.main:hover { color: var(--blue); text-decoration: underline; }
 .table .sub { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
@@ -283,7 +288,7 @@ button { cursor: pointer; }
 .hrow .addr:hover { color: var(--blue); }
 .hrow .where { color: var(--ink-3); font-weight: 400; }
 .hrow .facts { font-size: 13.5px; color: var(--ink-2); margin-top: 2px; }
-.hrow .side { text-align: right; font-size: 12.5px; color: var(--ink-3); display: grid; gap: 4px; justify-items: end; position: relative; z-index: 1; }
+.hrow .side { font-size: 12.5px; color: var(--ink-3); display: flex; gap: 10px; align-items: center; white-space: nowrap; position: relative; z-index: 1; }
 .star { border: 0; background: none; padding: 4px; margin: -4px; color: var(--rule-2); border-radius: 4px; transition: color .15s; }
 .star:hover { color: var(--amber); }
 .star.is-on { color: #c98a12; }
@@ -293,10 +298,12 @@ button { cursor: pointer; }
 .pager-at { font-size: 13px; color: var(--ink-3); }
 
 .leaflet-container { font: 13px var(--sans); background: #e8e5db; }
-.pin { background: var(--ink); color: #fff; font: 600 11.5px/1 var(--sans); padding: 5px 7px; border-radius: 4px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0, 0, 0, .35); transform: translate(-50%, -100%); position: absolute; transition: background .12s; }
-.pin::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: inherit; transform: translateX(-50%) rotate(45deg); }
+/* A pin is a dot until the map is zoomed in far enough for price labels to fit (or it is hovered). */
+.pin { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--ink); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .4); transform: translate(-50%, -50%); font-size: 0; color: #fff; white-space: nowrap; transition: background .12s; cursor: pointer; }
 .pin.is-sold { background: #4a3f77; }
-.pin.is-hot, .pin:hover { background: var(--teal); z-index: 1000 !important; }
+.show-labels .pin, .pin.is-hot, .pin.is-subject { width: auto; height: auto; border: 0; border-radius: 4px; padding: 5px 7px; font: 600 11.5px/1 var(--sans); transform: translate(-50%, -100%) translateY(-5px); }
+.show-labels .pin::after, .pin.is-hot::after, .pin.is-subject::after { content: ""; position: absolute; left: 50%; bottom: -4px; width: 8px; height: 8px; background: inherit; transform: translateX(-50%) rotate(45deg); }
+.pin.is-hot, .pin:hover { background: var(--teal); }
 .pin.is-subject { background: var(--teal); }
 .pin-wrap { background: none; border: 0; }
 .leaflet-popup-content-wrapper { border-radius: 6px; box-shadow: var(--shadow); }
@@ -351,7 +358,8 @@ button { cursor: pointer; }
 .comp-sum > div { padding: 2px 16px 2px 0; }
 .comp-sum > div + div { padding-left: 16px; border-left: 1px solid var(--rule); }
 .comp-sum b { display: block; font: 500 24px/1.15 var(--serif); }
-.comp-sum span { font-size: 12px; color: var(--ink-3); }
+.comp-sum span { display: block; font-size: 12px; color: var(--ink-3); }
+.comp-sum span + span { margin-top: 1px; font-variant-numeric: tabular-nums; }
 .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 .toolbar .select { width: auto; height: 30px; font-size: 13px; }
 .timeline li { display: grid; grid-template-columns: 110px 1fr auto; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 14px; align-items: baseline; }
@@ -389,11 +397,11 @@ code.block { display: block; font: 12.5px/1.5 var(--mono); background: var(--ink
 
 /* ── Small screens ────────────────────────────────────── */
 @media (max-width: 1060px) {
-  .results { grid-template-columns: 1fr; }
+  .results { grid-template-columns: minmax(0, 1fr); }
   .results-map { position: relative; top: 0; height: 300px; order: -1; border-left: 0; border-bottom: 1px solid var(--rule); }
-  .p-cols { grid-template-columns: 1fr; gap: 0; }
+  .p-cols { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .rail { position: static; }
-  .home-grid { grid-template-columns: 1fr; }
+  .home-grid { grid-template-columns: minmax(0, 1fr); }
   .facts-strip { grid-template-columns: repeat(3, 1fr); }
   .facts-strip > div:nth-child(4) { padding-left: 0; border-left: 0; }
   .facts-strip > div:nth-child(n+4) { border-top: 1px solid var(--rule); }
@@ -402,9 +410,12 @@ code.block { display: block; font: 12.5px/1.5 var(--mono); background: var(--ink
 }
 @media (max-width: 760px) {
   .top-in { padding: 0 16px; gap: 16px; }
-  .quota-label { display: none; }
+  .quota-label, .quota-none { display: none; }
   .page { padding: 20px 16px 56px; }
-  .sbar { padding: 10px 16px; top: 58px; }
+  .sbar { padding: 10px 16px; position: static; }
+  .sbar .q { flex-basis: 100%; max-width: none; }
+  .sbar .mini { width: 96px; }
+  .results-map { height: 240px; }
   .results-list { padding: 18px 16px 48px; }
   .hrow { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
   .hrow .price { grid-column: 1; }

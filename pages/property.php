@@ -148,8 +148,8 @@ if (count($series) >= 2) {
         <div class="comp-sum">
           <div><b><?= (int) $stats['count'] ?></b><span>Sales matched</span></div>
           <div><b><?= e(money($stats['median_price'])) ?></b><span>Median price</span></div>
-          <div><b><?= $stats['median_ppsf'] ? '$' . number_format($stats['median_ppsf']) : '—' ?></b><span>Median $/sqft<?= $pp && $stats['median_ppsf'] ? ' · this home ' . e(pct(($pp - $stats['median_ppsf']) / $stats['median_ppsf'] * 100, 0)) : '' ?></span></div>
-          <div><b><?= $stats['value'] ? e(money($stats['value'])) : '—' ?></b><span><?= $stats['value'] ? 'Implied value · ' . e(money_short($stats['value_low'])) . '–' . e(money_short($stats['value_high'])) : 'Needs 3 sales with sqft' ?></span></div>
+          <div><b><?= $stats['median_ppsf'] ? '$' . number_format($stats['median_ppsf']) : '—' ?></b><span>Median $/sqft</span><?php if ($pp && $stats['median_ppsf']): $gapP = ($pp - $stats['median_ppsf']) / $stats['median_ppsf'] * 100; ?><span class="<?= $gapP > 0 ? 'up' : 'down' ?>">this home <?= e(pct($gapP, 0)) ?></span><?php endif; ?></div>
+          <div><b><?= $stats['value'] ? e(money($stats['value'])) : '—' ?></b><span>Implied value</span><span><?= $stats['value'] ? e(money_short($stats['value_low'])) . ' – ' . e(money_short($stats['value_high'])) : 'needs 3 sales with sqft' ?></span></div>
         </div>
         <div class="table-wrap">
           <table class="table">
@@ -302,10 +302,10 @@ if (count($series) >= 2) {
       <div class="section-head"><h2>Listed by</h2></div>
       <dl class="kv">
         <?php if ($p['agent_name']): ?><div><dt>Agent</dt><dd><?= e($p['agent_name']) ?></dd></div><?php endif; ?>
-        <?php if ($p['agent_phone']): ?><div><dt>Phone</dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $p['agent_phone'])) ?>"><?= e($p['agent_phone']) ?></a></dd></div><?php endif; ?>
+        <?php if ($p['agent_phone']): ?><div><dt>Phone</dt><dd><a href="tel:<?= e(preg_replace('/[^0-9+]/', '', $p['agent_phone'])) ?>"><?= e(fmt_phone($p['agent_phone'])) ?></a></dd></div><?php endif; ?>
         <?php if ($p['agent_email']): ?><div><dt>Email</dt><dd><a href="mailto:<?= e($p['agent_email']) ?>"><?= e($p['agent_email']) ?></a></dd></div><?php endif; ?>
         <?php if ($p['office_name']): ?><div><dt>Brokerage</dt><dd><?= e($p['office_name']) ?></dd></div><?php endif; ?>
-        <?php if ($p['mls_number']): ?><div><dt>MLS #</dt><dd class="mono"><?= e($p['mls_number']) ?><?= $p['mls_name'] ? ' · ' . e($p['mls_name']) : '' ?></dd></div><?php endif; ?>
+        <?php if ($p['mls_number']): ?><div><dt>MLS #</dt><dd><?= e($p['mls_number']) ?><?= $p['mls_name'] ? ' · ' . e($p['mls_name']) : '' ?></dd></div><?php endif; ?>
       </dl>
     </section>
     <?php endif; ?>
@@ -325,7 +325,7 @@ if (count($series) >= 2) {
   <aside class="rail">
     <?php if ($hasGeo): ?>
     <div class="mini-map"><div id="map"></div></div>
-    <script type="application/json" id="map-data"><?= json_embed(['points' => $points, 'zoom' => 15, 'circle' => $comps['comps'] ? ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng'], 'miles' => $comps['radius']] : null]) ?></script>
+    <script type="application/json" id="map-data"><?= json_embed(['points' => $points, 'zoom' => 15, 'labels' => count($points) <= 20, 'circle' => $comps['comps'] ? ['lat' => (float) $p['lat'], 'lng' => (float) $p['lng'], 'miles' => $comps['radius']] : null]) ?></script>
     <?php endif; ?>
 
     <?php if ($p['est_value'] || $p['est_rent']): ?>

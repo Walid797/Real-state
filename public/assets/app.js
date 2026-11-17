@@ -33,7 +33,7 @@
 
   /* Confirm before destructive or quota-spending posts. */
   document.addEventListener('submit', function (e) {
-    var msg = e.target.getAttribute('data-confirm');
+    var msg = (e.submitter && e.submitter.getAttribute('data-confirm')) || e.target.getAttribute('data-confirm');
     if (msg && !window.confirm(msg)) e.preventDefault();
   });
 
@@ -97,6 +97,13 @@
     }
     if (bounds.length === 1) map.setView(bounds[0], mapData.zoom || 15);
     else map.fitBounds(bounds, { padding: [36, 36], maxZoom: 16 });
+
+    // Price labels only when there is room for them: few pins, or zoomed in to street level.
+    var syncLabels = function () {
+      mapEl.classList.toggle('show-labels', !!mapData.labels || mapData.points.length <= 14 || map.getZoom() >= 15);
+    };
+    map.on('zoomend', syncLabels);
+    syncLabels();
 
     var hot = function (id, on, fromRow) {
       var m = pins[id];
