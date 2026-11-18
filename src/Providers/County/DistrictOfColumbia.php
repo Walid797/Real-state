@@ -36,14 +36,12 @@ final class DistrictOfColumbia implements CountySource
 
     public static function covers(array $p): bool
     {
-        $state = strtoupper((string) ($p['state'] ?? ''));
-        $county = strtolower((string) ($p['county'] ?? ''));
-        return $state === 'DC' || str_contains($county, 'district of columbia');
+        return strtoupper((string) ($p['state'] ?? '')) === 'DC';
     }
 
     public static function candidates(): string
     {
-        return "(state = 'DC' OR county LIKE '%district of columbia%')";
+        return "state = 'DC'";
     }
 
     /** OTR marks fair-market sales it used for appraisal as "Q" (qualified). */

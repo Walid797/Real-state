@@ -43,7 +43,7 @@ final class Arlington implements CountySource
             return false;
         }
         $county = strtolower((string) ($p['county'] ?? ''));
-        if ($county !== '') {
+        if ($county !== '' && !str_contains($county, 'columbia')) {
             return str_contains($county, 'arlington');
         }
         return (bool) preg_match('/^222\d\d$/', (string) ($p['zip'] ?? ''));
@@ -51,7 +51,7 @@ final class Arlington implements CountySource
 
     public static function candidates(): string
     {
-        return "state = 'VA' AND (county LIKE '%arlington%' OR ((county IS NULL OR county = '') AND zip LIKE '222__'))";
+        return "state = 'VA' AND (county LIKE '%arlington%' OR ((county IS NULL OR county = '' OR county LIKE '%columbia%') AND zip LIKE '222__'))";
     }
 
     public static function fairSale(string $type, int $price): bool

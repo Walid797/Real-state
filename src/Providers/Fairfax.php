@@ -57,7 +57,7 @@ final class Fairfax implements CountySource
     public static function candidates(): string
     {
         return "state = 'VA' AND ((county LIKE '%fairfax%' AND county NOT LIKE '%city%')"
-            . " OR ((county IS NULL OR county = '') AND (zip LIKE '201__' OR zip LIKE '220__' OR zip LIKE '221__' OR zip LIKE '223__')))";
+            . " OR ((county IS NULL OR county = '' OR county LIKE '%columbia%') AND (zip LIKE '201__' OR zip LIKE '220__' OR zip LIKE '221__' OR zip LIKE '223__')))";
     }
 
     public static function fairSale(string $type, int $price): bool
@@ -72,7 +72,7 @@ final class Fairfax implements CountySource
             return false;
         }
         $county = strtolower((string) ($p['county'] ?? ''));
-        if ($county !== '') {
+        if ($county !== '' && !str_contains($county, 'columbia')) {
             return str_contains($county, 'fairfax') && !str_contains($county, 'city');
         }
         return (bool) preg_match('/^(201|220|221|223)\d\d$/', (string) ($p['zip'] ?? '')); // Fairfax County's ZIP ranges; the lookup settles it

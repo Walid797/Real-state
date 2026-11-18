@@ -34,6 +34,11 @@ final class CountyRecords
     /** @return class-string<CountySource>|null */
     public static function sourceFor(array $p): ?string
     {
+        // A county that cannot be in the home's state (listings label some Virginia homes "District of
+        // Columbia") is ignored, so the ZIP decides instead.
+        if (str_contains(strtolower((string) ($p['county'] ?? '')), 'district of columbia') && strtoupper((string) ($p['state'] ?? '')) !== 'DC') {
+            $p['county'] = null;
+        }
         foreach (self::SOURCES as $s) {
             if ($s::covers($p)) {
                 return $s;

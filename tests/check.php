@@ -585,7 +585,8 @@ $ok($arl['county']['source'] === 'arlington' && $arl['county']['assessment_year'
 $M = App\Providers\County\Maryland::class;
 $D = App\Providers\County\DistrictOfColumbia::class;
 $ok(App\Services\CountyRecords::sourceFor(['state' => 'MD', 'zip' => '20910']) === $M && App\Services\CountyRecords::sourceFor(['state' => 'DC', 'zip' => '20007']) === $D
-    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'District of Columbia', 'zip' => '20007']) === $D && App\Services\CountyRecords::sourceFor(['state' => 'TX', 'zip' => '78704']) === null, 'Maryland and DC homes find their sources; places without one get none');
+    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'District of Columbia', 'zip' => '22209']) === App\Providers\County\Arlington::class
+    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'District of Columbia', 'zip' => '22101']) === App\Providers\Fairfax::class && App\Services\CountyRecords::sourceFor(['state' => 'TX', 'zip' => '78704']) === null, 'Maryland and DC homes find their sources; Virginia homes mislabelled “District of Columbia” go by their ZIP; places without one get none');
 $ok($M::fairSale('1', 369500) && !$M::fairSale('4', 369500) && !$M::fairSale('2', 50000) && $D::fairSale('Q', 900000) && !$D::fairSale('U', 900000), 'only arm’s-length (MD code 1) and qualified (DC Q) sales count');
 $ms = new ReflectionMethod($M, 'shape');
 $ms->setAccessible(true);
