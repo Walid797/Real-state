@@ -1,13 +1,10 @@
-# DC: sales, residential CAMA, tax facts, address points
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/57
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/25
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/56
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/64
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/8
-# Maryland: every parcel, and one address lookup
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertyData/MapServer/0
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertyData/MapServer/0/query?where=PREMSNUM%3D%2711214%27%20AND%20PREMZIP%3D%2721530%27&outFields=ACCTID,ADDRESS,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,CURTTLVL,DESCSTYL,JURSCODE&outSR=4326&returnGeometry=true&f=json
+# Maryland: lookups by address and recent sales count
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertyData/MapServer/0/query?where=PREMSNUM%3D%2711105%27%20AND%20PREMZIP%3D%2721766%27&outFields=ACCTID,ADDRESS,PREMSNAM,PREMSTYP,STRTUNT,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,CONVEY1,NFMTTLVL,NFMLNDVL,NFMIMPVL,DESCSTYL,RESITYP,LANDAREA,LUOM,BLDG_STORY,JURSCODE,SDATWEBADR&outSR=4326&returnGeometry=true&f=json
 https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=PREMZIP%3D%2720910%27%20AND%20TRADATE%3E%3D%2720251101%27&returnCountOnly=true&f=json
-# Arlington: assessment by parcel, properties in one ZIP
-https://datahub-v2.arlingtonva.us/api/RealEstate/Assessment?$filter=realEstatePropertyCode%20eq%20'01001009'&$orderby=assessmentDate%20desc&$top=2
-https://datahub-v2.arlingtonva.us/api/RealEstate/SalesHistory?$filter=saleDate%20ge%202025-11-18%20and%20saleAmt%20gt%201000&$top=5000&$select=realEstatePropertyCode
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=1%3D1&outFields=CONVEY1&returnDistinctValues=true&returnGeometry=false&f=json
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=PREMZIP%3D%2720910%27&outFields=TRADATE,CONSIDR1,CONVEY1,MDPVDATE&orderByFields=TRADATE%20DESC&resultRecordCount=3&returnGeometry=false&f=json
+# DC: lookup by address
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/56/query?where=PROPERTY_ADDRESS%20LIKE%20%273548%20T%20ST%25%27&outFields=SSL,PROPERTY_ADDRESS,TAXRATE,APPRAISED_VALUE_CURRENT_TOTAL,LAST_SALE_PRICE,LAST_SALE_DATE&f=json
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/57/query?where=SSL%3D%271302%20%20%20%200033%27&outFields=*&orderByFields=SALE_DATE%20DESC&f=json
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/57/query?where=1%3D1&outFields=QUALIFIED,SALE_CODE&returnDistinctValues=true&f=json
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/56/query?where=PROPERTY_ADDRESS%20LIKE%20%27%25%2020007%27&returnCountOnly=true&f=json

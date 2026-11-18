@@ -27,7 +27,7 @@ foreach ($lines as $url) {
     }
     $namesOnly = str_starts_with($url, 'names ');
     $url = $namesOnly ? substr($url, 6) : $url;
-    $isArc = str_contains($url, '/rest/services');
+    $isArc = str_contains($url, '/rest/services') && !str_contains($url, '/query');
     $u = $isArc ? $url . (str_contains($url, '?') ? '&' : '?') . 'f=json' : $url;
     [$st, $body, $err, $ms] = $get($u);
     echo "\n### $url -> " . ($st ?: 'no answer ' . $err) . " {$ms}ms\n";
