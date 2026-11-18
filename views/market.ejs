@@ -1,0 +1,90 @@
+<% if (region) { %>
+<%- include('partials/header', { title: label + ' market', active: 'market', opt: {} }) %>
+<nav class="crumbs"><a href="/market"><%- icon('arrow-left', 14) %>Market</a></nav>
+<header class="page-head">
+  <div>
+    <h1 class="display"><%= label %></h1>
+    <p><% if (zh) { %>Typical home value <strong><%= money(zh.value) %></strong> in <%= fmtDate(zh.date, 'F Y') %><% if (zh.yoy !== null) { %>, <span class="<%= zh.yoy >= 0 ? 'up' : 'down' %>"><%= pct(zh.yoy) %></span> over twelve months<% } %>.<% } else { %>No series on file yet.<% } %></p>
+  </div>
+  <div class="actions">
+    <a class="btn btn-sm" href="<%= url('/search', { q: label }) %>"><%- icon('search', 14) %>Homes for sale</a>
+  </div>
+</header>
+
+<% if (!hasData) { %>
+  <div class="empty">
+    <h2 class="display">Nothing came back for <%= label %>.</h2>
+    <p>No time series found for this area.</p>
+  </div>
+<% } else { %>
+  <% for (const ch of chartConfigs) { %>
+  <section class="section">
+    <div class="section-head"><h2><%= ch.title %></h2><span class="aside"><%= fmtDate(ch.start, 'M Y') %> – <%= fmtDate(ch.end, 'M Y') %></span></div>
+    <div class="chart-box"><canvas data-chart="chart-<%= ch.key %>" role="img" aria-label="<%= ch.title %> over time"></canvas></div>
+    <script type="application/json" id="chart-<%= ch.key %>"><%- jsonEmbed(ch.payload) %></script>
+  </section>
+  <% } %>
+
+  <section class="section">
+    <div class="section-head"><h2>Latest figures</h2></div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Measure</th><th>Month</th><th class="r">Value</th><th class="r">12-month change</th></tr></thead>
+        <tbody>
+        <% for (const row of latestRows) { %>
+          <tr><td><%= row.label %></td><td><%= fmtDate(row.date, 'M Y') %></td>
+            <td class="r"><%= row.usd ? money(row.value) : num(row.value) %></td>
+            <td class="r"><%= row.yoy !== null ? pct(row.yoy) : '—' %></td></tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
+
+<form method="post" action="/market" class="mt-l" data-confirm="Stop tracking this area and delete its figures?">
+  <%- csrfField() %><input type="hidden" name="do" value="remove"><input type="hidden" name="id" value="<%= region.id %>">
+  <button class="linkbtn danger small" type="submit">Stop tracking <%= label %></button>
+</form>
+<%- include('partials/footer', { scripts: ['/assets/vendor/chart.umd.js'] }) %>
+<% } else { %>
+<%- include('partials/header', { title: 'Market', active: 'market', opt: {} }) %>
+<header class="page-head">
+  <div>
+    <h1 class="display">Market</h1>
+    <p>Follow a ZIP or a city month by month: what a typical home is worth, how fast homes go, how many are for sale.</p>
+  </div>
+  <form class="actions" method="post" action="/market">
+    <%- csrfField() %><input type="hidden" name="do" value="add">
+    <label><span class="sr">ZIP or city</span><input class="input" name="q" placeholder="78745 or Dallas, TX" required></label>
+    <button class="btn btn-primary" type="submit"><%- icon('plus', 15) %>Track it</button>
+  </form>
+</header>
+
+<% if (!regions.length) { %>
+  <div class="empty">
+    <%- sketch('market-empty') %>
+    <h2 class="display">No areas tracked.</h2>
+    <p>Add a ZIP code or city above to track typical values, days pending, and inventory over time.</p>
+  </div>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Area</th><th class="r">Typical home value</th><th class="r">12 months</th><th class="r">5 years</th><th>Data through</th></tr></thead>
+      <tbody>
+      <% for (const r of regions) { %>
+        <tr>
+          <td><a class="main" href="/market/<%= r.id %>"><%= r.label %></a>
+            <span class="sub"><%= r.kind === 'zip' ? 'ZIP code' : 'City' %></span></td>
+          <td class="r"><%= r.latest ? money(r.latest.value) : '—' %></td>
+          <td class="r"><%- r.latest && r.latest.yoy !== null ? `<span class="${r.latest.yoy >= 0 ? 'up' : 'down'}">${e(pct(r.latest.yoy))}</span>` : '—' %></td>
+          <td class="r"><%= r.five !== null ? pct(r.five, 0) : '—' %></td>
+          <td><%- r.latest ? e(fmtDate(r.latest.date, 'M Y')) : '<span class="muted">no data</span>' %></td>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('partials/footer', { scripts: [] }) %>
+<% } %>

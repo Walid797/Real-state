@@ -1,0 +1,70 @@
+<%
+const bare = Boolean(opt && opt.bare);
+const navItems = [
+  ['dashboard', '/', 'Dashboard', 'view', 'layout-dashboard'],
+  ['search', '/search', 'Search', 'view', 'search'],
+  ['pipeline', '/pipeline', 'Pipeline', 'view', 'kanban'],
+  ['alerts', '/alerts', 'Alerts', 'view', 'bell'],
+  ['reports', '/reports', 'Reports', 'view', 'file-spreadsheet'],
+  ['market', '/market', 'Market', 'view', 'trending-up'],
+  ['add', '/add', 'Add a home', 'edit', 'plus'],
+];
+%><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title><%= title %> · <%= siteName %></title>
+<link rel="preload" href="/assets/fonts/public-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/assets/fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
+<% if (opt && opt.map) { %>
+<link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
+<% } %>
+<link rel="stylesheet" href="/assets/app.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body class="<%= bare ? 'bare' : '' %><%= (opt && opt.wide) ? ' wide' : '' %><%= (opt && opt.body) ? ' ' + opt.body : '' %>">
+<a class="skip" href="#main">Skip to content</a>
+<% if (!bare) { %>
+<header class="top">
+  <div class="top-in">
+    <button class="menu-btn" type="button" aria-controls="main-nav" aria-expanded="false" data-menu>
+      <span class="menu-open"><%- icon('menu', 22) %></span><span class="menu-close"><%- icon('x', 22) %></span><span class="sr">Menu</span>
+    </button>
+    <a class="brand" href="/" aria-label="<%= siteName %> — dashboard"><%= siteName %></a>
+    <nav class="nav" id="main-nav" aria-label="Main">
+      <% for (const [key, href, label, perm, ico] of navItems) {
+           if (perm === 'edit' && !canEdit) continue;
+      %>
+      <a href="<%= href %>"<%- key === active ? ' aria-current="page"' : '' %>><span class="nav-ico" aria-hidden="true"><%- icon(ico, 18) %></span><%= label %></a>
+      <% } %>
+      <div class="nav-more">
+        <a href="/account"<%- active === 'account' ? ' aria-current="page"' : '' %>><span class="nav-ico" aria-hidden="true"><%- icon('user', 18) %></span>My account<span class="nav-who"><%= user ? user.name : '' %></span></a>
+        <% if (canAdmin) { %>
+        <a href="/settings"<%- ['settings', 'users', 'sites'].includes(active) ? ' aria-current="page"' : '' %>><span class="nav-ico" aria-hidden="true"><%- icon('settings', 18) %></span>Settings, team &amp; sites</a>
+        <% } %>
+        <form method="post" action="/logout">
+          <%- csrfField() %>
+          <button type="submit"><span class="nav-ico" aria-hidden="true"><%- icon('log-out', 18) %></span>Sign out</button>
+        </form>
+      </div>
+    </nav>
+    <div class="top-end">
+      <% if (canAdmin) { %>
+      <a class="top-link<%= ['settings', 'users', 'sites'].includes(active) ? ' is-on' : '' %>" href="/settings" title="Settings, team and sites"><%- icon('settings', 17) %><span class="sr">Settings</span></a>
+      <% } %>
+      <a class="who<%= active === 'account' ? ' is-on' : '' %>" href="/account" title="My account"><span class="avatar" aria-hidden="true"><%= (user && user.name ? user.name : '?').slice(0, 1).toUpperCase() %></span><span class="who-name"><%= user ? user.name : '' %></span></a>
+      <form method="post" action="/logout" class="inline">
+        <%- csrfField() %>
+        <button class="top-link" type="submit" title="Sign out"><%- icon('log-out', 17) %><span class="sr">Sign out</span></button>
+      </form>
+    </div>
+  </div>
+</header>
+<% } %>
+<main id="main" class="<%= (opt && opt.main) ? opt.main : (bare ? 'bare-main' : 'page') %>">
+<% if (flash) { %>
+<div class="flash flash-<%= flash.type %>" role="status"><%= flash.msg %></div>
+<% } %>

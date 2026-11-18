@@ -1,0 +1,43 @@
+<section class="section" id="notes">
+  <div class="section-head"><h2>Team notes</h2><span class="aside">everyone on the team sees these</span></div>
+  <% if (canEdit) { %>
+  <form method="post" action="/property/<%= p.id %>/act#notes" class="mt-m">
+    <%- csrfField() %><input type="hidden" name="do" value="note">
+    <label class="sr" for="notes-box">New note</label>
+    <textarea class="textarea" id="notes-box" name="note" rows="3" placeholder="Drove by — roof looks new, side yard overgrown. Agent says seller wants to close in 30 days." required></textarea>
+    <div class="actions mt-m"><button class="btn btn-sm btn-primary" type="submit">Add note</button></div>
+  </form>
+  <% } %>
+  <% if (notes.length) { %>
+  <ol class="notes">
+    <% for (const n of notes) { %>
+    <li>
+      <div class="note-meta"><span class="avatar" aria-hidden="true"><%= (n.author || '?').slice(0, 1).toUpperCase() %></span>
+        <strong><%= n.author || 'Former member' %></strong><span class="muted"><%= fmtDate(n.created_at, 'M j, Y g:i a') %></span>
+        <% if (user && (n.user_id === user.id || canAdmin)) { %>
+        <form method="post" action="/property/<%= p.id %>/act#notes" class="inline" data-confirm="Delete this note?">
+          <%- csrfField() %><input type="hidden" name="do" value="note_delete"><input type="hidden" name="note_id" value="<%= n.id %>">
+          <button class="linkbtn muted small" type="submit">Delete</button></form>
+        <% } %>
+      </div>
+      <p><%- e(n.body).replace(/\n/g, '<br>') %></p>
+    </li>
+    <% } %>
+  </ol>
+  <% } else { %>
+  <p class="blank">No notes yet.</p>
+  <% } %>
+</section>
+
+<section class="section" id="history">
+  <div class="section-head"><h2>History</h2><span class="aside">who changed what, newest first</span></div>
+  <% if (history.length) { %>
+  <ol class="timeline">
+    <% for (const h of history.slice(0, 40)) { %>
+    <li><span class="when"><%= fmtDate(h.created_at, 'M j, Y') %></span><span><%= (ACTIVITY_LABELS[h.action] || h.action) + ': ' + h.detail %></span><span class="amt muted"><%= h.who %></span></li>
+    <% } %>
+  </ol>
+  <% } else { %>
+  <p class="blank">Nothing has happened to this home yet.</p>
+  <% } %>
+</section>

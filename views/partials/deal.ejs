@@ -1,0 +1,106 @@
+<%
+const inp = deal.inputs;
+const src = deal.source;
+const tag = (k) => (src[k] || 'est') === 'set'
+  ? '<span class="src src-set" title="Typed by the team">set</span>'
+  : '<span class="src" title="Estimated — type a figure to override">est.</span>';
+const renderField = (name, label, estimate, unit = '$', srcKey = '') => {
+  const v = savedDeal[name];
+  const ph = estimate === null || estimate === undefined ? '' : (unit === '$' ? Math.round(Number(estimate)).toLocaleString('en-US') : String(Number(Number(estimate).toFixed(2))));
+  const valStr = v === null || v === undefined ? '' : (unit === '$' ? Math.round(Number(v)).toLocaleString('en-US') : String(Number(Number(v).toFixed(2))));
+  return `<label class="field"><span>${e(label)} ${tag(srcKey || name)}</span>` +
+    `<span class="affix${unit === '$' ? ' affix-pre' : ' affix-post'}" data-unit="${e(unit)}">` +
+    `<input class="input" name="${name}" inputmode="decimal" value="${e(valStr)}" placeholder="${e(ph)}"${canEdit ? '' : ' disabled'}></span></label>`;
+};
+%>
+<section class="section" id="deal">
+  <div class="section-head"><h2>Deal analysis</h2><span class="aside">estimates in grey · type to override · shared with the team</span></div>
+
+  <% if (deal.ok) { const b = deal.base; %>
+  <div class="deal-sum">
+    <div><span>Total investment</span><b><%= money(b.total) %></b><small>cash needed <%= money(b.cash) %></small></div>
+    <div><span>Net profit</span><b class="<%= b.profit < 0 ? 'up' : 'down' %>"><%= (b.profit < 0 ? '−' : '') + money(Math.abs(b.profit)) %></b><small>after selling costs</small></div>
+    <div><span>ROI</span><b><%= b.roi.toFixed(1) %>%</b><small>profit ÷ total investment</small></div>
+    <div><span>Break-even sale</span><b><%= money(deal.break_even) %></b><small>ARV <%= money(inp.arvValue) %></small></div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="table deal-table">
+      <thead><tr><th>Line</th><th class="r">Cautious</th><th class="r">Typical</th><th class="r">Hopeful</th></tr></thead>
+      <tbody>
+      <% const sx = deal.scenarios;
+         const rows = [
+           ['Purchase price', (x) => inp.purchase],
+           ['Closing costs (buy)', (x) => x.closing],
+           ['Renovation + contingency', (x) => x.total - inp.purchase - x.closing - x.holding - x.financing],
+           ['Holding costs', (x) => x.holding],
+           ['Financing', (x) => x.financing],
+           ['Total investment', (x) => x.total],
+           ['Selling costs', (x) => x.selling],
+           ['Net profit', (x) => x.profit],
+         ];
+         for (const [label, get] of rows) {
+           const strong = label === 'Total investment' || label === 'Net profit';
+      %>
+        <tr<%= strong ? ' class="strong"' : '' %>><td><%= label %></td>
+          <% for (const k of ['pessimistic', 'typical', 'optimistic']) { const v = get(sx[k]); %>
+          <td class="r<%= label === 'Net profit' ? (v < 0 ? ' up' : ' down') : '' %>"><%= (v < 0 ? '−' : '') + money(Math.abs(v), '$0') %></td>
+          <% } %></tr>
+      <% } %>
+        <tr><td>ROI</td><% for (const k of ['pessimistic', 'typical', 'optimistic']) { %><td class="r"><%= sx[k].roi.toFixed(1) %>%</td><% } %></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="section-note">Cautious: ARV −8%, renovation +25%, two extra months. Hopeful: ARV +5%, renovation −10%, a month faster. Estimates, not appraisals or inspections — check them before an offer.</p>
+  <% } else { %>
+  <p class="note mt-m"><%- icon('info', 16) %><span>Not enough to run the numbers yet: <%= (deal.missing || []).join(', ') %>. Type them below to calculate.</span></p>
+  <% } %>
+
+  <details class="deal-edit"<%= deal.ok ? '' : ' open' %>>
+    <summary><%- icon('calculator', 15) %><%= canEdit ? 'Change the numbers' : 'Show the inputs' %></summary>
+    <form method="post" action="/property/<%= p.id %>/act#deal">
+      <%- csrfField() %><input type="hidden" name="do" value="deal">
+      <div class="deal-grid">
+        <%- renderField('purchase_price', 'Purchase price', inp.purchase, '$', 'purchase_price') %>
+        <%- renderField('arv', 'After-repair value (ARV)', deal.arv.value, '$', 'arv') %>
+        <%- renderField('reno_cost', 'Renovation', inp.reno, '$', 'reno_cost') %>
+        <%- renderField('contingency_pct', 'Contingency', inp.contPct, '%') %>
+        <%- renderField('closing_pct', 'Closing costs', inp.closingPct, '%') %>
+        <%- renderField('selling_pct', 'Selling costs', inp.sellingPct, '%') %>
+        <%- renderField('holding_months', 'Months held', inp.months, 'mo') %>
+        <%- renderField('holding_monthly', 'Holding per month', inp.monthly, '$') %>
+        <%- renderField('loan_ltv_pct', 'Loan (% of price)', inp.ltv, '%') %>
+        <%- renderField('loan_rate_pct', 'Interest rate', inp.rate, '%') %>
+        <%- renderField('loan_points_pct', 'Lender points', inp.points, '%') %>
+      </div>
+      <p class="hint">Renovation estimate: <%= CONDITION_OVERALL[deal.condition] || '' %> × <%= p.sqft ? num(p.sqft) + ' sqft' : 'unknown size' %> (rates under Settings). Holding = insurance &amp; utilities + property tax + HOA.</p>
+      <% if (['purchased', 'sold'].includes(p.watch_stage || '')) { %>
+      <h4 class="eyebrow mt-l">Actual results</h4>
+      <div class="deal-grid">
+        <%- renderField('actual_purchase', 'Actual purchase', null) %>
+        <%- renderField('actual_costs', 'Actual costs (all)', null) %>
+        <%- renderField('actual_sale', 'Actual sale', null) %>
+      </div>
+      <% if (deal.actual !== undefined) { %><p class="small">Actual profit <b class="<%= deal.actual < 0 ? 'up' : 'down' %>"><%= money(Math.abs(deal.actual)) %></b> vs <%= money(deal.base ? deal.base.profit : 0) %> predicted.</p><% } %>
+      <% } %>
+      <% if (canEdit) { %>
+      <div class="form-foot"><button class="btn btn-primary" type="submit">Save and recalculate</button><span class="small muted">Leave a box empty to go back to the estimate.<%= savedDeal.updated_at ? ' Last changed ' + ago(savedDeal.updated_at) + '.' : '' %></span></div>
+      <% } %>
+    </form>
+  </details>
+
+  <details class="deal-edit">
+    <summary><%- icon('gauge', 15) %>How the score of <%= sc.score !== null ? sc.score : '—' %> is made</summary>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Factor</th><th class="r">Points</th><th class="r">Out of</th></tr></thead>
+        <tbody>
+        <% for (const [k, [label, max]] of Object.entries(SCORE_WEIGHTS)) { %>
+          <tr><td><%= label %></td><td class="r"><%= sc.parts[k] %></td><td class="r muted"><%= max %></td></tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+    <p class="section-note">Risk <%= sc.risk %>/100 is separate: it rises with undisclosed condition, thin margins, few comparable sales, old construction, distressed sales and flood zones.</p>
+  </details>
+</section>

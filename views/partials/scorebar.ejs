@@ -1,0 +1,36 @@
+<%
+const band = scoreBand(sc.score);
+const riskBand = sc.risk >= 60 ? 'high' : (sc.risk >= 35 ? 'mid' : 'low');
+%>
+<section class="scorebar" aria-label="Investment summary">
+  <div class="sb-score score-<%= band %>">
+    <b><%= sc.score !== null ? sc.score : '—' %></b>
+    <span>Opportunity<br>score / 100</span>
+  </div>
+  <div class="sb-cell">
+    <span class="eyebrow">Est. net profit</span>
+    <b class="<%= deal.ok && deal.base.profit < 0 ? 'up' : '' %>"><%= deal.ok ? moneyShort(Math.abs(deal.base.profit)) + (deal.base.profit < 0 ? ' loss' : '') : '—' %></b>
+    <span><%= deal.ok ? 'ROI ' + deal.base.roi.toFixed(1) + '%' : 'Needs ' + (deal.missing || []).join(', ') %></span>
+  </div>
+  <div class="sb-cell">
+    <span class="eyebrow">After-repair value</span>
+    <b><%= deal.inputs.arvValue ? moneyShort(deal.inputs.arvValue) : '—' %></b>
+    <span><%= deal.source.arv === 'set' ? 'set by the team' : deal.arv.basis %></span>
+  </div>
+  <div class="sb-cell">
+    <span class="eyebrow">Max offer</span>
+    <b><%= deal.ok ? moneyShort(deal.max_offer) : '—' %></b>
+    <span><%= deal.ok ? 'for ' + moneyShort(deal.target) + ' profit · 70% rule ' + moneyShort(deal.rule70) : '' %></span>
+  </div>
+  <div class="sb-cell">
+    <span class="eyebrow">Risk</span>
+    <b class="risk-<%= riskBand %>"><%= sc.risk %><small>/100</small></b>
+    <span>Confidence <%= sc.confidence %>%</span>
+  </div>
+</section>
+<% if (sc.risks.length || sc.missing.length) { %>
+<p class="risk-line">
+  <% for (const r of sc.risks.slice(0, 5)) { %><span class="chip chip-bad"><%= r %></span><% } %>
+  <% if (sc.missing.length) { %><span class="chip">Missing: <%= sc.missing.slice(0, 5).join(', ') %></span><% } %>
+</p>
+<% } %>

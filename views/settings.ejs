@@ -1,0 +1,45 @@
+<%- include('partials/header', { title: 'Settings', active: 'settings', opt: {} }) %>
+<header class="page-head"><div><h1 class="display">Settings</h1></div></header>
+<nav class="setting-nav" aria-label="Sections">
+  <a href="#site">Site &amp; defaults</a><a href="/users">Team</a><a href="/sites">External sites</a><a href="#data">Data</a>
+</nav>
+
+<div class="narrow">
+<section class="section" id="site">
+  <div class="section-head"><h2>Site and deal defaults</h2></div>
+  <form method="post" action="/settings" class="mt-m" autocomplete="off">
+    <%- csrfField() %><input type="hidden" name="do" value="site">
+    <div class="form-grid">
+      <label class="field c4"><span>Site name</span><input class="input" name="site_name" value="<%= s('site_name') %>" maxlength="30"></label>
+      <label class="field c4"><span>Home state</span><input class="input" name="default_state" value="<%= s('default_state') %>" maxlength="20">
+        <small>“Entire state” searches and county names use this.</small></label>
+    </div>
+
+    <div class="card mt-l">
+      <h3>Deal calculator defaults</h3>
+      <p class="small soft mb-m">Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.</p>
+      <div class="form-grid">
+        <% for (const [k, [label, def, unit]] of Object.entries(DEAL_SETTINGS)) { %>
+        <label class="field c4"><span><%= label %></span><input class="input" name="<%= k %>" value="<%= s(k) %>" placeholder="<%= `${def} ${unit}` %>" inputmode="decimal"></label>
+        <% } %>
+      </div>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit">Save</button><span class="small muted">Your own name, password and Telegram are on <a href="/account">My account</a>.</span></div>
+  </form>
+</section>
+
+<section class="section" id="data">
+  <div class="section-head"><h2>What’s stored</h2></div>
+  <dl class="kv">
+    <div><dt>Homes on file</dt><dd><%= num(counts.homes) %></dd></div>
+    <div><dt>With a recorded sale</dt><dd><%= num(counts.sales) %></dd></div>
+    <div><dt>Price events</dt><dd><%= num(counts.events) %></dd></div>
+    <div><dt>Pipeline items</dt><dd><%= num(counts.watchlist) %></dd></div>
+  </dl>
+  <form method="post" action="/settings" class="mt-m">
+    <%- csrfField() %><input type="hidden" name="do" value="rescore">
+    <button class="btn btn-sm" type="submit"><%- icon('refresh-cw', 14) %>Recalculate all property scores</button>
+  </form>
+</section>
+</div>
+<%- include('partials/footer', { scripts: [] }) %>

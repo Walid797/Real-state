@@ -1,0 +1,63 @@
+<%- include('partials/header', { title: 'Team', active: 'users', opt: {} }) %>
+<header class="page-head">
+  <div>
+    <h1 class="display">Team</h1>
+    <p>Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.</p>
+  </div>
+</header>
+
+<section class="section">
+  <div class="section-head"><h2>Members</h2><span class="aside"><%= plural(users.length, 'person', 'people') %></span></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Person</th><th>Role</th><th>Sign-in</th><th>Last seen</th><th class="r">Actions taken</th><th></th></tr></thead>
+      <tbody>
+      <% for (const u of users) { %>
+        <tr<%= u.isActive ? '' : ' class="muted"' %>>
+          <td><strong><%= u.name || '—' %></strong><%- u.id === meId ? ' <span class="tag">You</span>' : '' %><span class="sub"><%= u.email %></span></td>
+          <td>
+            <form method="post" action="/users"><%- csrfField() %><input type="hidden" name="do" value="role"><input type="hidden" name="id" value="<%= u.id %>">
+              <label class="sr" for="r<%= u.id %>">Role</label>
+              <select class="select stage" id="r<%= u.id %>" name="role" data-autosubmit<%= u.isActive ? '' : ' disabled' %>>
+                <% for (const [k, label] of Object.entries(ROLES)) { %><option value="<%= k %>"<%= selected(u.role, k) %>><%= label %></option><% } %>
+              </select></form></td>
+          <td>Password<%- u.isActive ? '' : ' <span class="tag tag-bad">Disabled</span>' %></td>
+          <td class="nowrap"><%- u.lastLoginAt ? e(ago(u.lastLoginAt)) : '<span class="muted">Never</span>' %></td>
+          <td class="r"><%= u.actions %></td>
+          <td class="r nowrap">
+            <% if (u.id !== meId) { %>
+            <form method="post" action="/users" class="inline"><%- csrfField() %><input type="hidden" name="do" value="signout"><input type="hidden" name="id" value="<%= u.id %>">
+              <button class="linkbtn" type="submit">Sign out everywhere</button></form>
+            · <form method="post" action="/users" class="inline" data-confirm="<%= u.isActive ? 'Disable this account? They are signed out at once.' : 'Enable this account again?' %>"><%- csrfField() %><input type="hidden" name="do" value="toggle"><input type="hidden" name="id" value="<%= u.id %>">
+              <button class="linkbtn<%= u.isActive ? ' danger' : '' %>" type="submit"><%= u.isActive ? 'Disable' : 'Enable' %></button></form>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section narrow">
+  <div class="section-head"><h2>Add a team member</h2></div>
+  <form method="post" action="/users" class="mt-m">
+    <%- csrfField() %><input type="hidden" name="do" value="invite">
+    <div class="form-grid">
+      <label class="field c4"><span>Name</span><input class="input" name="name" placeholder="Jordan Lee" required></label>
+      <label class="field c4"><span>Email</span><input class="input" type="email" name="email" required></label>
+      <label class="field c4"><span>Role</span>
+        <select class="select" name="role">
+          <option value="partner">Partner</option><option value="viewer">Viewer</option><option value="admin">Admin</option>
+        </select></label>
+      <label class="field c6"><span>Initial password (min 12 chars)</span><input class="input" type="password" name="password" minlength="12" required></label>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><%- icon('plus', 15) %>Create member</button></div>
+  </form>
+  <dl class="kv mt-l">
+    <div><dt>Admin</dt><dd>Everything, including team, data sources and settings</dd></div>
+    <div><dt>Partner</dt><dd>Search, statuses, notes, deal numbers, adding homes</dd></div>
+    <div><dt>Viewer</dt><dd>Reads homes, deals and reports; changes nothing</dd></div>
+  </dl>
+</section>
+<%- include('partials/footer', { scripts: [] }) %>

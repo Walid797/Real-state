@@ -1,0 +1,10 @@
+<%- include('partials/header', { title, active: active || '', opt: opt || {} }) %>
+<div class="empty">
+  <% if (sketchName) { %><%- sketch(sketchName) %><% } %>
+  <h1 class="display"><%= heading %></h1>
+  <p><%= message %></p>
+  <% if (ctaHref && ctaLabel) { %>
+  <p><a class="btn" href="<%= ctaHref %>"><%= ctaLabel %></a></p>
+  <% } %>
+</div>
+<%- include('partials/footer', { scripts: [] }) %>

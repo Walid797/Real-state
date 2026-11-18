@@ -1,0 +1,59 @@
+<%- include('partials/header', { title: 'Sites', active: 'sites', opt: {} }) %>
+<header class="page-head">
+  <div>
+    <h1 class="display">Sites</h1>
+    <p>The other places you check. Each one becomes a link on every home and every search, already pointed at the same address or area.</p>
+  </div>
+</header>
+
+<section class="section">
+  <div class="section-head"><h2>Your list</h2><span class="aside"><%= plural(sites.length, 'site') %> · lower order shows first</span></div>
+  <% for (const s of sites) { %>
+  <form class="site-row" method="post" action="/sites">
+    <%- csrfField() %><input type="hidden" name="id" value="<%= s.id %>">
+    <label><span class="sr">Name</span><input class="input name" name="name" value="<%= s.name %>" required></label>
+    <label><span class="sr">Category</span>
+      <select class="select" name="category">
+        <% for (const [k, label] of Object.entries(categories)) { %><option value="<%= k %>"<%= selected(s.category, k) %>><%= label %></option><% } %>
+      </select></label>
+    <div class="urls">
+      <label><span class="sr">Link for one home</span><input class="input" name="property_url" value="<%= s.property_url || '' %>" placeholder="Link for one home — https://…{address_slug}…" spellcheck="false"></label>
+      <label><span class="sr">Link for an area</span><input class="input" name="area_url" value="<%= s.area_url || '' %>" placeholder="Link for an area — https://…{area_slug}…" spellcheck="false"></label>
+    </div>
+    <label><span class="sr">Order</span><input class="input" name="sort_order" value="<%= s.sort_order %>" inputmode="numeric" title="Order"></label>
+    <div class="actions">
+      <label class="check" title="Show this site"><input type="checkbox" name="enabled"<%= checked(s.enabled) %>>Show</label>
+      <button class="btn btn-sm" type="submit" name="do" value="save">Save</button>
+      <button class="btn btn-sm btn-ghost btn-danger" type="submit" name="do" value="delete" formnovalidate data-confirm="Remove <%= s.name %> from your list?" title="Remove <%= s.name %>"><%- icon('trash-2', 14) %><span class="sr">Remove</span></button>
+    </div>
+  </form>
+  <% } %>
+  <% if (!sites.length) { %><p class="blank">The list is empty. Add a site below or restore the originals.</p><% } %>
+</section>
+
+<section class="section">
+  <div class="section-head"><h2>Add a site</h2></div>
+  <form class="site-row" method="post" action="/sites">
+    <%- csrfField() %><input type="hidden" name="do" value="add">
+    <label><span class="sr">Name</span><input class="input name" name="name" placeholder="Compass" required></label>
+    <label><span class="sr">Category</span>
+      <select class="select" name="category">
+        <% for (const [k, label] of Object.entries(categories)) { %><option value="<%= k %>"><%= label %></option><% } %>
+      </select></label>
+    <div class="urls">
+      <label><span class="sr">Link for one home</span><input class="input" name="property_url" placeholder="https://www.google.com/search?q={address_full}+site%3Acompass.com" spellcheck="false"></label>
+      <label><span class="sr">Link for an area</span><input class="input" name="area_url" placeholder="https://www.compass.com/homes-for-sale/{city_slug}-{state_lower}/" spellcheck="false"></label>
+    </div>
+    <label><span class="sr">Order</span><input class="input" name="sort_order" value="<%= sites.length * 10 + 10 %>" inputmode="numeric" title="Order"></label>
+    <div class="actions">
+      <input type="hidden" name="enabled" value="1">
+      <button class="btn btn-sm btn-primary" type="submit">Add</button>
+    </div>
+  </form>
+
+  <form method="post" action="/sites" class="mt-l" data-confirm="Replace your list with the original ten sites?">
+    <%- csrfField() %><input type="hidden" name="do" value="reset">
+    <button class="linkbtn small" type="submit">Restore the original list</button>
+  </form>
+</section>
+<%- include('partials/footer', { scripts: [] }) %>

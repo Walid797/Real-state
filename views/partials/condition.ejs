@@ -1,0 +1,43 @@
+<%
+const stateClass = (s) => (s === 'new' || s === 'updated') ? 'chip-good' : ((s === 'needs_work' || s === 'original') ? 'chip-bad' : '');
+%>
+<section class="section" id="condition">
+  <div class="section-head"><h2>Condition &amp; renovation</h2>
+    <span class="aside"><%= cond.source === 'manual' ? 'set by the team' : 'read from the listing text' %><%= cond.renovated_year ? ' · renovated ' + cond.renovated_year : '' %></span></div>
+  <div class="cond-head">
+    <span class="cond-overall cond-<%= cond.overall %>"><%= CONDITION_OVERALL[cond.overall] || cond.overall %></span>
+    <% if (cond.overall === 'not_disclosed') { %><span class="small muted">The listing doesn’t say. Treat it as unknown until someone sees the house.</span><% } %>
+  </div>
+  <div class="cond-grid">
+    <% for (const [k, label] of Object.entries(CONDITION_PARTS)) { %>
+    <div class="cond-cell"><span><%= label %></span><span class="chip <%= stateClass(cond[k]) %>"><%= CONDITION_STATES[cond[k]] || cond[k] %></span></div>
+    <% } %>
+  </div>
+  <% if (cond.evidence && cond.evidence.length) { %>
+  <p class="section-note">Found in the listing: <% for (const ev of cond.evidence) { %><q><%= ev %></q> <% } %></p>
+  <% } %>
+  <% if (canEdit) { %>
+  <details class="deal-edit">
+    <summary><%- icon('wrench', 15) %>Correct the condition</summary>
+    <form method="post" action="/property/<%= p.id %>/act#condition">
+      <%- csrfField() %><input type="hidden" name="do" value="condition">
+      <div class="deal-grid">
+        <label class="field"><span>Overall</span><select class="select" name="overall">
+          <% for (const [k, l] of Object.entries(CONDITION_OVERALL)) { %><option value="<%= k %>"<%= selected(cond.overall, k) %>><%= l %></option><% } %>
+        </select></label>
+        <% for (const [k, label] of Object.entries(CONDITION_PARTS)) { %>
+        <label class="field"><span><%= label %></span><select class="select" name="<%= k %>">
+          <% for (const [sk, sl] of Object.entries(CONDITION_STATES)) { %><option value="<%= sk %>"<%= selected(cond[k], sk) %>><%= sl %></option><% } %>
+        </select></label>
+        <% } %>
+        <label class="field"><span>Renovated in</span><input class="input" name="renovated_year" inputmode="numeric" maxlength="4" value="<%= cond.renovated_year || '' %>"></label>
+      </div>
+      <div class="form-foot"><button class="btn btn-primary" type="submit">Save condition</button>
+        <% if (cond.source === 'manual') { %>
+        <button class="btn btn-ghost" type="submit" name="reset_auto" value="1">Go back to reading the listing</button>
+        <% } %>
+        <span class="small muted">Saved by hand, it is no longer overwritten by the listing text.</span></div>
+    </form>
+  </details>
+  <% } %>
+</section>

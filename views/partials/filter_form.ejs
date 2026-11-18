@@ -1,0 +1,105 @@
+<%
+const types = landing && (!f.types || !f.types.length) ? typesDefault : (f.types || []);
+const fmtVal = (k) => f[k] !== undefined && f[k] !== null ? String(Number(Number(f[k]).toFixed(2))) : '';
+const fmtMoney = (k) => f[k] !== undefined && f[k] !== null ? Math.round(Number(f[k])).toLocaleString('en-US') : '';
+const pairs = [
+  ['Purchase price ($)', 'price_min', 'price_max', '', true],
+  ['Bedrooms', 'beds_min', 'beds_max', '', false],
+  ['Bathrooms', 'baths_min', 'baths_max', '', false],
+  ['Living area (sqft)', 'sqft_min', 'sqft_max', '', false],
+  ['Lot (sqft)', 'lot_min', 'lot_max', '1 acre = 43,560 sqft', false],
+  ['Year built', 'year_min', 'year_max', '', false],
+  ['HOA ($ a month)', 'hoa_min', 'hoa_max', 'Max 0 = no HOA. Unknown fees are kept.', false],
+  ['Days on market', 'dom_min', 'dom_max', '', false],
+];
+%>
+<div class="filters">
+  <fieldset class="fgroup">
+    <legend><%= landing ? 'Area' : 'Type' %></legend>
+    <% if (landing) { %>
+    <label class="field"><span>Where</span>
+      <input class="input" type="search" name="q" value="<%= f.q || '' %>" placeholder="<%= stateName %> · Travis County · Austin, TX · 78704, 78745" required autocomplete="off">
+      <small>The whole state, a county, a city, or several ZIPs. Separate several areas with “;”.</small></label>
+    <div class="field"><span>Listings</span>
+      <span class="seg" role="group" aria-label="For sale or sold">
+        <label><input type="radio" name="mode" value="sale"<%= checked(f.mode === 'sale') %>><span>For sale</span></label>
+        <label><input type="radio" name="mode" value="sold"<%= checked(f.mode === 'sold') %>><span>Sold</span></label>
+      </span></div>
+    <% } %>
+    <div class="field"><span>Property type</span>
+      <div class="checks-row">
+        <% for (const t of PROPERTY_TYPES) { %>
+        <label class="check"><input type="checkbox" name="types[]" value="<%= t %>"<%= checked(types.includes(t)) %>><%= t %></label>
+        <% } %>
+      </div><small>None ticked = any type.</small></div>
+  </fieldset>
+
+  <fieldset class="fgroup">
+    <legend>Price and size</legend>
+    <% for (const [label, minKey, maxKey, hint, isMoney] of pairs) { %>
+    <div class="field"><span><%= label %></span><div class="pair">
+      <input class="input" name="<%= minKey %>" inputmode="decimal" placeholder="Min" value="<%= isMoney ? fmtMoney(minKey) : fmtVal(minKey) %>" aria-label="<%= label %> minimum">
+      <input class="input" name="<%= maxKey %>" inputmode="decimal" placeholder="Max" value="<%= isMoney ? fmtMoney(maxKey) : fmtVal(maxKey) %>" aria-label="<%= label %> maximum">
+    </div><% if (hint) { %><small><%= hint %></small><% } %></div>
+    <% } %>
+    <label class="field"><span>Garage / parking, at least</span>
+      <select class="select" name="garage_min"><option value="">Any</option>
+        <% for (const n of [1, 2, 3]) { %><option value="<%= n %>"<%= selected(f.garage_min ?? '', n) %>><%= n %>+ spaces</option><% } %>
+      </select></label>
+    <% if (f.mode === 'sold') { %>
+    <label class="field"><span>Sold within</span>
+      <select class="select" name="sold_days">
+        <% for (const d of [30, 90, 180, 365, 730]) { %><option value="<%= d %>"<%= selected(f.sold_days, d) %>><%= daysLabel(d).charAt(0).toUpperCase() + daysLabel(d).slice(1) %></option><% } %>
+      </select></label>
+    <% } %>
+  </fieldset>
+
+  <fieldset class="fgroup">
+    <legend>Listing status</legend>
+    <div class="checks">
+      <% for (const [k, label] of Object.entries(LISTING_FILTER_LABELS)) { %>
+      <label class="check"><input type="checkbox" name="listing[]" value="<%= k %>"<%= checked((f.listing || []).includes(k)) %>><%= label %></label>
+      <% } %>
+    </div>
+    <small class="hint">None ticked = all active listings. Ticked ones are combined with “or”.</small>
+  </fieldset>
+
+  <fieldset class="fgroup">
+    <legend>Renovation &amp; condition</legend>
+    <div class="field"><span>Overall condition</span>
+      <div class="checks">
+        <% for (const [k, label] of Object.entries(CONDITION_OVERALL)) { %>
+        <label class="check"><input type="checkbox" name="cond[]" value="<%= k %>"<%= checked((f.cond || []).includes(k)) %>><%= label %></label>
+        <% } %>
+      </div><small>None ticked = all conditions.</small></div>
+    <% for (const [part, label] of [['kitchen', 'Kitchen'], ['bathroom', 'Bathroom'], ['roof', 'Roof'], ['hvac', 'HVAC']]) { %>
+    <div class="field row-field"><span><%= label %></span>
+      <span class="seg seg-sm" role="group" aria-label="<%= label %>">
+        <% for (const [k, l] of Object.entries(CONDITION_FILTER)) { %>
+        <label><input type="radio" name="c_<%= part %>" value="<%= k %>"<%= checked((f['c_' + part] || 'any') === k) %>><span><%= l %></span></label>
+        <% } %>
+      </span></div>
+    <% } %>
+    <small class="hint">Read from the listing text. Anything not mentioned is “not disclosed”, never assumed fine.</small>
+  </fieldset>
+
+  <fieldset class="fgroup">
+    <legend>Investment</legend>
+    <label class="field"><span>Opportunity score, at least</span>
+      <select class="select" name="score_min"><option value="">Any</option>
+        <% for (const n of [40, 50, 60, 70, 80]) { %><option value="<%= n %>"<%= selected(f.score_min ?? '', n) %>><%= n %> / 100</option><% } %>
+      </select></label>
+    <label class="field"><span>Estimated profit, at least ($)</span>
+      <input class="input" name="profit_min" inputmode="numeric" value="<%= fmtMoney('profit_min') %>" placeholder="40,000"></label>
+    <label class="field"><span>Risk, at most</span>
+      <select class="select" name="risk_max"><option value="">Any</option>
+        <% for (const [n, l] of [[30, 'Low (≤ 30)'], [50, 'Moderate (≤ 50)'], [70, 'High (≤ 70)']]) { %><option value="<%= n %>"<%= selected(f.risk_max ?? '', n) %>><%= l %></option><% } %>
+      </select></label>
+    <% if (landing) { %>
+    <label class="field"><span>Sort by</span>
+      <select class="select" name="sort">
+        <% for (const [k, label] of Object.entries(PROPERTY_SORTS)) { %><option value="<%= k %>"<%= selected(f.sort, k) %>><%= label %></option><% } %>
+      </select></label>
+    <% } %>
+  </fieldset>
+</div>
