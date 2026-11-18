@@ -1,10 +1,12 @@
-# Maryland: lookups by address and recent sales count
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertyData/MapServer/0/query?where=PREMSNUM%3D%2711105%27%20AND%20PREMZIP%3D%2721766%27&outFields=ACCTID,ADDRESS,PREMSNAM,PREMSTYP,STRTUNT,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,CONVEY1,NFMTTLVL,NFMLNDVL,NFMIMPVL,DESCSTYL,RESITYP,LANDAREA,LUOM,BLDG_STORY,JURSCODE,SDATWEBADR&outSR=4326&returnGeometry=true&f=json
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=PREMZIP%3D%2720910%27%20AND%20TRADATE%3E%3D%2720251101%27&returnCountOnly=true&f=json
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=1%3D1&outFields=CONVEY1&returnDistinctValues=true&returnGeometry=false&f=json
-https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer/0/query?where=PREMZIP%3D%2720910%27&outFields=TRADATE,CONSIDR1,CONVEY1,MDPVDATE&orderByFields=TRADATE%20DESC&resultRecordCount=3&returnGeometry=false&f=json
-# DC: lookup by address
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/56/query?where=PROPERTY_ADDRESS%20LIKE%20%273548%20T%20ST%25%27&outFields=SSL,PROPERTY_ADDRESS,TAXRATE,APPRAISED_VALUE_CURRENT_TOTAL,LAST_SALE_PRICE,LAST_SALE_DATE&f=json
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/57/query?where=SSL%3D%271302%20%20%20%200033%27&outFields=*&orderByFields=SALE_DATE%20DESC&f=json
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/57/query?where=1%3D1&outFields=QUALIFIED,SALE_CODE&returnDistinctValues=true&f=json
-https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer/56/query?where=PROPERTY_ADDRESS%20LIKE%20%27%25%2020007%27&returnCountOnly=true&f=json
+# Florida: Lee
+https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services
+names https://gismapserver.leegov.com/gisserver910/rest/services/DataExplorer/LandRecords/MapServer
+# Florida: Miami-Dade
+https://arcgis.gdsc.miami.edu/arcgis/rest/services/mdc_property_point_view/MapServer
+https://gisweb.miamidade.gov/arcgis/rest/services
+# Florida: Palm Beach
+names https://pbcmaps.pbcgov.org/arcgis/rest/services/OpenData/open_data_v2/MapServer
+https://pbcmaps.pbcgov.org/arcgis/rest/services
+# Florida: Broward
+https://gisweb-adapters.bcpa.net/arcgis/rest/services
+https://bcgishub.broward.org/server/rest/services
