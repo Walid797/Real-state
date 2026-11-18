@@ -32,6 +32,17 @@ final class Jobs
                     $log[] = 'Daily summaries sent: ' . $d . '.';
                 }
             }
+            if ($job === 'auto' || $job === 'score' || $job === 'mail') {
+                // Listing e-mails: every scheduler run, so new homes arrive within about ten minutes.
+                foreach (Services\MailListings::run($job === 'mail' ? 200 : 60) as $line) {
+                    $log[] = $line;
+                }
+            }
+            if ($job === 'auto' || $job === 'county') {
+                foreach (Services\CountyRecords::run($job === 'county' ? 240 : 90) as $line) {
+                    $log[] = $line;
+                }
+            }
             if ($job === 'auto' || $job === 'score') {
                 // Homes never scored, or whose record changed since: oldest first, a slice per run.
                 $ids = array_column(Db::all(

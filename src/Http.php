@@ -109,4 +109,43 @@ final class Http
         }
         return ['status' => $status, 'error' => $err, 'bytes' => $bytes];
     }
+
+    /**
+     * Where a link from an e-mail leads (newsletter click-trackers wrap listing links), without
+     * downloading any page: follows up to $hops redirects by hand, https only, and refuses hosts
+     * that resolve to private or reserved addresses, pinning the checked address for the request.
+     * $stop says when a URL is already the destination. Returns the last URL reached, or null.
+     */
+    public static function finalUrl(string $url, callable $stop, int $hops = 4): ?string
+    {
+        for ($i = 0; $i <= $hops; $i++) {
+            if ($stop($url)) {
+                return $url;
+            }
+            $host = (string) parse_url($url, PHP_URL_HOST);
+            if (!preg_match('#^https://#i', $url) || $host === '' || filter_var($host, FILTER_VALIDATE_IP)) {
+                return null;
+            }
+            $ip = gethostbyname($host);
+            if ($ip === $host || !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return null;
+            }
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_NOBODY => false, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false,
+                CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_CONNECTTIMEOUT => 6, CURLOPT_TIMEOUT => 10,
+                CURLOPT_RESOLVE => [$host . ':443:' . $ip], CURLOPT_USERAGENT => self::UA,
+                CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2,
+                CURLOPT_RANGE => '0-0', // the redirect is in the headers; skip the page
+            ]);
+            curl_exec($ch);
+            $next = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);
+            curl_close($ch);
+            if ($next === '') {
+                return $url;
+            }
+            $url = $next;
+        }
+        return $stop($url) ? $url : null;
+    }
 }

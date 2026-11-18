@@ -28,6 +28,12 @@ if (!$p) {
 }
 
 $id = (int) $p['id'];
+// Fairfax County public record: free and quick, so it is looked up the first time a home is opened.
+if (App\Services\CountyRecords::wanted($p) && App\Services\CountyRecords::enrich($p) === 'found') {
+    Score::refresh((int) $p['id']);
+    $p = PropertyRepo::find((int) $p['id']);
+}
+$id = (int) $p['id'];
 $d = $p['details'];
 $events = PropertyRepo::events($id);
 $hasGeo = Geo::valid($p['lat'], $p['lng']);
@@ -188,6 +194,7 @@ if (count($series) >= 2) {
     <?php endif; ?>
 
     <?php include APP_ROOT . '/pages/partials/listing_details.php'; ?>
+    <?php include APP_ROOT . '/pages/partials/county_record.php'; ?>
 
     <?php include APP_ROOT . '/pages/partials/deal.php'; ?>
     <?php include APP_ROOT . '/pages/partials/condition.php'; ?>

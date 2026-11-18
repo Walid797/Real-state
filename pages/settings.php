@@ -65,6 +65,36 @@ if (is_post()) {
             $anchor = '#aerial';
             break;
 
+        case 'free':
+            Settings::set('mail_listings_on', isset($_POST['mail_listings_on']) ? '1' : '0');
+            Settings::set('imap_host', input('imap_host', 'imap.hostinger.com', 120) ?: 'imap.hostinger.com');
+            Settings::set('imap_port', $int('imap_port', 1, 65535, 993));
+            Settings::set('mail_senders_extra', mb_substr(strtolower(preg_replace('/[^a-z0-9.,\s-]/i', '', input('mail_senders_extra', '', 500)) ?? ''), 0, 500));
+            $rate = parse_num(input('fairfax_tax_rate', '', 10));
+            Settings::set('fairfax_tax_rate', $rate !== null && $rate >= 0 && $rate < 5 ? (string) $rate : '1.12');
+            flash('Free sources saved.');
+            $anchor = '#free';
+            break;
+
+        case 'mail_now':
+            @set_time_limit(280);
+            $lines = App\Services\MailListings::run(200);
+            flash($lines ? implode(' ', $lines) : 'No new listing e-mails since the last check.', Settings::get('mail_last_error') ? 'err' : 'ok');
+            $anchor = '#free';
+            break;
+
+        case 'county_zip':
+            @set_time_limit(280);
+            $zip = preg_replace('/\D/', '', input('zip', '', 5)) ?? '';
+            if (strlen($zip) !== 5) {
+                flash('Type a 5-digit ZIP code.', 'err');
+            } else {
+                $r = App\Services\CountyRecords::areaSales($zip, 200);
+                flash($r['message'] . ($r['ok'] ? ' Homes for sale there are re-scored within minutes.' : ''), $r['ok'] ? 'ok' : 'err');
+            }
+            $anchor = '#free';
+            break;
+
         case 'notify':
             $email = input('notify_email', '', 190);
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -152,7 +182,7 @@ View::header('Settings', 'settings');
 ?>
 <header class="page-head"><div><h1 class="display">Settings</h1></div></header>
 <nav class="setting-nav" aria-label="Sections">
-  <a href="#sources">Data sources</a><a href="#aerial">3D view</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
+  <a href="#sources">Data sources</a><a href="#free">Free sources</a><a href="#aerial">3D view</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
 </nav>
 
 <div class="narrow">
@@ -215,6 +245,70 @@ View::header('Settings', 'settings');
     <div class="form-foot"><button class="btn btn-primary" type="submit">Save data sources</button></div>
   </form>
   <p class="section-note">Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).</p>
+</section>
+
+<?php
+$mailOn = App\Services\MailListings::enabled();
+$mailLog = Db::all('SELECT * FROM mail_log ORDER BY id DESC LIMIT 8');
+$mailbox = (string) (Settings::get('smtp_user') ?? '');
+$countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_%' ORDER BY v DESC LIMIT 12");
+?>
+<section class="section" id="free">
+  <div class="section-head"><h2>Free sources</h2><span class="aside">no keys, no monthly limit</span></div>
+  <form method="post" action="/settings" class="mt-m" autocomplete="off">
+    <?= csrf_field() ?><input type="hidden" name="do" value="free">
+    <div class="card">
+      <h3>Listing e-mails <?= $mailOn ? '<span class="tag tag-live">On</span>' : '<span class="tag">Off</span>' ?></h3>
+      <p class="small soft mb-m">New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.</p>
+      <?php if (Settings::get('mail_last_error')): ?>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e((string) Settings::get('mail_last_error')) ?></strong><span class="small soft">The mailbox is the one under Delivery below; check its address and password.</span></div></div>
+      <?php endif; ?>
+      <ol class="steps mb-m">
+        <li>The site reads the mailbox it sends alerts from: <strong class="mono"><?= $mailbox !== '' ? e($mailbox) : 'set it up under Delivery first' ?></strong>.</li>
+        <li><strong>Zillow:</strong> search the area with your filters → <strong>Save search</strong> → e-mail <strong>Instantly</strong>. In Zillow’s account settings, set the e-mail address to the mailbox above (or forward Zillow’s e-mails to it from your own inbox).</li>
+        <li><strong>Redfin / Homes.com / Realtor.com:</strong> the same — save the search with instant e-mail updates going to that mailbox.</li>
+        <li><strong>Agent with MLS access:</strong> ask them to set up an MLS auto-e-mail (“listing alert”) for your criteria to that mailbox; it carries the most complete data. Add the sender’s domain below if it isn’t listed.</li>
+        <li>Tick the box, save, and press <strong>Check now</strong> once to see it work.</li>
+      </ol>
+      <div class="form-grid">
+        <label class="check c12"><input type="checkbox" name="mail_listings_on"<?= Settings::get('mail_listings_on') === '1' ? ' checked' : '' ?>>Read listing e-mails from this mailbox</label>
+        <label class="field c6"><span>Mail server (IMAP)</span><input class="input" name="imap_host" value="<?= $s('imap_host') ?>"></label>
+        <label class="field c2"><span>Port</span><input class="input" name="imap_port" value="<?= $s('imap_port') ?>" inputmode="numeric"></label>
+        <label class="field c12"><span>More sender domains to trust</span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com">
+          <small>Already trusted: <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?>. Only mail the mail server confirms came from these domains is read; other mail is left alone.</small></label>
+      </div>
+      <?php if ($mailLog): ?>
+      <ul class="plain-list mt-m">
+        <?php foreach ($mailLog as $m): ?>
+        <li><span><strong><?= e($m['sender']) ?></strong> · <?= e($m['subject']) ?><br><span class="small soft"><?= e($m['note']) ?></span></span><span class="end"><?= e(ago($m['created_at'])) ?></span></li>
+        <?php endforeach; ?>
+      </ul>
+      <?php elseif ($mailOn): ?>
+      <p class="small muted mt-m"><?= Settings::get('mail_checked_at') ? 'Checked ' . e(ago(Settings::get('mail_checked_at'))) . ' — no listing e-mails yet.' : 'Not checked yet.' ?></p>
+      <?php endif; ?>
+    </div>
+
+    <div class="card mt-l">
+      <h3>Fairfax County public records <span class="tag tag-live">On</span></h3>
+      <p class="small soft mb-m">The county’s own open data, for every home in Fairfax County: assessed value, real estate tax, year built and remodelled, bedrooms, baths, living area, basement, condition, heating, roof, lot size, zoning — and every recorded sale. Looked up the first time a home is opened, and hourly for homes for sale. The county’s sales of the last 12 months in each ZIP with homes for sale are brought in every two weeks, so ARV and profit rest on real sale prices. Fairfax City and Falls Church keep separate records and are not included.</p>
+      <div class="form-grid">
+        <label class="field c4"><span>Real estate tax rate, $ per $100</span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
+          <small>Fairfax County FY 2027, adopted May 5, 2026: $1.12. Change it when the county adopts a new rate.</small></label>
+      </div>
+      <?php if ($countyZips): ?>
+      <p class="small soft mt-m">Recorded sales brought in: <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>
+      <?php endif; ?>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit">Save free sources</button></div>
+  </form>
+  <div class="actions mt-m">
+    <?php if ($mailOn): ?>
+    <form method="post" action="/settings"><?= csrf_field() ?><input type="hidden" name="do" value="mail_now"><button class="btn btn-sm" type="submit"><?= icon('mail', 14) ?>Check listing e-mails now</button></form>
+    <?php endif; ?>
+    <form method="post" action="/settings" class="actions"><?= csrf_field() ?><input type="hidden" name="do" value="county_zip">
+      <input class="input input-zip" name="zip" placeholder="ZIP, e.g. 22030" inputmode="numeric" maxlength="5" aria-label="Fairfax County ZIP code">
+      <button class="btn btn-sm" type="submit"><?= icon('download', 14) ?>Bring in that ZIP’s recorded sales</button></form>
+  </div>
 </section>
 
 <?php $aerialCheck = json_decode((string) Settings::get('cesium_check', ''), true) ?: null; ?>

@@ -30,6 +30,9 @@ final class Settings
         'smtp_host' => 'smtp.hostinger.com',
         'smtp_port' => '465',
         'smtp_secure' => 'ssl',
+        'imap_host' => 'imap.hostinger.com',
+        'imap_port' => '993',
+        'fairfax_tax_rate' => '1.12',
     ];
 
     private static ?array $cache = null;

@@ -64,6 +64,13 @@ final class Diagnostics
         foreach (Db::all('SELECT channel, ok, subject, detail, created_at FROM notify_log ORDER BY id DESC LIMIT 8') as $m) {
             $out[] = sprintf('  %s %s %s "%s" %s', $m['created_at'], $m['channel'], $m['ok'] ? 'OK' : 'FAILED', $m['subject'], $m['detail']);
         }
+        $out[] = 'Listing e-mails: ' . (Services\MailListings::enabled() ? 'on' : 'off') . ', last checked ' . (Settings::get('mail_checked_at') ?: 'never')
+            . ', last UID ' . (Settings::get('mail_last_uid') ?: '-') . (Settings::get('mail_last_error') ? ', error: ' . Settings::get('mail_last_error') : '');
+        foreach (Db::all('SELECT sender, subject, found, added, note, created_at FROM mail_log ORDER BY id DESC LIMIT 5') as $m) {
+            $out[] = sprintf('  %s %s "%s" found %d, added %d — %s', $m['created_at'], $m['sender'], mb_substr($m['subject'], 0, 60), $m['found'], $m['added'], $m['note']);
+        }
+        $out[] = 'County records: ' . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL") . ' homes with a Fairfax record, '
+            . (int) Db::val("SELECT COUNT(*) FROM properties WHERE source = 'county'") . ' from county sales lists';
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);
         $out[] = '3D view: ' . (Settings::has('cesium_key') ? 'token set' : 'no token')
             . ($saved ? ', saved check ' . ($saved['ok'] ? 'OK' : 'failed: ' . $saved['why']) . ' (' . ($saved['at'] ?? '?') . ')' : '');

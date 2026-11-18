@@ -175,6 +175,7 @@ button { cursor: pointer; }
 .input:hover, .select:hover, .textarea:hover { border-color: var(--ink-3); }
 .input:focus, .select:focus, .textarea:focus { outline: 0; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(15, 118, 110, .16); }
 .input::placeholder, .textarea::placeholder { color: #9aa29d; }
+.input-zip { width: 150px; }
 .check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 .check input { width: 16px; height: 16px; accent-color: var(--teal); margin: 0; cursor: pointer; }
 .check.is-off { color: var(--ink-3); cursor: default; }
@@ -532,6 +533,9 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .kpi-good { background: var(--ink); border-color: var(--ink); color: #c9d3cf; }
 .kpi-good b { color: #fff; } .kpi-good small { color: #9fb0aa; }
 .kpi-good:hover { color: #c9d3cf; }
+.kpis-sm { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
+.kpis-sm .kpi { padding: 12px 14px; }
+.kpis-sm .kpi b { font-size: 24px; }
 .dash-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 0 36px; }
 .opp-list li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; }
 .feed li { font-size: 13.5px; }
@@ -803,3 +807,7 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--rule-2); border-top-color: var(--teal); animation: spin .8s linear infinite; flex: none; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+
+/* County record */
+@media (max-width: 640px) { .kpis.kpis-sm { grid-template-columns: minmax(0, 1fr); } }
+.sale-table td:last-child, .sale-table th:last-child { padding-left: 20px; }

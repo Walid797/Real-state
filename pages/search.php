@@ -307,6 +307,11 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point'], true)
           ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
       ?>
+      <?php
+      // In a Fairfax County ZIP the county's own records give the sales for free.
+      $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::covers(['state' => 'VA', 'zip' => $loc['zip'],
+          'county' => App\Db::val('SELECT county FROM properties WHERE zip = ? AND county IS NOT NULL AND county <> \'\' LIMIT 1', [$loc['zip']])]);
+      ?>
       <?php if ($areaSales === 0 && Auth::can('edit')): ?>
       <div class="cost-card sales-card">
         <div>
@@ -315,7 +320,11 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         </div>
         <form method="post" action="/search/act" class="inline">
           <?= csrf_field() ?><input type="hidden" name="do" value="area_sales"><input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
+          <?php if ($ffxZip): ?>
+          <button class="btn btn-primary" type="submit"><?= icon('download', 14) ?>Pull recorded sales<span class="cost">free · county records</span></button>
+          <?php else: ?>
           <button class="btn btn-primary" type="submit"<?= $provider ? '' : ' disabled' ?>><?= icon('download', 14) ?>Pull recorded sales<span class="cost">1 request</span></button>
+          <?php endif; ?>
         </form>
       </div>
       <?php endif; ?>

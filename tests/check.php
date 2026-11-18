@@ -511,5 +511,55 @@ Db::run("DELETE FROM properties WHERE city = 'Autoville'");
 App\Settings::set('openwebninja_auto', '60');
 App\Settings::set('openwebninja_key', $hadOwn);
 
+/* ── Listing e-mails ───────────────────────────────────────────────── */
+$qp = "From: Zillow <instant-updates@mail.zillow.com>\r\nSubject: =?UTF-8?Q?New_listing_in_Fairfax?=\r\nAuthentication-Results: mx.hostinger.com; dkim=pass header.d=mail.zillow.com; dmarc=pass (p=reject) header.from=zillow.com\r\n"
+    . "MIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=\"b1\"\r\n\r\n--b1\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nplain\r\n--b1\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+    . quoted_printable_encode('<table><tr><td><a href="https://www.zillow.com/homedetails/5863-Monticello-Rd-Alexandria-VA-22303/12345_zpid/?utm_source=email"><img src="x.jpg"></a></td></tr>'
+        . '<tr><td><b>$489,000</b> 3 bds | 2 ba | 1,350 sqft</td></tr><tr><td><a href="https://www.zillow.com/homedetails/5863-Monticello-Rd-Alexandria-VA-22303/12345_zpid/?utm_medium=x">5863 Monticello Rd, Alexandria, VA 22303</a></td></tr>'
+        . '<tr><td><a href="https://www.zillow.com/homedetails/100-Oak-St-Fairfax-VA-22030/999_zpid/">100 Oak St</a> Pending · $615K · 4 beds · 3.5 baths · 2,100 sq ft · Est. $3,900/mo</td></tr>'
+        . '<tr><td><a href="https://www.zillow.com/myzillow/unsubscribe?x=1">Unsubscribe</a></td></tr></table>')
+    . "\r\n--b1--\r\n";
+$mm = App\Notify\MimeMessage::parse($qp);
+$ok($mm->fromDomain === 'mail.zillow.com' && $mm->subject === 'New listing in Fairfax', 'e-mail sender and encoded subject are read');
+$ok($mm->verified() === true && str_contains($mm->html, '5863-Monticello'), 'DMARC pass is recognised and the quoted-printable HTML part decoded');
+$ok(App\Services\MailListings::senderName($mm->fromDomain) === 'Zillow' && App\Services\MailListings::senderName('evil-zillow.com') === null, 'only listing-site domains (and their subdomains) are trusted');
+$homes = App\Services\MailListings::listings($mm->html);
+$ok(count($homes) === 2, 'two homes found: links to the same home are merged, the unsubscribe link ignored');
+$ok($homes[0]['url'] === 'https://www.zillow.com/homedetails/5863-Monticello-Rd-Alexandria-VA-22303/12345_zpid/' && $homes[0]['price'] === 489000
+    && $homes[0]['beds'] === 3.0 && $homes[0]['baths'] === 2.0 && $homes[0]['sqft'] === 1350 && $homes[0]['status'] === 'for_sale', 'price, beds, baths and size are read next to the link; tracking removed');
+$ok($homes[1]['price'] === 615000 && $homes[1]['baths'] === 3.5 && $homes[1]['sqft'] === 2100 && $homes[1]['status'] === 'pending', '$615K, a pending status, and the monthly payment is not taken as the price');
+$fake = App\Notify\MimeMessage::parse(str_replace('dmarc=pass (p=reject)', 'dmarc=fail', str_replace('dkim=pass', 'dkim=fail', $qp)));
+$ok($fake->verified() === false && str_starts_with((string) App\Services\MailListings::handle($fake)['note'], 'Skipped'), 'a message the mail server could not authenticate is skipped');
+$ok(App\Services\MailListings::handle(App\Notify\MimeMessage::parse("From: someone@gmail.com\r\nSubject: hi\r\n\r\nhello")) === null, 'mail from other senders is left alone');
+$sold = App\Services\MailListings::facts('Sold for $500,000 · 3 bds');
+$ok($sold['status'] === 'sold', 'a "sold" notice is recognised (and not imported as a listing)');
+$ok(App\Http::finalUrl('https://127.0.0.1/x', static fn ($u) => false) === null && App\Http::finalUrl('http://example.com/', static fn ($u) => false) === null, 'link unwrapping refuses local addresses and plain http');
+
+/* ── Fairfax County records ───────────────────────────────────────── */
+$ok(App\Providers\Fairfax::covers(['state' => 'VA', 'county' => 'Fairfax', 'zip' => '22030']) && !App\Providers\Fairfax::covers(['state' => 'VA', 'county' => 'Fairfax city', 'zip' => '22030'])
+    && !App\Providers\Fairfax::covers(['state' => 'VA', 'county' => 'Loudoun', 'zip' => '20176']) && App\Providers\Fairfax::covers(['state' => 'VA', 'county' => null, 'zip' => '22303']), 'Fairfax County homes are recognised; Fairfax City and other counties are not');
+$shape = new ReflectionMethod(App\Providers\Fairfax::class, 'shape');
+$shape->setAccessible(true);
+$dw = ['PARID' => '0604 16F 0014', 'STYLE_DESC' => 'Split Level 2-Levels', 'YRBLT' => 1960, 'EFFYR' => null, 'YRREMOD' => 2012, 'RMBED' => 4, 'FIXBATH' => 3, 'FIXHALF' => 1, 'RECROMAREA' => 378, 'WBFP_PF' => 2,
+    'SFLA' => 1670, 'BSMT_DESC' => 'Full', 'CDU_DESC' => 'Good', 'EXTWALL_DESC' => 'Brick', 'HEAT_DESC' => 'Central A/C', 'USER13_DESC' => 'Composition Shingle', 'USER9_DESC' => 'Daylight', 'GRADE_DESC' => 'Average 10'];
+$val = ['APRLAND' => 316000, 'APRBLDG' => 469630, 'APRTOT' => 785630, 'PRITOT' => 775630, 'TAXYR' => 2026, 'FLAG4_DESC' => 'No Exemption'];
+$sales = [['SALEDT' => 1353024000000, 'PRICE' => 0, 'SALEVAL_DESC' => 'No consideration'], ['SALEDT' => 1033516800000, 'PRICE' => 359000, 'SALEVAL_DESC' => 'Valid and verified sale'], ['SALEDT' => 614995200000, 'PRICE' => 230000, 'SALEVAL_DESC' => 'Valid and verified sale']];
+$rec = $shape->invoke(null, '0604 16F 0014', ['lat' => 38.8392, 'lng' => -77.181, 'address' => '', 'city' => '', 'zip' => '', 'parid' => '0604 16F 0014'], $dw, $val, ['SF' => 12677, 'ACRES' => 0.291], ['LUC_DESC' => 'Single-family, Detached ', 'ZONING_DESC' => 'R-3'], $sales);
+$f = $rec['facts'];
+$ok($f['beds'] === 4 && $f['baths'] === 3.5 && $f['sqft'] === 1670 && $f['year_built'] === 1960 && $f['lot_sqft'] === 12677 && $f['has_basement'] === true, 'county dwelling record becomes beds, baths (3 full + 1 half), size, year, lot, basement');
+$ok($f['assessed_value'] === 785630 && $f['tax_annual'] === (int) round(785630 * 1.12 / 100), 'assessed value, and tax at $1.12 per $100');
+$ok($f['last_sale_price'] === 359000 && $f['last_sale_date'] === '2002-10-02', 'last sale is the latest fair-market one, not a $0 transfer');
+$ok($rec['county']['year_remodeled'] === 2012 && $rec['county']['condition'] === 'Good' && $rec['county']['land_use'] === 'Single-family, Detached' && count($rec['county']['sales']) === 3, 'remodel year, condition, land use and the full sale history are kept');
+$val['FLAG4_DESC'] = 'Elderly/Disabled Exemption';
+$ok(!isset($shape->invoke(null, 'x', ['lat' => 1, 'lng' => 1], $dw, $val, null, null, [])['facts']['tax_annual']), 'no tax figure when the home has an exemption');
+$cw = PropertyRepo::upsert(['address' => '1 Countyline Ct', 'city' => 'Fairfax', 'state' => 'VA', 'zip' => '22030', 'county' => 'Fairfax', 'status' => 'for_sale', 'list_price' => 500000], 'manual')['id'];
+$cwp = PropertyRepo::find($cw);
+$ok(App\Services\CountyRecords::wanted($cwp), 'a Fairfax home without its county record is looked up');
+$cwp['details']['county_tried_at'] = now();
+$ok(!App\Services\CountyRecords::wanted($cwp), 'an address the county did not know is not asked again for a month');
+$cwp['details'] = ['county_record' => ['parid' => 'x']];
+$ok(!App\Services\CountyRecords::wanted($cwp), 'a home with its record is not looked up again');
+Db::run("DELETE FROM properties WHERE id = ?", [$cw]);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);
