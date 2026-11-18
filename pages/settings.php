@@ -45,6 +45,25 @@ if (is_post()) {
             $anchor = '#sources';
             break;
 
+        case 'aerial':
+            if (!empty($_POST['cesium_key_remove'])) {
+                Settings::set('cesium_key', null);
+                Settings::set('cesium_check', null);
+                flash('3D view switched off.');
+            } else {
+                $secret('cesium_key');
+                Settings::set('cesium_limit', $int('cesium_limit', 0, 100000, 900));
+                if (Settings::has('cesium_key')) {
+                    $check = App\Providers\CesiumIon::check((string) Settings::get('cesium_key'));
+                    Settings::set('cesium_check', json_encode($check + ['at' => now()]));
+                    flash($check['ok'] ? '3D view is on. Open any home and press “Open 3D view”.' : (!empty($check['unreachable']) ? 'Token saved. ' . $check['why'] : 'Saved, but Cesium said: ' . $check['why']), $check['ok'] || !empty($check['unreachable']) ? 'ok' : 'err');
+                } else {
+                    flash('Saved.');
+                }
+            }
+            $anchor = '#aerial';
+            break;
+
         case 'notify':
             $email = input('notify_email', '', 190);
             if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -132,7 +151,7 @@ View::header('Settings', 'settings');
 ?>
 <header class="page-head"><div><h1 class="display">Settings</h1></div></header>
 <nav class="setting-nav" aria-label="Sections">
-  <a href="#sources">Data sources</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
+  <a href="#sources">Data sources</a><a href="#aerial">3D view</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
 </nav>
 
 <div class="narrow">
@@ -193,6 +212,43 @@ View::header('Settings', 'settings');
     <div class="form-foot"><button class="btn btn-primary" type="submit">Save data sources</button></div>
   </form>
   <p class="section-note">Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).</p>
+</section>
+
+<?php $aerialCheck = json_decode((string) Settings::get('cesium_check', ''), true) ?: null; ?>
+<section class="section" id="aerial">
+  <div class="section-head"><h2>3D view</h2><span class="aside"><?= Settings::has('cesium_key') ? Quota::used('cesium') . ' of ' . Quota::limit('cesium') . ' used this month' : 'off' ?></span></div>
+  <form method="post" action="/settings" class="mt-m" autocomplete="off">
+    <?= csrf_field() ?><input type="hidden" name="do" value="aerial">
+    <div class="card">
+      <h3>Look around in 3D, through Cesium ion
+        <?php if (!Settings::has('cesium_key')): ?><span class="tag">Off</span>
+        <?php elseif ($aerialCheck && !$aerialCheck['ok'] && !empty($aerialCheck['unreachable'])): ?><span class="tag tag-warn">Not checked</span>
+        <?php elseif ($aerialCheck && !$aerialCheck['ok']): ?><span class="tag tag-bad">Token refused</span>
+        <?php else: ?><span class="tag tag-live">On</span><?php endif; ?></h3>
+      <p class="small soft mb-m">Every home’s page gets a “Look around” panel: a slow flight around the house over Google’s photorealistic 3D map — roof, yard, driveway, street and neighbours. Cesium ion passes Google’s 3D tiles through its free plan, so no Google account or bank card is needed here.</p>
+      <?php if ($aerialCheck && !$aerialCheck['ok'] && Settings::has('cesium_key')): ?>
+      <?php if (!empty($aerialCheck['unreachable'])): ?>
+      <div class="callout mb-m" role="status"><?= icon('info', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft">The token is saved and the 3D view may well work — open a home to see. Save again later to re-check.</span></div></div>
+      <?php else: ?>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft">Checked <?= e(ago($aerialCheck['at'])) ?>. Follow steps 2 and 3 again, then save.</span></div></div>
+      <?php endif; ?>
+      <?php endif; ?>
+      <ol class="steps mb-m">
+        <li>Create a free account at <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener noreferrer">ion.cesium.com/signup</a> and pick the free <strong>Community</strong> plan. An email address is enough to sign up.</li>
+        <li>In ion, open <strong>Asset Depot</strong>, search for <strong>Google Photorealistic 3D Tiles</strong> and press <strong>Add to my assets</strong>.</li>
+        <li>Open <strong>Access Tokens</strong> → <strong>Create token</strong>. Name it “<?= e((string) Settings::get('site_name', 'Plat')) ?> 3D view”, keep the scope <span class="mono">assets:read</span>, and under <strong>Allowed URLs</strong> add <span class="mono"><?= e(rtrim(abs_url('/'), '/')) ?></span> so the token works on this site only.</li>
+        <li>Copy the token (a long text starting with <span class="mono">eyJ</span>), paste it below and save. The site checks it with Cesium straight away.</li>
+        <li>Open any home and press <strong>Open 3D view</strong> under “Look around”.</li>
+      </ol>
+      <div class="form-grid">
+        <?= $secretField('cesium_key', 'Cesium ion access token') ?>
+        <label class="field c4"><span>3D views per month</span><input class="input" name="cesium_limit" value="<?= $s('cesium_limit') ?>" inputmode="numeric">
+          <small>The free plan allows 1,000 openings of Google’s 3D tiles a month; 900 leaves a margin.</small></label>
+      </div>
+      <p class="small muted mt-m">Each press of “Open 3D view” counts as one. The free Community plan is meant for personal and early-stage use; Cesium asks companies with more than $50K a year in revenue to use a paid plan. Imagery belongs to Google and can be months or years old.</p>
+    </div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit">Save 3D view</button></div>
+  </form>
 </section>
 
 <section class="section" id="usage">

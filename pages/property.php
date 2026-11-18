@@ -93,6 +93,10 @@ $pull = static function (string $do, string $label, string $cost, bool $on, stri
         . '<button class="btn" type="submit"' . ($on ? '' : ' disabled') . '>' . e($label) . '<span class="cost">' . e($cost) . '</span></button></form>';
 };
 
+if ($hasGeo && App\Settings::has('cesium_key')) {
+    App\Kernel::csp(true); // the 3D view talks to Cesium ion and Google's tiles, with workers and WebAssembly
+    View::script('/assets/aerial.js');
+}
 View::header($p['address'], '', ['map' => $hasGeo]);
 if ($hasGeo) {
     View::script('/assets/vendor/leaflet/leaflet.js');
@@ -167,6 +171,8 @@ if (count($series) >= 2) {
   <?php endforeach; ?>
 </div>
 <?php endif; ?>
+
+<?php include APP_ROOT . '/pages/partials/aerial.php'; ?>
 
 <div class="p-cols">
   <div>

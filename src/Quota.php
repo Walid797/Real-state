@@ -13,6 +13,7 @@ final class Quota
     public const PROVIDERS = [
         'rentcast' => 'RentCast',
         'openwebninja' => 'Zillow data',
+        'cesium' => '3D views',
     ];
 
     public static function period(): string

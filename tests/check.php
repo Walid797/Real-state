@@ -431,5 +431,13 @@ foreach (glob(APP_ROOT . '/pages/partials/sketches/*.svg') as $svgFile) {
 $ok(count(glob(APP_ROOT . '/pages/partials/sketches/*.svg')) === 7, 'all seven sketches are there');
 $ok(str_contains(App\View::sketch('pipeline-empty'), 'id="sk-pipeline-empty"') && App\View::sketch('../config') === '', 'sketches load by name only');
 
+/* ── 3D view (Cesium) ─────────────────────────────────────────────── */
+$ok(isset(App\Quota::PROVIDERS['cesium']) && App\Quota::limit('cesium') === (int) (App\Settings::get('cesium_limit') ?? 900), '3D views are metered like the other sources');
+$cz = (string) file_get_contents(APP_ROOT . '/public/assets/vendor/cesium/Cesium.js');
+$ok(str_contains($cz, 'Version 1.147.0') && !str_contains($cz, '(0,eval)("this")'), 'vendored Cesium is the patched 1.147.0 (no eval on load)');
+$ok(is_file(APP_ROOT . '/public/assets/vendor/cesium/Workers/createVerticesFromHeightmap.js') || count(glob(APP_ROOT . '/public/assets/vendor/cesium/Workers/*.js')) > 10, 'Cesium workers are shipped');
+$ok(is_file(APP_ROOT . '/public/assets/vendor/cesium/ThirdParty/draco_decoder.wasm'), 'Draco decoder for Google tiles is shipped');
+$ok(App\Providers\CesiumIon::GOOGLE_3D_ASSET === 2275207 && str_contains($cz, 'fromAssetId(2275207)'), 'token check asks for the same asset the viewer opens');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

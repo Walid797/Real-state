@@ -12,7 +12,7 @@ final class Settings
 {
     /** Settings that must be encrypted at rest. */
     public const SECRETS = [
-        'rentcast_key', 'openwebninja_key', 'smtp_pass', 'telegram_token', 'callmebot_key', 'census_key', 'google_client_secret',
+        'rentcast_key', 'openwebninja_key', 'smtp_pass', 'telegram_token', 'callmebot_key', 'census_key', 'google_client_secret', 'cesium_key',
     ];
 
     public const DEFAULTS = [
@@ -22,6 +22,8 @@ final class Settings
         'rentcast_reserve' => '15',
         'openwebninja_limit' => '100',
         'openwebninja_reserve' => '20',
+        'cesium_limit' => '900',
+        'cesium_reserve' => '0',
         'search_provider' => 'auto',
         'snapshot_hours' => '24',
         'smtp_host' => 'smtp.hostinger.com',

@@ -762,3 +762,27 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .blank-sketch { display: grid; gap: 4px; }
 .blank-sketch .sketch { max-width: 380px; margin: 4px 0 6px; }
 @media print { .sketch { display: none; } }
+
+/* Look around: 3D aerial view */
+.aerial-sec { margin-top: 8px; }
+.aerial { position: relative; height: 230px; transition: height .35s ease; border-radius: 12px; overflow: hidden; background: linear-gradient(160deg, #1d2a33 0%, #2c3e3a 55%, #3b4f3a 100%); }
+.aerial.is-open { height: clamp(340px, 62vh, 600px); }
+.aerial-stage { position: absolute; inset: 0; }
+.aerial-stage .cesium-widget, .aerial-stage canvas { width: 100%; height: 100%; display: block; }
+.aerial-cover { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 6px; padding: 28px; color: #f4f1e8;
+  background: radial-gradient(120% 90% at 80% 10%, rgba(127, 224, 200, .16), transparent 60%); }
+.aerial-cover[hidden] { display: none; }
+.aerial-title { font: 500 28px/1.1 var(--serif); margin: 0; color: #fffef9; }
+.aerial-cover .small { color: rgba(244, 241, 232, .78); margin: 0 0 8px; }
+.aerial-cover .aerial-cost { margin-top: 8px; color: rgba(244, 241, 232, .6); }
+.aerial-bar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; }
+.aerial-bar[hidden] { display: none; }
+.aerial-bar .btn { background: rgba(255, 254, 251, .92); }
+.aerial-msg { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(15, 21, 19, .82); color: #fff; z-index: 3; }
+.aerial-msg[hidden] { display: none; }
+.aerial:fullscreen { height: 100vh; border-radius: 0; }
+.aerial-off { padding: 18px 20px; border: 1px dashed var(--rule-2); border-radius: 12px; background: var(--surface); }
+.aerial-off p { margin: 0 0 10px; color: var(--ink-2); }
+.aerial-off p:last-child { margin-bottom: 0; }
+.aerial .cesium-widget-credits { font-size: 10px; }
+@media print { .aerial-sec { display: none; } }

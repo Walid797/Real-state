@@ -1,0 +1,2 @@
+CesiumJS 1.147.0 (Apache-2.0), from npm 'cesium' Build/Cesium. Loaded only when someone opens a 3D view.
+Local change: in Cesium.js the bundled Knockout's '(0,eval)("this")' (used to find the global object) is replaced by 'globalThis', so the page can keep a CSP without 'unsafe-eval'.

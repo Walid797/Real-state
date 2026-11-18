@@ -28,6 +28,7 @@ final class Kernel
         ['POST', '#^/property/(?<id>\d+)/act$#', 'property_act', 'edit', 'edit'],
         ['GET', '#^/api/context/(?<id>\d+)$#', 'context', 'view', 'view'],
         ['GET', '#^/api/nearby/(?<id>\d+)$#', 'nearby', 'view', 'view'],
+        ['POST', '#^/api/aerial/(?<id>\d+)$#', 'aerial', 'view', 'view'],
         ['GET', '#^/(pipeline|watchlist)$#', 'pipeline', 'view', 'edit'],
         ['GET', '#^/alerts$#', 'alerts', 'view', 'view'],
         ['GET|POST', '#^/alerts/new$#', 'alert_edit', 'view', 'view'],
@@ -114,13 +115,24 @@ final class Kernel
         header('X-Robots-Tag: noindex, nofollow, noarchive');
         header('Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()');
         header('Cross-Origin-Opener-Policy: same-origin');
-        // No inline scripts or styles anywhere. Images: own files, map tiles, listing photos.
-        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: https:; style-src 'self'; script-src 'self'; "
-            . "connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+        self::csp();
         if (Auth::isHttps()) {
             header('Strict-Transport-Security: max-age=31536000');
         }
         header('Cache-Control: no-store, private');
+    }
+
+    /**
+     * Content-Security-Policy. No inline scripts or styles anywhere. Images: own files, map tiles, listing photos.
+     * A page can widen it for itself (the 3D view needs Cesium ion, Google's 3D tiles, workers and WebAssembly).
+     */
+    public static function csp(bool $aerial = false): void
+    {
+        $script = "'self'" . ($aerial ? " 'wasm-unsafe-eval'" : '');
+        $connect = "'self'" . ($aerial ? ' https://api.cesium.com https://assets.ion.cesium.com https://tile.googleapis.com' : '');
+        $style = "'self'" . ($aerial ? " 'unsafe-inline'" : ''); // Cesium's credit line sets inline styles; scripts stay locked
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https:; style-src $style; script-src $script; "
+            . "connect-src $connect; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", true);
     }
 
     public static function plain(int $status, string $title, string $message): never

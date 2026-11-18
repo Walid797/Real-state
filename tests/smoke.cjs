@@ -77,6 +77,13 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await Promise.all([page.waitForNavigation(), page.locator('.hrow .addr').first().click()]);
     propertyUrl = page.url();
     await has(page, 'Deal analysis'); await has(page, 'Condition &amp; renovation'); await page.waitForTimeout(500);
+    // Look around: either set up (button) or a way to set it up
+    if (!(await page.locator('#look-around').count())) throw new Error('no Look around panel');
+    if (!(await page.locator('#look-around [data-aerial-open], #look-around a[href="/settings#aerial"]').count())) throw new Error('Look around has neither a 3D button nor a set-up link');
+    const csrf = await page.locator('input[name=_csrf]').first().getAttribute('value');
+    const pid = page.url().split('/').pop();
+    const noToken = await page.request.post(`${BASE}/api/aerial/${pid}`, { headers: { Accept: 'application/json' } });
+    if (noToken.status() !== 419) throw new Error('3D view opened without the form token: ' + noToken.status());
     await shot('07-property', true);
     // add to pipeline and take it
     if (await page.locator('button:has-text("Add to pipeline")').count()) {
