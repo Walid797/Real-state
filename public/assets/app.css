@@ -661,3 +661,88 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .callout > div { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .callout-bad { border-left-color: var(--red); background: var(--red-tint); }
 .callout-bad > .icon { color: var(--red); }
+
+/* ── Welcome page: a house that builds itself as you scroll ───────────
+   Every stage reads a 0–1 variable set by app.js. The defaults are 1, so without
+   JavaScript (or with reduced motion) the house is simply finished. */
+.welcome { --g: 1; --t: 1; --s: 1; --w: 1; --r: 1; --o: 1; --l: 1; --c1: 1; --c2: 1; --c3: 1; --c4: 1; --n: 1; }
+.welcome-body { background: #eef3ee; }
+.welcome { overflow-x: clip; }
+.wl-top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 20px 28px; }
+.wl-hero { min-height: 92vh; display: flex; flex-direction: column; justify-content: center; max-width: 760px; padding: 120px 28px 60px; margin: 0 auto; }
+.wl-hero h1 { font-size: clamp(42px, 7vw, 76px); line-height: 1.02; letter-spacing: -.025em; margin: 10px 0 18px; }
+.wl-lede { font-size: 19px; line-height: 1.55; color: var(--ink-2); max-width: 54ch; }
+.wl-cue { margin-top: 48px; display: inline-flex; align-items: center; gap: 8px; color: var(--ink-3); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+.wl-cue .icon { animation: wl-bob 1.6s ease-in-out infinite; }
+@keyframes wl-bob { 50% { transform: translateY(5px); } }
+
+.wl-stage { position: relative; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: center; gap: 24px; max-width: 1280px; margin: 0 auto; padding: 0 28px; }
+.wl-art { position: relative; aspect-ratio: 590 / 520; width: 100%; }
+.wl-sky { position: absolute; inset: -12% -10%; border-radius: 50%;
+  -webkit-mask-image: radial-gradient(closest-side, #000 62%, transparent 100%); mask-image: radial-gradient(closest-side, #000 62%, transparent 100%);
+  background: radial-gradient(120% 90% at 50% 20%, #d7ecf6 0%, #e8f1ec 60%, #eef3ee 100%); }
+.wl-sky::after { content: ""; position: absolute; inset: 0; border-radius: inherit; opacity: calc(var(--l) * .9);
+  background: radial-gradient(110% 90% at 55% 25%, #31476b 0%, #4b4f78 45%, #eef3ee 100%); }
+.house { position: relative; width: 100%; height: auto; display: block; overflow: visible; }
+.house g { transform-box: fill-box; }
+.house .h-ground { opacity: var(--g); transform: translateY(calc((1 - var(--g)) * 30px)); transform-origin: center; }
+.house .h-tree { transform: scale(var(--t)); transform-origin: 50% 100%; }
+.house .h-slab { opacity: var(--s); transform: translateY(calc((1 - var(--s)) * 26px)); }
+.house .h-walls { transform: scaleY(var(--w)); transform-origin: 50% 100%; opacity: min(1, calc(var(--w) * 5)); }
+.house .h-roof { opacity: var(--r); transform: translateY(calc((1 - var(--r)) * -150px)); }
+.house .h-openings { opacity: var(--o); }
+.house .h-lights { opacity: var(--l); }
+.house .h-sign { opacity: var(--n); transform: translateY(calc((1 - var(--n)) * 46px)); transform-origin: 50% 100%; }
+
+.wl-cards { position: absolute; inset: 0; pointer-events: none; }
+.wl-card { position: absolute; display: grid; gap: 2px; padding: 10px 14px; background: rgba(255, 254, 251, .96); border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow); font-size: 12.5px; color: var(--ink-3); }
+.wl-card b { font: 600 19px/1.1 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+.wl-card.good b { color: var(--teal-ink); }
+.wl-card.wl-score { grid-template-columns: auto auto; align-items: center; gap: 0 10px; }
+.wl-card.wl-score b { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 9px; background: var(--teal); color: #fff; }
+.wl-card.c1 { top: 4%; left: 2%; opacity: var(--c1); transform: translateY(calc((1 - var(--c1)) * 16px)); }
+.wl-card.c2 { top: 21%; left: 0; opacity: var(--c2); transform: translateY(calc((1 - var(--c2)) * 16px)); }
+.wl-card.c3 { top: 2%; right: 4%; opacity: var(--c3); transform: translateY(calc((1 - var(--c3)) * 16px)); }
+.wl-card.c4 { bottom: 16%; right: 2%; opacity: var(--c4); transform: translateY(calc((1 - var(--c4)) * 16px)); }
+.wl-cards-note { position: absolute; bottom: 0; left: 0; margin: 0; font-size: 11.5px; color: var(--ink-3); opacity: var(--c1); }
+
+.wl-chapters { list-style: none; margin: 0; padding: 0; }
+.wl-ch { padding: 22px 0; border-top: 1px solid var(--rule); }
+.wl-ch h2 { font: 500 30px/1.15 var(--serif); letter-spacing: -.015em; margin: 6px 0 10px; }
+.wl-ch p { color: var(--ink-2); font-size: 16.5px; line-height: 1.6; max-width: 46ch; margin: 0; }
+.wl-n { font: 600 12px var(--mono); color: var(--teal); letter-spacing: .1em; }
+.wl-dots { display: none; }
+
+.wl-end { max-width: 640px; margin: 0 auto; padding: 120px 28px 140px; text-align: center; }
+.wl-end h2 { font-size: clamp(34px, 5vw, 52px); margin-bottom: 12px; }
+.wl-end p { color: var(--ink-2); }
+.wl-end .btn { height: 44px; padding: 0 22px; font-size: 15px; margin-top: 10px; }
+
+/* With motion: a tall track and a stage that stays put while you scroll through it. */
+.wl-anim .wl-scroll { height: 640vh; }
+.wl-anim .wl-stage { position: sticky; top: 0; height: 100vh; }
+.wl-anim .wl-chapters { position: relative; min-height: 300px; }
+.wl-anim .wl-ch { position: absolute; inset: 0 0 auto; border-top: 0; opacity: 0; transform: translateY(18px); transition: opacity .45s ease, transform .45s ease; pointer-events: none; }
+.wl-anim .wl-ch.is-on { opacity: 1; transform: none; pointer-events: auto; }
+.wl-anim .wl-dots { display: flex; gap: 8px; position: absolute; right: 28px; bottom: 28px; }
+.wl-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--rule-2); transition: background .3s, transform .3s; }
+.wl-dots i.is-on { background: var(--teal); transform: scale(1.3); }
+
+@media (max-width: 860px) {
+  .wl-top { padding: 14px 16px; }
+  .wl-hero { padding: 96px 16px 40px; min-height: 86vh; }
+  .wl-lede { font-size: 17px; }
+  .wl-stage { grid-template-columns: minmax(0, 1fr); padding: 0 16px; gap: 8px; }
+  .wl-anim .wl-stage { grid-template-rows: auto 1fr; align-content: start; padding-top: 64px; }
+  .wl-anim .wl-art { width: min(100%, 52vh * 590 / 520); margin: 0 auto; }
+  .wl-card.c2, .wl-card.c4 { display: none; }
+  .wl-card.c1 { top: 0; left: 0; }
+  .wl-card.c3 { top: 0; right: 0; }
+  .wl-ch h2 { font-size: 24px; }
+  .wl-ch p { font-size: 15.5px; }
+  .wl-card { padding: 7px 10px; font-size: 11px; }
+  .wl-card b { font-size: 15px; }
+  .wl-card.wl-score b { width: 32px; height: 32px; }
+  .wl-anim .wl-dots { right: 16px; bottom: 18px; }
+  .wl-end { padding: 80px 16px 100px; }
+}

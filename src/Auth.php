@@ -147,7 +147,8 @@ final class Auth
         if (($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json') {
             json_out(['error' => 'signed_out'], 401);
         }
-        redirect(url('/login', ['next' => $next === '/' ? null : $next]));
+        // The front door opens on the welcome page; any deeper link goes straight to sign-in.
+        redirect($next === '/' ? '/welcome' : url('/login', ['next' => $next]));
     }
 
     public static function throttled(string $ip): bool

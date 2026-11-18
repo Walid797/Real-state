@@ -52,7 +52,7 @@ final class View
 <link rel="stylesheet" href="<?= e(self::asset('/assets/app.css')) ?>">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 </head>
-<body class="<?= $bare ? 'bare' : '' ?><?= !empty($opt['wide']) ? ' wide' : '' ?>">
+<body class="<?= $bare ? 'bare' : '' ?><?= !empty($opt['wide']) ? ' wide' : '' ?><?= !empty($opt['body']) ? ' ' . e($opt['body']) : '' ?>">
 <a class="skip" href="#main">Skip to content</a>
 <?php if (!$bare): ?>
 <header class="top">
@@ -91,7 +91,7 @@ final class View
   </div>
 </header>
 <?php endif; ?>
-<main id="main" class="<?= $bare ? 'bare-main' : 'page' ?>">
+<main id="main" class="<?= e($opt['main'] ?? ($bare ? 'bare-main' : 'page')) ?>">
 <?php
         $flash = flash();
         if ($flash) {

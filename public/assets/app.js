@@ -60,6 +60,49 @@
     });
   }
 
+  /* Welcome page: scrolling through the track builds the house, one stage at a time.
+     Each stage maps a slice of the scroll to a 0–1 CSS variable; the CSS does the drawing. */
+  var track = $('.wl-scroll');
+  var stage = $('.welcome');
+  if (track && stage && window.matchMedia && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.body.classList.add('wl-anim');
+    // [variable, from, to] as fractions of the track
+    var parts = [
+      ['--g', 0.00, 0.08], ['--t', 0.04, 0.16], ['--s', 0.07, 0.18], ['--w', 0.17, 0.36],
+      ['--o', 0.34, 0.44], ['--r', 0.40, 0.56], ['--c1', 0.50, 0.56], ['--c2', 0.54, 0.60],
+      ['--c3', 0.58, 0.64], ['--c4', 0.62, 0.68], ['--l', 0.66, 0.80], ['--n', 0.82, 0.94]
+    ];
+    var chapterAt = [0.00, 0.20, 0.42, 0.64, 0.80];
+    var chapters = $$('.wl-ch');
+    var dots = $$('[data-dot]');
+    var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
+    var last = -1;
+    var paint = function () {
+      var r = track.getBoundingClientRect();
+      var span = Math.max(1, r.height - window.innerHeight);
+      var p = Math.min(1, Math.max(0, -r.top / span));
+      if (Math.abs(p - last) < 0.0005) return;
+      last = p;
+      parts.forEach(function (x) {
+        var t = Math.min(1, Math.max(0, (p - x[1]) / (x[2] - x[1])));
+        stage.style.setProperty(x[0], ease(t).toFixed(3));
+      });
+      var on = 0;
+      chapterAt.forEach(function (at, i) { if (p >= at) on = i; });
+      chapters.forEach(function (c, i) { c.classList.toggle('is-on', i === on); });
+      dots.forEach(function (d, i) { d.classList.toggle('is-on', i === on); });
+    };
+    var queued = false;
+    var onScroll = function () {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(function () { queued = false; paint(); });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    paint();
+  }
+
   /* Confirm before destructive or quota-spending posts. */
   document.addEventListener('submit', function (e) {
     var msg = (e.submitter && e.submitter.getAttribute('data-confirm')) || e.target.getAttribute('data-confirm');

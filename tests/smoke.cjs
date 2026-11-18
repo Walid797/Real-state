@@ -32,6 +32,20 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
   };
   let propertyUrl = '';
 
+  await run('welcome', { width: 390, height: 844 }, async (page, shot) => {
+    await page.goto(BASE + '/');
+    if (!page.url().endsWith('/welcome')) throw new Error('signed-out home does not open the welcome page: ' + page.url());
+    await has(page, 'Find the houses worth fixing');
+    const before = await page.evaluate(() => getComputedStyle(document.querySelector('.welcome')).getPropertyValue('--w').trim());
+    await page.evaluate(() => { const t = document.querySelector('.wl-scroll'); window.scrollTo(0, t.offsetTop + (t.offsetHeight - innerHeight) * 0.3); });
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(() => getComputedStyle(document.querySelector('.welcome')).getPropertyValue('--w').trim());
+    if (!(parseFloat(before) < 0.05 && parseFloat(after) > 0.5)) throw new Error(`walls do not rise with scrolling (${before} → ${after})`);
+    await noOverflow(page, 'welcome'); await shot('01-walls');
+    const deep = await page.request.get(BASE + '/pipeline', { maxRedirects: 0 });
+    if (!(deep.headers()['location'] || '').includes('/login')) throw new Error('a deep link should still ask to sign in');
+  });
+
   await run('admin', { width: 1440, height: 900 }, async (page, shot) => {
     await page.goto(BASE + '/login'); await shot('01-login');
     await login(page, 'owner@example.com');

@@ -11,6 +11,7 @@ final class Kernel
      * Permissions: public | view (any signed-in role) | edit (admin, partner) | admin.
      */
     private const ROUTES = [
+        ['GET', '#^/welcome$#', 'welcome', 'public', 'public'],
         ['GET|POST', '#^/login$#', 'login', 'public', 'public'],
         ['GET|POST', '#^/setup$#', 'setup', 'public', 'public'],
         ['GET|POST', '#^/invite$#', 'invite', 'public', 'public'],
