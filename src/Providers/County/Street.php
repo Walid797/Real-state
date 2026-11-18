@@ -26,9 +26,16 @@ final class Street
     /** Does the county's street (prefix, name, type, suffix) name the listing's street? */
     public static function same(array $a, string $name, string $full): bool
     {
-        $full = Address::normalizeStreet($full);
-        $name = Address::normalizeStreet($name);
-        return $full === $a['street'] || ($name !== '' && str_contains(' ' . $a['street'] . ' ', ' ' . $name . ' '));
+        $street = self::plain($a['street']);
+        $full = self::plain(Address::normalizeStreet($full));
+        $name = self::plain(Address::normalizeStreet($name));
+        return $full === $street || ($name !== '' && str_contains(' ' . $street . ' ', ' ' . $name . ' '));
+    }
+
+    /** "2nd" and "2" are the same street number word (Miami-Dade writes "SE 2 ST"). */
+    private static function plain(string $s): string
+    {
+        return trim((string) preg_replace('/\b(\d+)(?:st|nd|rd|th)\b/', '$1', $s));
     }
 
     /** 0 = another unit of the building; higher = better match. */

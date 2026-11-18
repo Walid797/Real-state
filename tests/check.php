@@ -605,5 +605,27 @@ $dc = $ds->invoke(null, ['SSL' => '1302    0033', 'PROPERTY_ADDRESS' => '3548 T 
 $ok($dc['facts']['beds'] === 3 && $dc['facts']['baths'] === 1.5 && $dc['facts']['sqft'] === 1316 && $dc['facts']['year_built'] === 1909 && $dc['facts']['property_type'] === 'Townhouse' && $dc['facts']['lat'] === 38.91, 'DC residential record: 3 beds, 1.5 baths, 1,316 sq ft, row house');
 $ok($dc['facts']['assessed_value'] === 1088710 && $dc['facts']['tax_annual'] === 9254 && $dc['facts']['last_sale_price'] === 850000 && count($dc['county']['sales']) === 1 && $dc['county']['parid'] === '1302 0033', 'DC value, tax at $0.85, qualified sale kept and the 1900 placeholder dropped');
 
+/* ── Lee and Miami-Dade records ───────────────────────────────────── */
+$L = App\Providers\County\LeeCounty::class;
+$MD = App\Providers\County\MiamiDade::class;
+$ok(App\Services\CountyRecords::sourceFor(['state' => 'FL', 'county' => 'Lee', 'zip' => '33904']) === $L && App\Services\CountyRecords::sourceFor(['state' => 'FL', 'county' => 'Miami-Dade', 'zip' => '33131']) === $MD
+    && App\Services\CountyRecords::sourceFor(['state' => 'FL', 'county' => 'Leon', 'zip' => '32301']) === null, 'Lee and Miami-Dade homes find their sources; Leon County is not Lee');
+$ok($L::fairSale('01', 300000) && !$L::fairSale('05', 300000) && $MD::fairSale('Q', 500000) && !$MD::fairSale('U', 500000), 'Florida qualified sales: Lee code 01, Miami-Dade flag Q');
+$ok(App\Providers\County\Street::same(App\Providers\County\Street::split('16 SE 2nd St'), 'SE 2 ST', 'SE 2 ST'), '“2nd St” matches Miami-Dade’s “2 ST”');
+$ls = new ReflectionMethod($L, 'shape');
+$ls->setAccessible(true);
+$lee = $ls->invoke(null, ['STRAP' => '01-44-24-C1-00012.0010', 'SITENUMBER' => '1234', 'SITESTREET' => 'SE 15TH TER', 'SITEZIP' => '33904', 'JUST' => 412000, 'LAND' => 120000, 'BUILDING' => 292000, 'TAXABLE' => 350000,
+    'MINBUILTY' => 1987, 'HEATEDAREA' => 1850, 'BEDROOMS' => 3, 'BATHROOMS' => 2, 'POOL' => 1, 'GARAGE' => 2, 'GISACRES' => 0.25, 'LANDUSEDES' => 'SINGLE FAMILY RESIDENTIAL', 'LATITUDE' => 26.57, 'LONGITUDE' => -81.95,
+    'S_1DATE' => 1735689600000, 'S_1AMOUNT' => 389000, 'S_1VI' => 'I', 'S_1TC' => '01', 'S_2DATE' => 1420070400000, 'S_2AMOUNT' => 100, 'S_2VI' => 'I', 'S_2TC' => '11', 'Property_URL' => 'https://www.leepa.org/Display/DisplayParcel.aspx?FolioID=1']);
+$ok($lee['facts']['beds'] === 3 && $lee['facts']['sqft'] === 1850 && $lee['facts']['lot_sqft'] === 10890 && $lee['facts']['property_type'] === 'Single Family' && $lee['facts']['assessed_value'] === 412000
+    && $lee['facts']['last_sale_price'] === 389000 && $lee['facts']['last_sale_date'] === '2025-01-01' && count($lee['county']['sales']) === 2 && $lee['county']['pool'] === 'Yes', 'Lee parcel: specs, just value, qualified last sale, a $100 transfer kept in history but not used');
+$mds = new ReflectionMethod($MD, 'shape');
+$mds->setAccessible(true);
+$mdr = $mds->invoke(null, ['FOLIO' => '3530190670540', 'DOR_DESC' => 'RESIDENTIAL - SINGLE FAMILY : 1 UNIT', 'BEDROOM_COUNT' => 4, 'BATHROOM_COUNT' => 2, 'HALF_BATHROOM_COUNT' => 1, 'BUILDING_HEATED_AREA' => 2100, 'LOT_SIZE' => 7500,
+    'YEAR_BUILT' => 1972, 'TOTAL_VAL_CUR' => 650000, 'LAND_VAL_CUR' => 400000, 'BUILDING_VAL_CUR' => 250000, 'TOTAL_VAL_PRI' => 610000, 'ASSESSMENT_YEAR_CUR' => 2026, 'HSTEAD_EX_VAL_CUR' => 50000,
+    'DOS_1' => '2024-06-30', 'PRICE_1' => 600000, 'QU_FLG_1' => 'Q', 'DOS_2' => '2010-01-15', 'PRICE_2' => 0, 'QU_FLG_2' => 'U'], ['x' => -80.3, 'y' => 25.7]);
+$ok($mdr['facts']['beds'] === 4 && $mdr['facts']['baths'] === 2.5 && $mdr['facts']['property_type'] === 'Single Family' && $mdr['facts']['assessed_value'] === 650000 && $mdr['facts']['last_sale_price'] === 600000
+    && $mdr['facts']['lat'] === 25.7 && $mdr['county']['exemption'] === 'Homestead', 'Miami-Dade record: 4 beds, 2.5 baths, market value, qualified sale, homestead noted');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

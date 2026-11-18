@@ -12,12 +12,16 @@ $labels = [
     'style' => 'Style', 'stories' => 'Stories', 'condition' => 'Condition (county)', 'grade' => 'Build quality', 'year_remodeled' => 'Remodelled',
     'effective_year' => 'Effective year built', 'basement' => 'Basement', 'basement_type' => 'Basement access', 'rec_room_sqft' => 'Rec room',
     'fireplaces' => 'Fireplaces', 'heating' => 'Heating / cooling', 'roof' => 'Roof', 'exterior' => 'Exterior walls',
-    'land_use' => 'Land use', 'neighborhood' => 'Assessment neighbourhood', 'jurisdiction' => 'Jurisdiction', 'zoning' => 'Zoning', 'water' => 'Water', 'sewer' => 'Sewer', 'gas' => 'Gas', 'exemption' => 'Tax exemption',
+    'land_use' => 'Land use', 'neighborhood' => 'Assessment neighbourhood', 'jurisdiction' => 'Jurisdiction', 'zoning' => 'Zoning', 'water' => 'Water', 'sewer' => 'Sewer', 'gas' => 'Gas', 'exemption' => 'Tax exemption', 'pool' => 'Pool', 'taxable' => 'Taxable value',
 ];
 $kv = [];
 foreach ($labels as $k => $label) {
     if (isset($cr[$k]) && $cr[$k] !== '') {
-        $kv[$label] = $k === 'rec_room_sqft' ? number_format((int) $cr[$k]) . ' sq ft' : (string) $cr[$k];
+        $kv[$label] = match ($k) {
+            'rec_room_sqft' => number_format((int) $cr[$k]) . ' sq ft',
+            'taxable' => money($cr[$k]),
+            default => (string) $cr[$k],
+        };
     }
 }
 $sales = (array) ($cr['sales'] ?? []);
