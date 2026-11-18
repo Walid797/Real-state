@@ -36,6 +36,25 @@ if ($do === 'save') {
     redirect($back);
 }
 
+if ($do === 'area_sales') {
+    // One request: the last 12 months of recorded sales for the whole area — real comparables for every listing in it.
+    Auth::require('edit');
+    @set_time_limit(180);
+    $fs = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types']]);
+    $r = Search::run($fs, ['confirm' => true]);
+    $sold = App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'];
+    // Re-score the area's listings against the new sales: the cheapest per sqft now, the rest by the scheduler.
+    $ids = array_map('intval', array_column(App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sale', 'limit' => 500])['rows'], 'id'));
+    if ($ids) {
+        Db::run('UPDATE properties SET scored_at = NULL WHERE id IN (' . implode(',', $ids) . ')');
+        App\Services\Score::refreshMany(Search::scoreFirst($ids, 500), 6);
+    }
+    flash($r['fetched'] || $sold
+        ? plural($sold, 'recorded sale') . ' from the last 12 months on file for ' . $loc['label'] . '. ARV and profit now come from real sales; the rest of the area is re-scored within minutes.'
+        : ($r['notice'] ?: 'No recorded sales came back. This county may not publish sale prices.'), $sold ? 'ok' : 'warn');
+    redirect($back);
+}
+
 if ($do === 'pull' || $do === 'refresh') {
     Auth::require('edit');
     @set_time_limit(180);

@@ -25,6 +25,7 @@ final class Deal
         'deal_selling_pct' => ['Selling costs (commission, transfer, concessions)', 7, '% of ARV'],
         'deal_months' => ['Months from purchase to sale', 6, 'months'],
         'deal_carry_monthly' => ['Insurance, utilities, upkeep', 250, '$ a month'],
+        'deal_tax_pct' => ['Property tax, when the record has none', 1.0, '% of price a year'],
         'deal_loan_ltv' => ['Loan amount', 0, '% of price (0 = cash)'],
         'deal_loan_rate' => ['Loan interest', 11, '% a year'],
         'deal_loan_points' => ['Lender points', 2, '% of loan'],
@@ -114,6 +115,20 @@ final class Deal
             return ['value' => $avm, 'low' => (int) ($p['est_value'] ?? $avm), 'high' => $avm, 'confidence' => 25,
                 'basis' => ($p['est_source'] === 'zestimate' ? 'Zestimate' : 'RentCast estimate') . ' (no sold comps on file)', 'comps' => 0];
         }
+        // Last resort, free: what similar homes nearby are asking. Asking is not selling, so confidence stays low.
+        $ask = Comps::listings($p);
+        $askPpsf = array_column($ask['rows'], 'ppsf');
+        if ($sqft > 0 && count($askPpsf) >= 5) {
+            $spread = (percentile($askPpsf, 0.75) - percentile($askPpsf, 0.25)) / max(1.0, median($askPpsf));
+            return [
+                'value' => (int) round(percentile($askPpsf, 0.65) * $sqft, -3),
+                'low' => (int) round(median($askPpsf) * $sqft, -3),
+                'high' => (int) round(percentile($askPpsf, 0.85) * $sqft, -3),
+                'confidence' => max(12, min(30, 30 - (int) round(min(1.0, $spread) * 15) + min(5, count($askPpsf) - 5))),
+                'basis' => 'Asking prices of ' . count($askPpsf) . ' similar homes for sale within ' . trim_num($ask['radius']) . ' mi — no recorded sales yet',
+                'comps' => 0, 'from' => 'asking',
+            ];
+        }
         return $none;
     }
 
@@ -155,7 +170,13 @@ final class Deal
         $closingPct = $pick('closing_pct', self::setting('deal_closing_pct'));
         $sellingPct = $pick('selling_pct', self::setting('deal_selling_pct'));
         $months = $pick('holding_months', self::setting('deal_months'));
-        $monthly = $pick('holding_monthly', self::setting('deal_carry_monthly') + (float) ($p['tax_annual'] ?? 0) / 12 + (float) ($p['hoa_fee'] ?? 0));
+        // Tax from the record when there is one; otherwise a stated rate on the price.
+        $taxYear = (float) ($p['tax_annual'] ?? 0);
+        $taxEstimated = $taxYear <= 0 && $purchase;
+        if ($taxEstimated) {
+            $taxYear = $purchase * self::setting('deal_tax_pct') / 100;
+        }
+        $monthly = $pick('holding_monthly', self::setting('deal_carry_monthly') + $taxYear / 12 + (float) ($p['hoa_fee'] ?? 0));
         $ltv = $pick('loan_ltv_pct', self::setting('deal_loan_ltv'));
         $rate = $pick('loan_rate_pct', self::setting('deal_loan_rate'));
         $points = $pick('loan_points_pct', self::setting('deal_loan_points'));
@@ -163,7 +184,7 @@ final class Deal
 
         $out = [
             'inputs' => compact('purchase', 'arvValue', 'reno', 'closingPct', 'sellingPct', 'months', 'monthly', 'ltv', 'rate', 'points', 'contPct'),
-            'source' => $src, 'arv' => $arv, 'condition' => $condition['overall'], 'ok' => false,
+            'source' => $src, 'arv' => $arv, 'condition' => $condition['overall'], 'ok' => false, 'tax_estimated' => $taxEstimated,
         ];
         if (!$purchase || !$arvValue || $reno === null) {
             $out['missing'] = array_keys(array_filter(['purchase price' => !$purchase, 'ARV' => !$arvValue, 'renovation cost (needs sqft)' => $reno === null]));

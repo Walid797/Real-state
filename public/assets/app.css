@@ -791,3 +791,9 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .aerial-off p:last-child { margin-bottom: 0; }
 .aerial .cesium-widget-credits { font-size: 10px; }
 @media print { .aerial-sec { display: none; } }
+
+/* What would improve the investment figures */
+.sb-next { margin: -6px 0 14px; padding: 12px 14px; border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 10px 10px; background: var(--surface); }
+.sb-next p { margin: 0 0 8px; color: var(--ink-2); }
+.sb-next p:last-child { margin-bottom: 0; }
+.sb-next .actions { gap: 8px; }

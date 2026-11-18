@@ -457,5 +457,34 @@ Db::run('SET SESSION wait_timeout = 1');
 sleep(2);
 $ok((int) Db::val('SELECT 1') === 1, 'reconnects after the server closes an idle connection');
 
+/* ── ARV from asking prices when no sales are on file ─────────────── */
+Db::run("DELETE FROM properties WHERE city = 'Askville'");
+$askBase = ['city' => 'Askville', 'state' => 'VA', 'zip' => '24990', 'status' => 'for_sale', 'property_type' => 'Single Family', 'beds' => 3, 'baths' => 2, 'year_built' => 1985];
+foreach ([200, 210, 220, 230, 240, 250] as $i => $ppsfAsk) {
+    PropertyRepo::upsert($askBase + ['address' => (100 + $i) . ' Ask St', 'sqft' => 1500, 'list_price' => 1500 * $ppsfAsk,
+        'lat' => 37.30 + $i * 0.001, 'lng' => -79.90], 'manual');
+}
+$subj = PropertyRepo::upsert($askBase + ['address' => '1 Subject Rd', 'sqft' => 1600, 'list_price' => 260000, 'lat' => 37.302, 'lng' => -79.901], 'manual')['id'];
+$sp = Db::one('SELECT * FROM properties WHERE id = ?', [$subj]);
+$arvA = App\Services\Deal::arv($sp);
+$ok($arvA['value'] !== null && ($arvA['from'] ?? '') === 'asking' && $arvA['confidence'] <= 30, 'with six similar listings nearby, ARV comes from asking prices at low confidence');
+$ok(str_contains($arvA['basis'], 'Asking prices of 6'), 'the ARV says where it came from');
+$dealA = App\Services\Deal::analyse($sp);
+$ok($dealA['ok'] && $dealA['tax_estimated'] && isset($dealA['max_offer']), 'profit and max offer are worked out, with tax estimated');
+$scA = App\Services\Score::refresh($subj)['score'];
+$ok($scA['score'] !== null && $scA['score'] <= 69 && in_array('ARV from asking prices, not recorded sales', $scA['risks'], true), 'the home gets a score, kept under 70, and the asking-price ARV is named as a risk');
+Db::run("UPDATE properties SET tax_annual = 3000 WHERE id = ?", [$subj]);
+$ok(!App\Services\Deal::analyse(Db::one('SELECT * FROM properties WHERE id = ?', [$subj]))['tax_estimated'], 'a real tax figure is used when there is one');
+Db::run("DELETE FROM properties WHERE city = 'Askville' AND address <> '1 Subject Rd' AND address NOT IN ('100 Ask St','101 Ask St')");
+$ok(App\Services\Deal::arv(Db::one('SELECT * FROM properties WHERE id = ?', [$subj]))['value'] === null, 'two listings are not enough for an ARV');
+// a recorded sale always wins over asking prices
+foreach ([0, 1, 2, 3] as $i) {
+    PropertyRepo::upsert($askBase + ['address' => (300 + $i) . ' Sold Ln', 'status' => 'off_market', 'sqft' => 1550, 'last_sale_price' => 1550 * 180,
+        'last_sale_date' => gmdate('Y-m-d', time() - 40 * 86400), 'lat' => 37.301 + $i * 0.001, 'lng' => -79.9005], 'manual');
+}
+$arvS = App\Services\Deal::arv(Db::one('SELECT * FROM properties WHERE id = ?', [$subj]));
+$ok(($arvS['from'] ?? '') !== 'asking' && $arvS['comps'] >= 3, 'recorded sales take over from asking prices');
+Db::run("DELETE FROM properties WHERE city = 'Askville'");
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

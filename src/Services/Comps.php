@@ -112,6 +112,47 @@ final class Comps
         return 1 - min(1.0, abs((float) $a - (float) $b) / $span);
     }
 
+    /**
+     * Similar homes for sale near a home: same type, size within ±35%, nearest first widening to 3 miles.
+     * Used for a rough value only when no recorded sales are on file.
+     * @return array{rows: array<int, array{ppsf: float, distance: float}>, radius: float}
+     */
+    public static function listings(array $s, int $want = 5): array
+    {
+        if (!Geo::valid($s['lat'] ?? null, $s['lng'] ?? null) || (float) ($s['sqft'] ?? 0) <= 0) {
+            return ['rows' => [], 'radius' => 0.0];
+        }
+        $lat = (float) $s['lat'];
+        $lng = (float) $s['lng'];
+        $sqft = (float) $s['sqft'];
+        $best = ['rows' => [], 'radius' => 0.0];
+        foreach ([1.0, 2.0, 3.0] as $radius) {
+            $box = Geo::box($lat, $lng, $radius);
+            $rows = Db::all(
+                "SELECT lat, lng, sqft, list_price, property_type FROM properties
+                 WHERE status IN ('for_sale','pending') AND list_price > 0 AND sqft > 200 AND id <> ?
+                   AND sqft BETWEEN ? AND ? AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?
+                 LIMIT 1500",
+                [(int) ($s['id'] ?? 0), $sqft * 0.65, $sqft * 1.35, $box['lat1'], $box['lat2'], $box['lng1'], $box['lng2']]
+            );
+            $out = [];
+            foreach ($rows as $r) {
+                if (!empty($s['property_type']) && !empty($r['property_type']) && $r['property_type'] !== $s['property_type']) {
+                    continue;
+                }
+                $d = Geo::miles($lat, $lng, (float) $r['lat'], (float) $r['lng']);
+                if ($d <= $radius) {
+                    $out[] = ['ppsf' => (float) $r['list_price'] / (float) $r['sqft'], 'distance' => $d];
+                }
+            }
+            $best = ['rows' => $out, 'radius' => $radius];
+            if (count($out) >= $want) {
+                break;
+            }
+        }
+        return $best;
+    }
+
     public static function stats(array $comps, array $subject): ?array
     {
         if (!$comps) {

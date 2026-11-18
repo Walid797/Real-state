@@ -138,7 +138,15 @@ final class Score
             $risks[] = 'Condition not disclosed';
         }
         $risk += (int) round((100 - $arvConf) * 0.25);
-        if ($arvConf < 40) {
+        $askingArv = ($deal['arv']['from'] ?? '') === 'asking' && ($deal['source']['arv'] ?? 'est') !== 'set';
+        if ($askingArv) {
+            $risk += 10;
+            $risks[] = 'ARV from asking prices, not recorded sales';
+            // Never a "strong opportunity" (70+) until real sales back the value up.
+            if ($score !== null) {
+                $score = min($score, 69);
+            }
+        } elseif ($arvConf < 40) {
             $risks[] = 'Few comparable sales behind the ARV';
         }
         foreach ($risks as $r) {

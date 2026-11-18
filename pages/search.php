@@ -302,6 +302,23 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </div>
       <?php endif; ?>
 
+      <?php
+      // Listings alone give only asking prices; one request brings the area's recorded sales for real ARVs.
+      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point'], true)
+          ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
+      ?>
+      <?php if ($areaSales === 0 && Auth::can('edit')): ?>
+      <div class="cost-card sales-card">
+        <div>
+          <strong>ARV and profit here come from asking prices.</strong>
+          <p class="small soft">Pull the last 12 months of recorded sales in <?= e($loc['label']) ?> and every home here is valued against what actually sold.</p>
+        </div>
+        <form method="post" action="/search/act" class="inline">
+          <?= csrf_field() ?><input type="hidden" name="do" value="area_sales"><input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
+          <button class="btn btn-primary" type="submit"<?= $provider ? '' : ' disabled' ?>><?= icon('download', 14) ?>Pull recorded sales<span class="cost">1 request</span></button>
+        </form>
+      </div>
+      <?php endif; ?>
       <?php $rcProblem = App\Providers\RentCast::problem(); ?>
       <?php if ($res['notice'] && $rcProblem && $res['notice'] === $rcProblem['why']): ?>
       <div class="callout callout-bad mt-s" role="alert"><?= icon('triangle-alert', 16) ?><div>
