@@ -83,8 +83,10 @@ final class MiamiDade implements CountySource
     {
         $since = gmdate('Y-m-d', time() - $days * 86400);
         $out = [];
+        // DOS_1 is text "YYYYMMDD", so the date compares as text.
         foreach (ArcGis::query(self::LAYER, [
-            'where' => 'TRUE_SITE_ZIP_CODE LIKE ' . ArcGis::str($zip . '%') . " AND PRICE_1 > 1000 AND QU_FLG_1 = 'Q' AND BUILDING_HEATED_AREA > 0",
+            'where' => 'TRUE_SITE_ZIP_CODE LIKE ' . ArcGis::str($zip . '%') . " AND PRICE_1 > 1000 AND QU_FLG_1 = 'Q' AND BUILDING_HEATED_AREA > 0"
+                . ' AND DOS_1 >= ' . ArcGis::str(str_replace('-', '', $since)),
             'outFields' => self::FIELDS, 'outSR' => '4326', 'returnGeometry' => 'true',
         ], true, true, 'Miami-Dade') as $f) {
             $r = $f['attributes'];

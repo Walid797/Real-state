@@ -195,6 +195,10 @@ final class PropertyRepo
         if ($v === null || $v === '') {
             return null;
         }
+        // "20240115" (YYYYMMDD, as several assessors write dates) — not a timestamp.
+        if (is_string($v) && preg_match('/^(\d{4})(\d{2})(\d{2})$/', $v, $m) && (int) $m[1] > 1800 && checkdate((int) $m[2], (int) $m[3], (int) $m[1])) {
+            return $m[1] . '-' . $m[2] . '-' . $m[3];
+        }
         if (is_numeric($v)) {
             $n = (float) $v;
             $ts = $n > 20000000000 ? (int) ($n / 1000) : (int) $n;
