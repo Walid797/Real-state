@@ -35,7 +35,7 @@ DirectoryIndex index.php
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set X-Robots-Tag "noindex, nofollow, noarchive"
-  <FilesMatch "\.(css|js|woff2|png|svg)$">
+  <FilesMatch "\.(css|js|woff2|png|svg|webp|jpg)$">
     Header set Cache-Control "public, max-age=2592000"
   </FilesMatch>
 </IfModule>

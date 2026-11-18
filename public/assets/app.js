@@ -60,32 +60,85 @@
     });
   }
 
-  /* Welcome page: scrolling through the track builds the house, one stage at a time.
-     Each stage maps a slice of the scroll to a 0–1 CSS variable; the CSS does the drawing. */
+  /* Welcome page: scrolling plays a drone flight around a real house, frame by frame.
+     Frames load in a spread-out order, so any scroll position soon has one close by. */
   var track = $('.wl-scroll');
+  var media = $('.wl-media');
   var stage = $('.welcome');
-  if (track && stage && window.matchMedia && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (track && media && stage && window.matchMedia && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.body.classList.add('wl-anim');
-    // [variable, from, to] as fractions of the track
-    var parts = [
-      ['--g', 0.00, 0.08], ['--t', 0.04, 0.16], ['--s', 0.07, 0.18], ['--w', 0.17, 0.36],
-      ['--o', 0.34, 0.44], ['--r', 0.40, 0.56], ['--c1', 0.50, 0.56], ['--c2', 0.54, 0.60],
-      ['--c3', 0.58, 0.64], ['--c4', 0.62, 0.68], ['--l', 0.66, 0.80], ['--n', 0.82, 0.94]
-    ];
-    var chapterAt = [0.00, 0.20, 0.42, 0.64, 0.80];
+    var canvas = $('canvas', media);
+    var ctx2d = canvas.getContext('2d');
+    var count = parseInt(media.getAttribute('data-count'), 10) || 0;
+    var small = Math.min(window.innerWidth, window.innerHeight * 16 / 9) * Math.min(window.devicePixelRatio || 1, 2) < 1100;
+    var base = media.getAttribute('data-frames') + (small ? '/sm/' : '/lg/');
+    var frames = new Array(count);
+    var want = 0;
+    var drawn = -1;
+    var pad = function (n) { return ('00' + n).slice(-3); };
+
+    var size = function () {
+      var dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.round(media.clientWidth * dpr);
+      canvas.height = Math.round(media.clientHeight * dpr);
+      drawn = -1;
+    };
+    var nearest = function (i) {
+      for (var d = 0; d < count; d++) {
+        if (frames[i - d] && frames[i - d].ok) return i - d;
+        if (frames[i + d] && frames[i + d].ok) return i + d;
+      }
+      return -1;
+    };
+    var draw = function () {
+      var i = nearest(want);
+      if (i < 0 || i === drawn) return;
+      var img = frames[i].img;
+      var cw = canvas.width, ch = canvas.height;
+      var s = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);   // cover, like object-fit
+      var w = img.naturalWidth * s, h = img.naturalHeight * s;
+      ctx2d.drawImage(img, (cw - w) / 2, (ch - h) / 2, w, h);
+      drawn = i;
+      media.classList.remove('no-frames');
+    };
+    var load = function (i) {
+      if (frames[i]) return;
+      var img = new Image();
+      frames[i] = { img: img, ok: false };
+      img.decoding = 'async';
+      img.onload = function () { frames[i].ok = true; if (Math.abs(i - want) <= Math.abs(drawn - want)) draw(); };
+      img.src = base + pad(i + 1) + '.webp';
+    };
+    // Every 16th frame first, then every 8th, 4th, 2nd, then the rest.
+    var order = [];
+    [16, 8, 4, 2, 1].forEach(function (step) {
+      for (var i = 0; i < count; i += step) if (order.indexOf(i) === -1) order.push(i);
+    });
+    var next = 0;
+    var pump = function () {
+      var batch = 6;
+      while (batch-- > 0 && next < order.length) load(order[next++]);
+      if (next < order.length) setTimeout(pump, 60);
+    };
+    media.classList.add('no-frames');
+    size();
+    load(0);
+    pump();
+
+    var cards = [['--c1', 0.47, 0.52], ['--c2', 0.50, 0.55], ['--c3', 0.53, 0.58], ['--c4', 0.56, 0.61]];
+    var chapterAt = [0, 0.12, 0.28, 0.44, 0.63, 0.80];
     var chapters = $$('.wl-ch');
     var dots = $$('[data-dot]');
-    var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
-    var last = -1;
     var paint = function () {
       var r = track.getBoundingClientRect();
-      var span = Math.max(1, r.height - window.innerHeight);
-      var p = Math.min(1, Math.max(0, -r.top / span));
-      if (Math.abs(p - last) < 0.0005) return;
-      last = p;
-      parts.forEach(function (x) {
-        var t = Math.min(1, Math.max(0, (p - x[1]) / (x[2] - x[1])));
-        stage.style.setProperty(x[0], ease(t).toFixed(3));
+      var p = Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - window.innerHeight)));
+      want = Math.round(Math.min(1, p / 0.94) * (count - 1));
+      draw();
+      stage.style.setProperty('--p', p.toFixed(4));
+      cards.forEach(function (c) {
+        var t = Math.min(1, Math.max(0, (p - c[1]) / (c[2] - c[1])));
+        if (p > 0.62) t = Math.max(0, 1 - (p - 0.62) / 0.03);              // gone again for the next chapter
+        stage.style.setProperty(c[0], t.toFixed(3));
       });
       var on = 0;
       chapterAt.forEach(function (at, i) { if (p >= at) on = i; });
@@ -99,7 +152,7 @@
       window.requestAnimationFrame(function () { queued = false; paint(); });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('resize', function () { size(); onScroll(); });
     paint();
   }
 
