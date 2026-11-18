@@ -125,10 +125,13 @@ final class CountyRecords
     {
         $t = microtime(true);
         $log = [];
+        // Only homes that could be in Fairfax County (the county name, or a Fairfax ZIP when it is missing).
         $homes = Db::all(
             "SELECT * FROM properties WHERE state = 'VA' AND status IN ('for_sale','pending')
                AND JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NULL
-             ORDER BY first_seen_at DESC LIMIT 300"
+               AND ((county LIKE '%fairfax%' AND county NOT LIKE '%city%')
+                    OR ((county IS NULL OR county = '') AND (zip LIKE '201__' OR zip LIKE '220__' OR zip LIKE '221__' OR zip LIKE '223__')))
+             ORDER BY first_seen_at DESC LIMIT 400"
         );
         $found = $tried = 0;
         foreach ($homes as $p) {
@@ -144,7 +147,7 @@ final class CountyRecords
                 $found++;
             }
         }
-        $log[] = $tried ? "County records: $found of $tried homes found." : 'County records: no home needed a lookup (' . count($homes) . ' Virginia homes for sale without one).';
+        $log[] = $tried ? "County records: $found of $tried homes found." : 'County records: no Fairfax home for sale needed a lookup (' . count($homes) . ' without a record, all checked recently).';
         $zips = array_column(Db::all(
             "SELECT zip, COUNT(*) n FROM properties WHERE state = 'VA' AND status IN ('for_sale','pending')
                AND JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL
