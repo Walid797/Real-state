@@ -308,9 +308,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
       ?>
       <?php
-      // In a Fairfax County ZIP the county's own records give the sales for free.
-      $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::covers(['state' => 'VA', 'zip' => $loc['zip'],
-          'county' => App\Db::val('SELECT county FROM properties WHERE zip = ? AND county IS NOT NULL AND county <> \'\' LIMIT 1', [$loc['zip']])]);
+      // Where a county publishes its sales, they come from its records for free.
+      $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null;
       ?>
       <?php if ($areaSales === 0 && Auth::can('edit')): ?>
       <div class="cost-card sales-card">

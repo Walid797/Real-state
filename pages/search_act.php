@@ -40,9 +40,8 @@ if ($do === 'area_sales') {
     // One request: the last 12 months of recorded sales for the whole area — real comparables for every listing in it.
     Auth::require('edit');
     @set_time_limit(180);
-    $ffxCounty = $loc['type'] === 'zip' ? Db::val("SELECT county FROM properties WHERE zip = ? AND county IS NOT NULL AND county <> '' LIMIT 1", [$loc['zip']]) : null;
-    if ($loc['type'] === 'zip' && App\Services\CountyRecords::covers(['state' => 'VA', 'zip' => $loc['zip'], 'county' => $ffxCounty])) {
-        // Fairfax County publishes its sales: free, and no request used.
+    if ($loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null) {
+        // The county publishes its sales: free, and no request used.
         $r = App\Services\CountyRecords::areaSales($loc['zip'], 150);
         $ids = array_map('intval', array_column(App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sale', 'limit' => 500])['rows'], 'id'));
         if ($r['ok'] && $ids) {

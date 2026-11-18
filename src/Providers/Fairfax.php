@@ -6,6 +6,7 @@ namespace App\Providers;
 use App\Address;
 use App\Cache;
 use App\Http;
+use App\Providers\County\CountySource;
 use App\Settings;
 
 /**
@@ -20,7 +21,7 @@ use App\Settings;
  * The county's tables have no photos, listing text or HOA fees. Fairfax City and Falls Church
  * are separate jurisdictions and are not in these tables.
  */
-final class Fairfax
+final class Fairfax implements CountySource
 {
     public const ID = 'fairfax';
     public const NAME = 'Fairfax County public records';
@@ -37,6 +38,32 @@ final class Fairfax
 
     /** Sale types the county marks as fair market sales of one parcel — the ones fit to price other homes by. */
     private const ARMS_LENGTH = "(SALEVAL_DESC = 'Valid and verified sale' OR SALEVAL_DESC LIKE 'Atypical upgrades%')";
+
+    public static function id(): string
+    {
+        return self::ID;
+    }
+
+    public static function name(): string
+    {
+        return self::NAME;
+    }
+
+    public static function area(): string
+    {
+        return 'Fairfax County, VA';
+    }
+
+    public static function candidates(): string
+    {
+        return "state = 'VA' AND ((county LIKE '%fairfax%' AND county NOT LIKE '%city%')"
+            . " OR ((county IS NULL OR county = '') AND (zip LIKE '201__' OR zip LIKE '220__' OR zip LIKE '221__' OR zip LIKE '223__')))";
+    }
+
+    public static function fairSale(string $type, int $price): bool
+    {
+        return $price > 1000 && (bool) preg_match('/^(Valid and verified|Atypical upgrades)/i', $type);
+    }
 
     /** Could this home be in Fairfax County? (A lookup that finds nothing settles it.) */
     public static function covers(array $p): bool
@@ -175,7 +202,7 @@ final class Fairfax
                 continue;
             }
             $history[] = ['date' => $date, 'price' => $price, 'type' => trim((string) ($s['SALEVAL_DESC'] ?? ''))];
-            $fair = $price > 1000 && preg_match('/^(Valid and verified|Atypical upgrades)/i', (string) ($s['SALEVAL_DESC'] ?? ''));
+            $fair = self::fairSale((string) ($s['SALEVAL_DESC'] ?? ''), $price);
             if ($fair && $lastValid === null) {
                 $lastValid = ['price' => $price, 'date' => $date];
             }
@@ -186,6 +213,7 @@ final class Fairfax
         }
         $t = static fn (?array $r, string $k) => ($v = trim((string) ($r[$k] ?? ''))) !== '' ? $v : null;
         $county = array_filter([
+            'source' => self::ID,
             'parid' => $parid,
             'style' => $t($dw, 'STYLE_DESC'),
             'year_remodeled' => ($dw['YRREMOD'] ?? null) ?: null,

@@ -561,5 +561,25 @@ $cwp['details'] = ['county_record' => ['parid' => 'x']];
 $ok(!App\Services\CountyRecords::wanted($cwp), 'a home with its record is not looked up again');
 Db::run("DELETE FROM properties WHERE id = ?", [$cw]);
 
+/* ── Arlington County records ─────────────────────────────────────── */
+$A = App\Providers\County\Arlington::class;
+$ok($A::covers(['state' => 'VA', 'county' => 'Arlington', 'zip' => '22213']) && !$A::covers(['state' => 'TX', 'county' => 'Arlington', 'zip' => '76010'])
+    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'Arlington', 'zip' => '22213']) === $A
+    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'Fairfax', 'zip' => '22030']) === App\Providers\Fairfax::class, 'each home goes to its own county source; Arlington, Texas is not Arlington County');
+$ok($A::fairSale('', 735000) && !$A::fairSale('5-Not Market Sale', 500000) && !$A::fairSale('2-Sale or Gift to Relative', 300000) && !$A::fairSale('', 0), 'Arlington market sales are told from gifts and non-market transfers');
+$ashape = new ReflectionMethod($A, 'shape');
+$ashape->setAccessible(true);
+$arl = $ashape->invoke(null,
+    ['realEstatePropertyCode' => '01001009', 'propertyClassTypeDsc' => '511-Single Family Detached', 'lotSizeQty' => 10065, 'propertyYearBuilt' => 1950, 'zoningDescListText' => 'R-10', 'latitudeCrd' => '38.89976183', 'longitudeCrd' => '-77.15943186', 'taxExemptionTypeDsc' => null],
+    ['dwellingYearBuiltDate' => 2012, 'basementFinishedRecRoomSquareFeetQty' => 1485, 'basementRecRoomTypeDsc' => 'Flr,ceil,wall fin,ptn', 'coolingTypeDsc' => 'Central air', 'heatingTypeDsc' => 'Forced hot air', 'dwellingTypeDsc' => '33 - 2 1/2 sty', 'storiesQuantityDsc' => '2.5', 'fireplaceCnt' => 1],
+    [['bedroomCnt' => 0, 'twoFixtureBathroomCnt' => 1, 'threeFixtureBathroomCnt' => 0, 'fourFixtureBathroomCnt' => 0, 'fiveFixtureBathroomCnt' => 0, 'finishedAreaSquareFeetQty' => 1747],
+     ['bedroomCnt' => 3, 'twoFixtureBathroomCnt' => 0, 'threeFixtureBathroomCnt' => 2, 'fourFixtureBathroomCnt' => 0, 'fiveFixtureBathroomCnt' => 1, 'finishedAreaSquareFeetQty' => 1604]],
+    [['assessmentDate' => '2026-01-01T00:00:00.000Z', 'landValueAmt' => 700000, 'improvementValueAmt' => 500000, 'totalValueAmt' => 1200000], ['assessmentDate' => '2025-01-01T00:00:00.000Z', 'totalValueAmt' => 1150000]],
+    [['saleAmt' => 735000, 'saleDate' => '2014-04-16T00:00:00.000Z', 'salesTypeDsc' => null], ['saleAmt' => 0, 'saleDate' => '1999-11-01T00:00:00.000Z', 'salesTypeDsc' => '2-Sale or Gift to Relative']]);
+$af = $arl['facts'];
+$ok($af['beds'] === 3 && $af['baths'] === 3.5 && $af['sqft'] === 3351 && $af['year_built'] === 2012 && $af['lot_sqft'] === 10065 && $af['property_type'] === 'Single Family' && $af['lat'] === 38.899762, 'Arlington rooms by floor add up: 3 beds, 3 full + 1 half bath, 3,351 sq ft');
+$ok($af['assessed_value'] === 1200000 && $af['tax_annual'] === (int) round(1200000 * 1.053 / 100) && $af['last_sale_price'] === 735000 && $af['last_sale_date'] === '2014-04-16', 'Arlington assessment, tax at $1.053, and last market sale');
+$ok($arl['county']['source'] === 'arlington' && $arl['county']['assessment_year'] === 2026 && $arl['county']['sales'][1]['type'] === 'Sale or Gift to Relative', 'the record carries its source and the sale history with readable types');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);
