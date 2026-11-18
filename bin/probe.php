@@ -25,13 +25,15 @@ foreach ($lines as $url) {
     if ($url === '' || $url[0] === '#') {
         continue;
     }
+    $namesOnly = str_starts_with($url, 'names ');
+    $url = $namesOnly ? substr($url, 6) : $url;
     $isArc = str_contains($url, '/rest/services');
     $u = $isArc ? $url . (str_contains($url, '?') ? '&' : '?') . 'f=json' : $url;
     [$st, $body, $err, $ms] = $get($u);
     echo "\n### $url -> " . ($st ?: 'no answer ' . $err) . " {$ms}ms\n";
     $d = json_decode($body, true);
     if (!$isArc || !is_array($d)) {
-        echo '   ' . mb_substr(preg_replace('/\s+/', ' ', $body) ?? '', 0, 1500) . "\n";
+        echo '   ' . mb_substr(preg_replace('/\s+/', ' ', $body) ?? '', 0, 2500) . "\n";
         continue;
     }
     if (isset($d['services']) || isset($d['folders'])) {
@@ -42,6 +44,10 @@ foreach ($lines as $url) {
         continue;
     }
     $layers = array_merge((array) ($d['layers'] ?? []), (array) ($d['tables'] ?? []));
+    if ($namesOnly) {
+        echo '   ' . implode(' | ', array_map(static fn ($t) => $t['id'] . ' ' . $t['name'], $layers)) . "\n";
+        continue;
+    }
     if (isset($d['fields'])) {
         $layers = [$d + ['id' => '']];
         $url = preg_replace('#/\d+$#', '', $url);
