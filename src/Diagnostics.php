@@ -70,7 +70,11 @@ final class Diagnostics
             $out[] = sprintf('  %s %s "%s" found %d, added %d — %s', $m['created_at'], $m['sender'], mb_substr($m['subject'], 0, 60), $m['found'], $m['added'], $m['note']);
         }
         $out[] = 'County records: ' . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL") . ' homes with a Fairfax record, '
-            . (int) Db::val("SELECT COUNT(*) FROM properties WHERE source = 'county'") . ' from county sales lists';
+            . (int) Db::val("SELECT COUNT(*) FROM properties WHERE source = 'county'") . ' from county sales lists, '
+            . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_tried_at') IS NOT NULL") . ' looked up, '
+            . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_error') = true") . ' failed';
+        $out[] = '  VA homes for sale by county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
+            Db::all("SELECT county, COUNT(*) n FROM properties WHERE state = 'VA' AND status IN ('for_sale','pending') GROUP BY county ORDER BY n DESC LIMIT 12")));
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);
         $out[] = '3D view: ' . (Settings::has('cesium_key') ? 'token set' : 'no token')
             . ($saved ? ', saved check ' . ($saved['ok'] ? 'OK' : 'failed: ' . $saved['why']) . ' (' . ($saved['at'] ?? '?') . ')' : '');

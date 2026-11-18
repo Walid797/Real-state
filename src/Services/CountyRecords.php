@@ -144,9 +144,7 @@ final class CountyRecords
                 $found++;
             }
         }
-        if ($tried) {
-            $log[] = "County records: $found of $tried homes found.";
-        }
+        $log[] = $tried ? "County records: $found of $tried homes found." : 'County records: no home needed a lookup (' . count($homes) . ' Virginia homes for sale without one).';
         $zips = array_column(Db::all(
             "SELECT zip, COUNT(*) n FROM properties WHERE state = 'VA' AND status IN ('for_sale','pending')
                AND JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL
