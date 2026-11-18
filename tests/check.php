@@ -486,16 +486,30 @@ $arvS = App\Services\Deal::arv(Db::one('SELECT * FROM properties WHERE id = ?', 
 $ok(($arvS['from'] ?? '') !== 'asking' && $arvS['comps'] >= 3, 'recorded sales take over from asking prices');
 Db::run("DELETE FROM properties WHERE city = 'Askville'");
 
-/* ── Listing details pasted from Homes.com / Zillow ───────────────── */
-$lh = App\Services\ListingText::parse((string) file_get_contents(__DIR__ . '/fixtures/listing-homes.txt'));
-$eq($lh['fields'], ['tax_annual' => 4417, 'hoa_fee' => 340, 'year_built' => 1997, 'sqft' => 1130, 'beds' => 2, 'baths' => 2.0, 'property_type' => 'Condo'], 'Homes.com block: tax, HOA, year, size, rooms, type');
-$ok(($lh['details']['parcel_id'] ?? '') === '0463 21 4126A' && ($lh['details']['hoa_includes'] ?? '') === 'management, parking fee, snow removal, trash, water', 'Homes.com block: parcel and what the HOA covers');
-$ok(($lh['details']['pets'] ?? '') === 'Dogs and Cats Allowed' && ($lh['details']['style'] ?? '') === 'Colonial' && ($lh['details']['coming_soon'] ?? '') === '11/23/26', 'Homes.com block: pets, style, coming-soon date');
-$ok(isset($lh['facts']['Kitchen']) && in_array('Dishwasher', $lh['facts']['Kitchen'], true) && in_array('Home Type: Condominium', $lh['facts']['Property Details'], true), 'lines are grouped under their headings, label and value joined');
-$lz = App\Services\ListingText::parse((string) file_get_contents(__DIR__ . '/fixtures/listing-zillow.txt'));
-$eq($lz['fields'], ['tax_annual' => 5812, 'hoa_fee' => 95, 'year_built' => 1988, 'sqft' => 2140, 'beds' => 3, 'baths' => 2.5, 'garage_spaces' => 2, 'has_basement' => 1, 'property_type' => 'Townhouse'], 'Zillow block: half baths, garage, basement');
-$ok(App\Services\ListingText::parse('HOA fee: $1,200 quarterly')['fields']['hoa_fee'] === 400, 'quarterly HOA becomes monthly');
-$ok(App\Services\ListingText::parse('<script>alert(1)</script>')['fields'] === [], 'nothing is made up from junk');
+/* ── Full listing fetched by the site itself, once per home ────────── */
+$hadOwn = App\Settings::get('openwebninja_key');
+App\Settings::set('openwebninja_key', 'check-only');
+App\Settings::set('openwebninja_auto', '60');
+$ld = PropertyRepo::upsert(['address' => '9 Auto Ln', 'city' => 'Autoville', 'state' => 'VA', 'zip' => '24980', 'status' => 'for_sale', 'list_price' => 200000], 'manual')['id'];
+$ldp = PropertyRepo::find($ld);
+$ok(App\Services\ListingDetails::wanted($ldp), 'a home without its listing is fetched when first opened');
+$ldp['details']['zillow'] = true;
+$ok(!App\Services\ListingDetails::wanted($ldp), 'a home already fetched is not fetched again');
+$ldp['details'] = ['zillow_tried_at' => now()];
+$ok(!App\Services\ListingDetails::wanted($ldp), 'a home Zillow had nothing for is left alone for a month');
+$ldp['details'] = ['zillow_tried_at' => gmdate('Y-m-d H:i:s', time() - 2 * 86400), 'zillow_error' => true];
+$ok(App\Services\ListingDetails::wanted($ldp), 'a failed fetch is tried again the next day');
+$ldp['details'] = ['zillow_tried_at' => gmdate('Y-m-d H:i:s', time() - 40 * 86400)];
+$ok(App\Services\ListingDetails::wanted($ldp), '...and asked again after that');
+App\Settings::set('openwebninja_auto', '0');
+$ok(!App\Services\ListingDetails::wanted(PropertyRepo::find($ld)), 'setting the monthly number to 0 turns it off');
+App\Settings::set('openwebninja_auto', '1');
+App\Quota::log('openwebninja', '/property-details-address', 200, 10, null, 'auto');
+$ok(!App\Services\ListingDetails::wanted(PropertyRepo::find($ld)) && App\Services\ListingDetails::autoUsed() >= 1, 'the monthly cap stops automatic fetches');
+Db::run("DELETE FROM api_log WHERE provider = 'openwebninja' AND context = 'auto'");
+Db::run("DELETE FROM properties WHERE city = 'Autoville'");
+App\Settings::set('openwebninja_auto', '60');
+App\Settings::set('openwebninja_key', $hadOwn);
 
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

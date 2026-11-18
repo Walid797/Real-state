@@ -29,6 +29,7 @@ final class Kernel
         ['GET', '#^/api/context/(?<id>\d+)$#', 'context', 'view', 'view'],
         ['GET|POST', '#^/api/nearby/(?<id>\d+)$#', 'nearby', 'view', 'view'],
         ['POST', '#^/api/aerial/(?<id>\d+)$#', 'aerial', 'view', 'view'],
+        ['POST', '#^/api/details/(?<id>\d+)$#', 'details_auto', 'view', 'view'],
         ['GET', '#^/(pipeline|watchlist)$#', 'pipeline', 'view', 'edit'],
         ['GET', '#^/alerts$#', 'alerts', 'view', 'view'],
         ['GET|POST', '#^/alerts/new$#', 'alert_edit', 'view', 'view'],

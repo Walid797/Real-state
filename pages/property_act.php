@@ -27,7 +27,8 @@ $full = Address::full($p);
 switch ($do) {
     case 'watch':
         Pipeline::add($id);
-        flash('Added to the team pipeline.');
+        $auto = App\Services\ListingDetails::wanted($p) ? App\Services\ListingDetails::fetch($p, 'auto') : null;
+        flash('Added to the team pipeline.' . ($auto && $auto['status'] === 'fetched' ? ' ' . $auto['message'] : ''));
         break;
 
     case 'unwatch':
@@ -80,50 +81,6 @@ switch ($do) {
         Score::refresh($id);
         flash('Condition saved; renovation estimate and score updated.');
         $home .= '#condition';
-        break;
-
-    case 'paste':
-        // Facts copied from the listing page (Homes.com, Zillow, Realtor, Redfin). Free: nothing is fetched.
-        $text = trim((string) ($_POST['listing_text'] ?? ''));
-        if (mb_strlen($text) < 20) {
-            flash('Paste the facts block from the listing page first.', 'warn');
-            $home .= '#listing-details';
-            break;
-        }
-        $r = App\Services\ListingText::parse($text);
-        $set = [];
-        foreach ($r['fields'] as $k => $v) {
-            // The listing is the newest word on tax and HOA; other facts only fill gaps.
-            if (in_array($k, ['tax_annual', 'hoa_fee'], true) || $p[$k] === null || $p[$k] === '' || (is_numeric($p[$k]) && (float) $p[$k] == 0.0 && $k !== 'garage_spaces' && $k !== 'has_basement')) {
-                $set[$k] = $v;
-            }
-        }
-        $details = array_replace((array) $p['details'], [
-            'listing_facts' => $r['facts'],
-            'listing_extra' => $r['details'],
-            'listing_text' => mb_substr($text, 0, App\Services\ListingText::MAX),
-            'listing_pasted_at' => now(),
-        ]);
-        $set['details'] = json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
-        if (in_array($p['data_status'], ['link_only', 'limited'], true)) {
-            $set['data_status'] = 'full';
-        }
-        $set['updated_at'] = now();
-        Db::update('properties', $set, $id);
-        $nFacts = array_sum(array_map('count', $r['facts']));
-        // Only what actually changed on the record, in plain words.
-        $names = ['tax_annual' => 'tax', 'hoa_fee' => 'HOA', 'year_built' => 'year built', 'sqft' => 'size', 'beds' => 'bedrooms', 'baths' => 'bathrooms',
-            'garage_spaces' => 'garage', 'has_basement' => 'basement', 'property_type' => 'home type'];
-        $changed = [];
-        foreach (array_keys($names) as $k) {
-            if (array_key_exists($k, $set) && (string) $set[$k] !== (string) ($p[$k] ?? '')) {
-                $changed[] = $names[$k];
-            }
-        }
-        Activity::log('edit', $id, 'Pasted listing details (' . $nFacts . ' facts' . ($changed ? '; updated ' . implode(', ', $changed) : '') . ')');
-        Score::refresh($id);
-        flash('Listing details saved: ' . plural($nFacts, 'fact') . ($changed ? '; updated ' . implode(', ', $changed) : '') . '. Scores updated.');
-        $home .= '#listing-details';
         break;
 
     case 'data_status':
@@ -215,30 +172,13 @@ switch ($do) {
         break;
 
     case 'zillow':
-        $r = OpenWebNinja::details($full);
-        if (!$r['ok']) {
-            flash($r['error'], 'err');
-            break;
-        }
-        if (!$r['item']) {
-            flash('No Zillow page was found for this address.', 'warn');
-            break;
-        }
-        PropertyRepo::upsert(['address' => $p['address'], 'city' => $p['city'], 'state' => $p['state'], 'zip' => $p['zip']] + $r['item'], 'openwebninja');
-        $n = 0;
-        foreach ($r['comps'] as $c) {
-            try {
-                PropertyRepo::upsert($c, 'openwebninja');
-                $n++;
-            } catch (InvalidArgumentException) {
-            }
-        }
-        flash('Listing details added' . ($n ? ', plus ' . plural($n, 'nearby sale') : '') . '.');
+        $r = App\Services\ListingDetails::fetch($p, 'manual');
+        flash($r['message'], ['fetched' => 'ok', 'none' => 'warn', 'error' => 'err'][$r['status']]);
         break;
 }
 
-if (in_array($do, ['record', 'value', 'rent', 'sales', 'zillow'], true)) {
-    Activity::log('pull', $id, ['record' => 'Public record', 'value' => 'Value estimate', 'rent' => 'Rent estimate', 'sales' => 'Nearby sales', 'zillow' => 'Zillow details'][$do]);
+if (in_array($do, ['record', 'value', 'rent', 'sales'], true)) {
+    Activity::log('pull', $id, ['record' => 'Public record', 'value' => 'Value estimate', 'rent' => 'Rent estimate', 'sales' => 'Nearby sales'][$do]);
     Score::refresh($id);
 }
 

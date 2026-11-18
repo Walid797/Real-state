@@ -100,12 +100,9 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await page.fill('input[name=reno_cost]', '45,000');
     await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save and recalculate")')]);
     await has(page, 'recalculated'); await has(page, 'Changed reno cost');
-    // paste the facts block from a listing page
-    await page.locator('#listing-details details.paste-box').evaluate(d => { d.open = true; });
-    await page.fill('#listing-details textarea[name=listing_text]', require('fs').readFileSync(__dirname + '/fixtures/listing-homes.txt', 'utf8'));
-    await Promise.all([page.waitForNavigation(), page.click('#listing-details button:has-text("Read and save")')]);
-    await has(page, 'Listing details saved'); await has(page, 'Fairmont Condo'); await has(page, 'Dogs and Cats Allowed');
-    await shot('07b-listing-details', true);
+    // the full listing comes by itself; there is no paste box
+    if (!(await page.locator('#listing-details').count())) throw new Error('no Property details section');
+    if (await page.locator('textarea[name=listing_text]').count()) throw new Error('the paste box is still there');
     // condition by hand
     await page.click('#condition details.deal-edit > summary');
     await page.selectOption('#condition select[name=overall]', 'needs_renovation');

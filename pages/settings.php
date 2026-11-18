@@ -39,6 +39,7 @@ if (is_post()) {
             Settings::set('rentcast_reserve', $int('rentcast_reserve', 0, 100000, 15));
             Settings::set('openwebninja_limit', $int('openwebninja_limit', 0, 1000000, 100));
             Settings::set('openwebninja_reserve', $int('openwebninja_reserve', 0, 1000000, 20));
+            Settings::set('openwebninja_auto', $int('openwebninja_auto', 0, 1000000, 60));
             Settings::set('search_provider', in_array(input('search_provider'), ['auto', 'rentcast', 'openwebninja'], true) ? input('search_provider') : 'auto');
             Settings::set('snapshot_hours', $int('snapshot_hours', 1, 720, 24));
             flash('Data sources saved.');
@@ -192,6 +193,8 @@ View::header('Settings', 'settings');
         <?= $secretField('openwebninja_key', 'API key', 'A third-party service that reads Zillow for you; Zillow itself offers no public API.') ?>
         <label class="field c4"><span>Requests per month</span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
         <label class="field c4"><span>Kept for searching by hand</span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
+        <label class="field c4"><span>Fetched by themselves, per month</span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
+          <small>The first time a home is opened or added to the pipeline, its full listing is fetched once. 0 turns this off. <?= App\Services\ListingDetails::autoUsed() ?> used this month.</small></label>
       </div>
     </div>
 

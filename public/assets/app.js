@@ -370,6 +370,24 @@
       .catch(fail);
   }
 
+  /* ── Full listing details: fetched once by the site, right after a home is first opened ── */
+  var auto = $('[data-auto-details]');
+  if (auto) {
+    var autoMsg = $('.auto-details-msg', auto);
+    fetch(auto.getAttribute('data-auto-details'), {
+      method: 'POST', credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'X-CSRF-Token': auto.getAttribute('data-csrf') || '' }
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d.status === 'fetched') {
+        // Everything on the page (tax, HOA, condition, score) changes, so show it fresh.
+        if (autoMsg) autoMsg.textContent = 'Listing details found — updating the page…';
+        setTimeout(function () { window.location.reload(); }, 400);
+      } else if (autoMsg) {
+        autoMsg.textContent = d.message || 'No further details from the listing.';
+      }
+    }).catch(function () { if (autoMsg) autoMsg.textContent = 'Couldn’t fetch the listing details. Reload to try again.'; });
+  }
+
   /* ── Flood zone + neighbourhood (free lookups, loaded after the page) ── */
   var ctx = $('[data-context-url]');
   if (ctx) {

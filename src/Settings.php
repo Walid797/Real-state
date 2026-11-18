@@ -22,6 +22,7 @@ final class Settings
         'rentcast_reserve' => '15',
         'openwebninja_limit' => '100',
         'openwebninja_reserve' => '20',
+        'openwebninja_auto' => '60',
         'cesium_limit' => '900',
         'cesium_reserve' => '0',
         'search_provider' => 'auto',
