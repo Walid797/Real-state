@@ -37,6 +37,22 @@ final class Db
 
     public static function run(string $sql, array $params = []): PDOStatement
     {
+        try {
+            return self::exec($sql, $params);
+        } catch (\PDOException $e) {
+            // Shared hosts close idle connections (e.g. after a slow outside call): reconnect once and retry,
+            // unless we were inside a transaction, where a retry could apply half of it.
+            $gone = in_array((int) ($e->errorInfo[1] ?? 0), [2006, 2013], true) || str_contains($e->getMessage(), 'gone away');
+            if (!$gone || (self::$pdo !== null && self::$pdo->inTransaction())) {
+                throw $e;
+            }
+            self::$pdo = null;
+            return self::exec($sql, $params);
+        }
+    }
+
+    private static function exec(string $sql, array $params): PDOStatement
+    {
         $st = self::pdo()->prepare($sql);
         foreach ($params as $k => $v) {
             $name = is_int($k) ? $k + 1 : (str_starts_with($k, ':') ? $k : ':' . $k);

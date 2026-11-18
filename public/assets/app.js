@@ -295,20 +295,79 @@
     });
   });
 
-  /* ── Places nearby (OpenStreetMap) ───────────────────── */
+  /* ── Places nearby (OpenStreetMap) ─────────────────────
+     The server keeps a tally once one exists. If not, this browser asks OpenStreetMap
+     directly (the public servers rarely answer shared hosting), counts what is near,
+     shows it, and hands the tally back so the next visit is instant. */
   var near = $('[data-nearby-url]');
   if (near) {
-    fetch(near.getAttribute('data-nearby-url'), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+    var url = near.getAttribute('data-nearby-url');
+    var show = function (places) {
+      near.innerHTML = places.map(function (pl) {
+        var v = pl.count === 0 ? '<span class="muted">none within ' + pl.radius + ' mi</span>'
+          : pl.count + ' · nearest ' + Number(pl.nearest).toFixed(1) + ' mi';
+        return '<div class="ctx-row"><span>' + esc(pl.label) + '</span><span class="num" title="' + esc(pl.name || '') + '">' + v + '</span></div>';
+      }).join('') + '<p class="small muted">From OpenStreetMap. Distance is a straight line; it says nothing about quality.</p>';
+    };
+    var fail = function () { near.innerHTML = '<p class="small muted">OpenStreetMap didn’t answer. Reload to try again.</p>'; };
+    var miles = function (a1, o1, a2, o2) {
+      var r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
+      var h = Math.sin(dA / 2) * Math.sin(dA / 2) + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(dO / 2) * Math.sin(dO / 2);
+      return 3958.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+    };
+    var kindOf = function (t) {
+      if (/^(school|kindergarten)$/.test(t.amenity || '')) return 'school';
+      if (/^(hospital|clinic|doctors|urgent_care)$/.test(t.amenity || '')) return 'health';
+      if (t.shop) return 'grocery';
+      if (t.highway === 'bus_stop' || t.railway) return 'transit';
+      if (t.highway === 'motorway_junction') return 'highway';
+      if (t.leisure === 'park') return 'park';
+      return null;
+    };
+    var tally = function (lk, elements) {
+      var out = {};
+      Object.keys(lk.kinds).forEach(function (k) { out[k] = { count: 0, nearest: null, name: null }; });
+      elements.forEach(function (el) {
+        var t = el.tags || {}, k = kindOf(t);
+        var la = el.lat != null ? el.lat : el.center && el.center.lat, lo = el.lon != null ? el.lon : el.center && el.center.lon;
+        if (!k || la == null || lo == null) return;
+        var d = miles(lk.lat, lk.lng, la, lo);
+        out[k].count++;
+        if (out[k].nearest === null || d < out[k].nearest) {
+          out[k].nearest = Math.round(d * 100) / 100;
+          out[k].name = t.name ? String(t.name).slice(0, 80) : (k === 'highway' && t.ref ? 'Exit ' + t.ref : null);
+        }
+      });
+      return out;
+    };
+    var ask = function (servers, query, i) {
+      if (i >= servers.length) return Promise.reject(new Error('no server answered'));
+      var ctl = window.AbortController ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, 14000);
+      return fetch(servers[i], { method: 'POST', body: new URLSearchParams({ data: query }), signal: ctl ? ctl.signal : undefined })
+        .then(function (r) { clearTimeout(timer); if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function (j) { if (!j || !j.elements) throw new Error('bad answer'); return j.elements; })
+        .catch(function () { clearTimeout(timer); return ask(servers, query, i + 1); });
+    };
+    fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
       .then(function (d) {
-        if (!d.places) { near.innerHTML = '<p class="small muted">OpenStreetMap didn’t answer. Reload to try again.</p>'; return; }
-        near.innerHTML = d.places.map(function (pl) {
-          var v = pl.count === 0 ? '<span class="muted">none within ' + pl.radius + ' mi</span>'
-            : pl.count + ' · nearest ' + Number(pl.nearest).toFixed(1) + ' mi';
-          return '<div class="ctx-row"><span>' + esc(pl.label) + '</span><span class="num" title="' + esc(pl.name || '') + '">' + v + '</span></div>';
-        }).join('') + '<p class="small muted">From OpenStreetMap. Distance is a straight line; it says nothing about quality.</p>';
+        if (d.places) { show(d.places); return; }
+        if (!d.lookup) { fail(); return; }
+        var lk = d.lookup;
+        return ask(lk.servers, lk.query, 0).then(function (elements) {
+          var t = tally(lk, elements);
+          show(Object.keys(lk.kinds).map(function (k) {
+            return { label: lk.kinds[k], radius: lk.radius[k] || 1, count: t[k].count, nearest: t[k].nearest, name: t[k].name };
+          }));
+          fetch(url, {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': near.getAttribute('data-csrf') || '' },
+            body: JSON.stringify({ places: t })
+          }).catch(function () {});
+        });
       })
-      .catch(function () { near.innerHTML = '<p class="small muted">Couldn’t load this. Reload to try again.</p>'; });
+      .catch(fail);
   }
 
   /* ── Flood zone + neighbourhood (free lookups, loaded after the page) ── */

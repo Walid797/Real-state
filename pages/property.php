@@ -93,9 +93,13 @@ $pull = static function (string $do, string $label, string $cost, bool $on, stri
         . '<button class="btn" type="submit"' . ($on ? '' : ' disabled') . '>' . e($label) . '<span class="cost">' . e($cost) . '</span></button></form>';
 };
 
-if ($hasGeo && App\Settings::has('cesium_key')) {
-    App\Kernel::csp(true); // the 3D view talks to Cesium ion and Google's tiles, with workers and WebAssembly
-    View::script('/assets/aerial.js');
+if ($hasGeo) {
+    // Nearby places are looked up by the browser (OpenStreetMap); the 3D view talks to Cesium ion and Google's tiles.
+    $aerialOn = App\Settings::has('cesium_key');
+    App\Kernel::csp($aerialOn, true);
+    if ($aerialOn) {
+        View::script('/assets/aerial.js');
+    }
 }
 View::header($p['address'], '', ['map' => $hasGeo]);
 if ($hasGeo) {
@@ -439,7 +443,7 @@ if (count($series) >= 2) {
       <h3>Flood risk</h3>
       <div class="ctx" data-flood><div class="skeleton"></div><div class="skeleton"></div></div>
       <h3 class="mt-l">Nearby, within a mile</h3>
-      <div class="ctx" data-nearby-url="/api/nearby/<?= $id ?>"><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="ctx" data-nearby-url="/api/nearby/<?= $id ?>" data-csrf="<?= e(App\Auth::csrfToken()) ?>"><div class="skeleton"></div><div class="skeleton"></div></div>
       <h3 class="mt-l">Neighbourhood</h3>
       <div class="ctx" data-hood><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
     </div>

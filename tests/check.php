@@ -439,5 +439,23 @@ $ok(is_file(APP_ROOT . '/public/assets/vendor/cesium/Workers/createVerticesFromH
 $ok(is_file(APP_ROOT . '/public/assets/vendor/cesium/ThirdParty/draco_decoder.wasm'), 'Draco decoder for Google tiles is shipped');
 $ok(App\Providers\CesiumIon::GOOGLE_3D_ASSET === 2275207 && str_contains($cz, 'fromAssetId(2275207)'), 'token check asks for the same asset the viewer opens');
 
+/* ── Nearby places kept from the browser, and a dropped connection ─── */
+$good = array_fill_keys(array_keys(App\Providers\Overpass::KINDS), ['count' => 0, 'nearest' => null, 'name' => null]);
+$good['school'] = ['count' => 2, 'nearest' => 0.41, 'name' => '<b>Zilker</b> Elementary'];
+$ok(App\Providers\Overpass::store(1.2345, 2.3456, $good), 'a well-formed tally is kept');
+$kept = App\Providers\Overpass::cached(1.2345, 2.3456);
+$ok($kept['school']['count'] === 2 && $kept['school']['name'] === 'Zilker Elementary', 'kept tally reads back, tags stripped');
+$ok(!App\Providers\Overpass::store(1.0, 1.0, ['school' => ['count' => 1]]), 'a tally missing kinds is refused');
+$bad = $good; $bad['park']['count'] = -3;
+$ok(!App\Providers\Overpass::store(1.0, 1.0, $bad), 'negative counts are refused');
+$bad = $good; $bad['grocery']['nearest'] = 'far';
+$ok(!App\Providers\Overpass::store(1.0, 1.0, $bad), 'non-numeric distances are refused');
+$ok(str_contains(App\Providers\Overpass::query(37.5, -77.4), 'around:1609,37.500000,-77.400000'), 'query is built for the home');
+Db::run("DELETE FROM api_cache WHERE provider = 'osm'");
+// a connection the server has closed comes back by itself
+Db::run('SET SESSION wait_timeout = 1');
+sleep(2);
+$ok((int) Db::val('SELECT 1') === 1, 'reconnects after the server closes an idle connection');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);
