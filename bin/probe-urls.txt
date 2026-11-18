@@ -1,12 +1,10 @@
-# Florida: Lee
-https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services
-names https://gismapserver.leegov.com/gisserver910/rest/services/DataExplorer/LandRecords/MapServer
-# Florida: Miami-Dade
-https://arcgis.gdsc.miami.edu/arcgis/rest/services/mdc_property_point_view/MapServer
-https://gisweb.miamidade.gov/arcgis/rest/services
-# Florida: Palm Beach
-names https://pbcmaps.pbcgov.org/arcgis/rest/services/OpenData/open_data_v2/MapServer
-https://pbcmaps.pbcgov.org/arcgis/rest/services
-# Florida: Broward
-https://gisweb-adapters.bcpa.net/arcgis/rest/services
-https://bcgishub.broward.org/server/rest/services
+# Lee
+https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services/Lee_County_Parcels/FeatureServer
+# Miami-Dade
+https://gisweb.miamidade.gov/arcgis/rest/services/MD_ComparableSales/MapServer
+https://gisweb.miamidade.gov/arcgis/rest/services/AddressSearchMap_PropertiesWithZip/MapServer
+# Palm Beach
+https://pbcmaps.pbcgov.org/arcgis/rest/services/PAO
+https://pbcmaps.pbcgov.org/arcgis/rest/services/Parcels
+# Broward
+https://bcgishub.broward.org/server/rest/services/BCPA
