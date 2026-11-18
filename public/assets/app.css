@@ -797,3 +797,14 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .sb-next p { margin: 0 0 8px; color: var(--ink-2); }
 .sb-next p:last-child { margin-bottom: 0; }
 .sb-next .actions { gap: 8px; }
+
+/* Property details pasted from a listing */
+.fact-groups { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px 24px; margin-top: 14px; }
+.fact-group h3 { font: 600 12px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 6px; }
+.fact-group ul { margin: 0; padding: 0; list-style: none; }
+.fact-group li { padding: 3px 0; font-size: 14px; color: var(--ink-2); border-bottom: 1px dashed var(--rule); }
+.fact-group li:last-child { border-bottom: 0; }
+.paste-box { margin-top: 16px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); padding: 10px 14px; }
+.paste-box summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--teal-ink); }
+.paste-box form { margin-top: 10px; }
+.paste-box textarea { width: 100%; min-height: 150px; font: 13px/1.5 var(--mono); resize: vertical; }

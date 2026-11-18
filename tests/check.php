@@ -486,5 +486,16 @@ $arvS = App\Services\Deal::arv(Db::one('SELECT * FROM properties WHERE id = ?', 
 $ok(($arvS['from'] ?? '') !== 'asking' && $arvS['comps'] >= 3, 'recorded sales take over from asking prices');
 Db::run("DELETE FROM properties WHERE city = 'Askville'");
 
+/* ── Listing details pasted from Homes.com / Zillow ───────────────── */
+$lh = App\Services\ListingText::parse((string) file_get_contents(__DIR__ . '/fixtures/listing-homes.txt'));
+$eq($lh['fields'], ['tax_annual' => 4417, 'hoa_fee' => 340, 'year_built' => 1997, 'sqft' => 1130, 'beds' => 2, 'baths' => 2.0, 'property_type' => 'Condo'], 'Homes.com block: tax, HOA, year, size, rooms, type');
+$ok(($lh['details']['parcel_id'] ?? '') === '0463 21 4126A' && ($lh['details']['hoa_includes'] ?? '') === 'management, parking fee, snow removal, trash, water', 'Homes.com block: parcel and what the HOA covers');
+$ok(($lh['details']['pets'] ?? '') === 'Dogs and Cats Allowed' && ($lh['details']['style'] ?? '') === 'Colonial' && ($lh['details']['coming_soon'] ?? '') === '11/23/26', 'Homes.com block: pets, style, coming-soon date');
+$ok(isset($lh['facts']['Kitchen']) && in_array('Dishwasher', $lh['facts']['Kitchen'], true) && in_array('Home Type: Condominium', $lh['facts']['Property Details'], true), 'lines are grouped under their headings, label and value joined');
+$lz = App\Services\ListingText::parse((string) file_get_contents(__DIR__ . '/fixtures/listing-zillow.txt'));
+$eq($lz['fields'], ['tax_annual' => 5812, 'hoa_fee' => 95, 'year_built' => 1988, 'sqft' => 2140, 'beds' => 3, 'baths' => 2.5, 'garage_spaces' => 2, 'has_basement' => 1, 'property_type' => 'Townhouse'], 'Zillow block: half baths, garage, basement');
+$ok(App\Services\ListingText::parse('HOA fee: $1,200 quarterly')['fields']['hoa_fee'] === 400, 'quarterly HOA becomes monthly');
+$ok(App\Services\ListingText::parse('<script>alert(1)</script>')['fields'] === [], 'nothing is made up from junk');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

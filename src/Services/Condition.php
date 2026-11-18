@@ -181,7 +181,10 @@ final class Condition
     public static function refresh(array $p): array
     {
         $current = Db::one('SELECT source FROM property_condition WHERE property_id = ?', [$p['id']]);
-        $d = self::detect((string) ($p['description'] ?? ''), $p['listing_type'] ?? null);
+        // The listing description, plus any facts someone pasted from the listing page.
+        $details = is_array($p['details'] ?? null) ? $p['details'] : (json_decode((string) ($p['details'] ?? ''), true) ?: []);
+        $text = trim((string) ($p['description'] ?? '') . "\n" . (string) ($details['listing_text'] ?? ''));
+        $d = self::detect($text, $p['listing_type'] ?? null);
 
         $flags = array_values(array_unique(array_merge(array_filter(explode(',', (string) ($p['flags'] ?? ''))), $d['flags'])));
         $set = ['flags' => implode(',', array_intersect(array_keys(self::FLAGS), $flags))];

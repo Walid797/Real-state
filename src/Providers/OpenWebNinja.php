@@ -302,7 +302,34 @@ final class OpenWebNinja
                 'heating' => array_slice(array_filter((array) ($facts['heating'] ?? []), 'is_string'), 0, 6) ?: null,
                 'cooling' => array_slice(array_filter((array) ($facts['cooling'] ?? []), 'is_string'), 0, 6) ?: null,
                 'parking' => array_slice(array_filter((array) ($facts['parkingFeatures'] ?? []), 'is_string'), 0, 8) ?: null,
+                // The rest of Zillow's fact sheet, shown under "Property details" (keys missing on a home are simply left out).
+                'listing_extra_zillow' => array_filter([
+                    'style' => self::text($facts['architecturalStyle'] ?? null),
+                    'levels' => self::text($facts['levels'] ?? ($facts['stories'] ?? null)),
+                    'fireplaces' => self::text($facts['fireplaces'] ?? null),
+                    'hoa_includes' => self::text($facts['associationFeeIncludes'] ?? null),
+                    'subdivision' => self::text($facts['subdivisionName'] ?? null),
+                    'community' => self::text($facts['communityFeatures'] ?? null),
+                    'construction' => self::text($facts['constructionMaterials'] ?? null),
+                    'flooring' => self::text($facts['flooring'] ?? null),
+                    'laundry' => self::text($facts['laundryFeatures'] ?? null),
+                    'lot_features' => self::text($facts['lotFeatures'] ?? null),
+                    'water_heater' => self::text($facts['waterHeater'] ?? null),
+                    'listing_status' => isset($d['homeStatus']) ? ucwords(strtolower(str_replace('_', ' ', (string) $d['homeStatus']))) : null,
+                ], static fn ($v) => $v !== null && $v !== '') ?: null,
             ], static fn ($v) => $v !== null),
         ];
+    }
+
+    /** A Zillow fact as short text: strings kept, lists joined, booleans and numbers spelled out. */
+    private static function text(mixed $v): ?string
+    {
+        if (is_array($v)) {
+            $v = implode(', ', array_slice(array_filter($v, static fn ($x) => is_string($x) || is_numeric($x)), 0, 12));
+        } elseif (is_bool($v)) {
+            $v = $v ? 'Yes' : 'No';
+        }
+        $v = trim((string) $v);
+        return $v === '' ? null : mb_substr($v, 0, 200);
     }
 }

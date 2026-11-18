@@ -82,6 +82,50 @@ switch ($do) {
         $home .= '#condition';
         break;
 
+    case 'paste':
+        // Facts copied from the listing page (Homes.com, Zillow, Realtor, Redfin). Free: nothing is fetched.
+        $text = trim((string) ($_POST['listing_text'] ?? ''));
+        if (mb_strlen($text) < 20) {
+            flash('Paste the facts block from the listing page first.', 'warn');
+            $home .= '#listing-details';
+            break;
+        }
+        $r = App\Services\ListingText::parse($text);
+        $set = [];
+        foreach ($r['fields'] as $k => $v) {
+            // The listing is the newest word on tax and HOA; other facts only fill gaps.
+            if (in_array($k, ['tax_annual', 'hoa_fee'], true) || $p[$k] === null || $p[$k] === '' || (is_numeric($p[$k]) && (float) $p[$k] == 0.0 && $k !== 'garage_spaces' && $k !== 'has_basement')) {
+                $set[$k] = $v;
+            }
+        }
+        $details = array_replace((array) $p['details'], [
+            'listing_facts' => $r['facts'],
+            'listing_extra' => $r['details'],
+            'listing_text' => mb_substr($text, 0, App\Services\ListingText::MAX),
+            'listing_pasted_at' => now(),
+        ]);
+        $set['details'] = json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (in_array($p['data_status'], ['link_only', 'limited'], true)) {
+            $set['data_status'] = 'full';
+        }
+        $set['updated_at'] = now();
+        Db::update('properties', $set, $id);
+        $nFacts = array_sum(array_map('count', $r['facts']));
+        // Only what actually changed on the record, in plain words.
+        $names = ['tax_annual' => 'tax', 'hoa_fee' => 'HOA', 'year_built' => 'year built', 'sqft' => 'size', 'beds' => 'bedrooms', 'baths' => 'bathrooms',
+            'garage_spaces' => 'garage', 'has_basement' => 'basement', 'property_type' => 'home type'];
+        $changed = [];
+        foreach (array_keys($names) as $k) {
+            if (array_key_exists($k, $set) && (string) $set[$k] !== (string) ($p[$k] ?? '')) {
+                $changed[] = $names[$k];
+            }
+        }
+        Activity::log('edit', $id, 'Pasted listing details (' . $nFacts . ' facts' . ($changed ? '; updated ' . implode(', ', $changed) : '') . ')');
+        Score::refresh($id);
+        flash('Listing details saved: ' . plural($nFacts, 'fact') . ($changed ? '; updated ' . implode(', ', $changed) : '') . '. Scores updated.');
+        $home .= '#listing-details';
+        break;
+
     case 'data_status':
         $ds = input('data_status');
         if (in_array($ds, ['full', 'limited', 'link_only', 'link_dead', 'removed'], true)) {
