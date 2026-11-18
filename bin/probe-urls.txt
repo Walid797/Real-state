@@ -1,0 +1,21 @@
+# Virginia, batch 1
+https://logis.loudoun.gov/gis/rest/services
+https://logis.loudoun.gov/gis/rest/services/COL
+https://logis.loudoun.gov/gis/rest/services/COL/LandRecords/MapServer
+https://gisweb.pwcva.gov/arcgis/rest/services
+https://gisweb.pwcva.gov/arcgis/rest/services/RealEstate
+https://datahub-v2.arlingtonva.us/api/RealEstate/Property?$top=2
+https://datahub-v2.arlingtonva.us/api/RealEstate/SalesHistory?$top=2
+https://datahub-v2.arlingtonva.us/api/RealEstate/Assessment?$top=2
+https://datahub-v2.arlingtonva.us/api/RealEstate/Improvement?$top=2
+https://geoportal.alexandriava.gov/server/rest/services/Real_Estate_Parcels/FeatureServer
+https://geoportal.alexandriava.gov/server/rest/services/Tax_Assessors_Handiwork/FeatureServer
+# Maryland
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertySales/MapServer
+https://mdgeodata.md.gov/imap/rest/services/PlanningCadastre/MD_ParcelPoints/MapServer
+# District of Columbia
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA
+https://maps2.dcgis.dc.gov/dcgis/rest/services/DCGIS_DATA/Property_and_Land_WebMercator/MapServer
+# Florida
+https://gis.fdacs.gov/mapping/rest/services/GIO_Parcels_for_OAWP_Optimized/FeatureServer
