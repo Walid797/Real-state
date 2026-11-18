@@ -627,5 +627,11 @@ $mdr = $mds->invoke(null, ['FOLIO' => '3530190670540', 'DOR_DESC' => 'RESIDENTIA
 $ok($mdr['facts']['beds'] === 4 && $mdr['facts']['baths'] === 2.5 && $mdr['facts']['property_type'] === 'Single Family' && $mdr['facts']['assessed_value'] === 650000 && $mdr['facts']['last_sale_price'] === 600000
     && $mdr['facts']['last_sale_date'] === '2024-06-30' && $mdr['facts']['lat'] === 25.7 && $mdr['county']['exemption'] === 'Homestead', 'Miami-Dade record: 4 beds, 2.5 baths, market value, qualified sale dated from “20240630”, homestead noted');
 
+/* ── Counties without a source ────────────────────────────────────── */
+$mx = PropertyRepo::upsert(['address' => '7 Gap Rd', 'city' => 'Austin', 'state' => 'TX', 'zip' => '78704', 'county' => 'Travis', 'status' => 'for_sale', 'list_price' => 400000], 'manual')['id'];
+$miss = App\Services\CountyRecords::missing(50);
+$ok(in_array('Travis', array_column($miss, 'county'), true) && !in_array('Fairfax', array_column($miss, 'county'), true), 'a county with homes but no records source is listed as missing; connected ones are not');
+Db::run('DELETE FROM properties WHERE id = ?', [$mx]);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

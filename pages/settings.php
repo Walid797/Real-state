@@ -304,6 +304,23 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
         <label class="field c4"><span>Arlington County tax rate, $ per $100</span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal">
           <small>2026, adopted April 22, 2026: $1.053.</small></label>
       </div>
+      <?php $missingCounties = App\Services\CountyRecords::missing(); ?>
+      <h3 class="mt-l">Counties without a source yet</h3>
+      <?php if ($missingCounties): ?>
+      <p class="small soft mb-m">Places with homes for sale on file whose assessor records aren’t connected yet, most homes first. Each week this list is checked: counties that publish their records openly are added after a live test; those that don’t are noted here.</p>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>County</th><th>State</th><th class="r">Homes for sale</th><th>ZIP codes</th></tr></thead>
+          <tbody>
+          <?php foreach ($missingCounties as $mc): ?>
+            <tr><td><?= e($mc['county'] ?: 'Unknown county') ?></td><td><?= e($mc['state']) ?></td><td class="r"><?= (int) $mc['homes'] ?></td><td class="mono small"><?= e($mc['zips']) ?></td></tr>
+          <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php else: ?>
+      <p class="small soft">Every county with homes for sale on file has its records connected.</p>
+      <?php endif; ?>
       <p class="small muted mt-m">DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.</p>
       <?php if ($countyZips): ?>
       <p class="small soft mt-m">Recorded sales brought in: <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>

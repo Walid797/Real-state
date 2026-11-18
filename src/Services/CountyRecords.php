@@ -60,6 +60,31 @@ final class CountyRecords
         return null;
     }
 
+    /**
+     * Counties with homes for sale on file but no public-records source yet, most homes first.
+     * @return list<array{state:string, county:string, homes:int, zips:string}>
+     */
+    public static function missing(int $limit = 25): array
+    {
+        $out = [];
+        foreach (Db::all(
+            "SELECT state, COALESCE(NULLIF(county, ''), '') county, COUNT(*) homes, MIN(zip) zip,
+                    GROUP_CONCAT(DISTINCT zip ORDER BY zip SEPARATOR ' ') zips
+             FROM properties WHERE status IN ('for_sale','pending') GROUP BY state, county ORDER BY homes DESC LIMIT 200"
+        ) as $r) {
+            if (self::sourceFor(['state' => $r['state'], 'county' => $r['county'] ?: null, 'zip' => $r['zip']]) !== null) {
+                continue;
+            }
+            $zips = explode(' ', (string) $r['zips']);
+            $out[] = ['state' => (string) $r['state'], 'county' => (string) $r['county'], 'homes' => (int) $r['homes'],
+                'zips' => implode(' ', array_slice($zips, 0, 6)) . (count($zips) > 6 ? ' …' : '')];
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+        return $out;
+    }
+
     public static function covers(array $p): bool
     {
         return self::sourceFor($p) !== null;

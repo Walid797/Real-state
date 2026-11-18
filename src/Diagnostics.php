@@ -81,6 +81,8 @@ final class Diagnostics
                           WHERE status IN ('for_sale','pending') AND county LIKE '%columbia%' LIMIT 4") as $r) {
             $out[] = sprintf('  DC sample: %s, %s %s %s (county %s) tried %s', $r['address'], $r['city'], $r['state'], $r['zip'], $r['county'], $r['tried'] ?? 'never');
         }
+        $out[] = '  Counties without a source (homes for sale): ' . (implode(', ', array_map(static fn ($m) => $m['state'] . ' ' . ($m['county'] ?: '(no county)') . ' ' . $m['homes'] . ' [' . $m['zips'] . ']',
+            Services\CountyRecords::missing(15))) ?: 'none');
         $out[] = '  Homes for sale by state and county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
             Db::all("SELECT CONCAT(state, ' ', COALESCE(county, '')) county, COUNT(*) n FROM properties WHERE status IN ('for_sale','pending') GROUP BY state, county ORDER BY n DESC LIMIT 15")));
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);
