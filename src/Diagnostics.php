@@ -73,8 +73,12 @@ final class Diagnostics
             . (int) Db::val("SELECT COUNT(*) FROM properties WHERE source = 'county'") . ' from county sales lists, '
             . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_tried_at') IS NOT NULL") . ' looked up, '
             . (int) Db::val("SELECT COUNT(*) FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_error') = true") . ' failed';
-        $out[] = '  VA homes for sale by county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
-            Db::all("SELECT county, COUNT(*) n FROM properties WHERE state = 'VA' AND status IN ('for_sale','pending') GROUP BY county ORDER BY n DESC LIMIT 12")));
+        $out[] = '  Records by source: ' . implode(', ', array_map(static fn ($r) => ($r['s'] ?? 'fairfax') . ' ' . $r['n'],
+            Db::all("SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.county_record.source')) s, COUNT(*) n FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL GROUP BY s")))
+            . '; sales lists by source: ' . implode(', ', array_map(static fn ($r) => $r['s'] . ' ' . $r['n'],
+            Db::all("SELECT SUBSTRING_INDEX(source_id, ':', 1) s, COUNT(*) n FROM properties WHERE source = 'county' GROUP BY s")));
+        $out[] = '  Homes for sale by state and county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
+            Db::all("SELECT CONCAT(state, ' ', COALESCE(county, '')) county, COUNT(*) n FROM properties WHERE status IN ('for_sale','pending') GROUP BY state, county ORDER BY n DESC LIMIT 15")));
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);
         $out[] = '3D view: ' . (Settings::has('cesium_key') ? 'token set' : 'no token')
             . ($saved ? ', saved check ' . ($saved['ok'] ? 'OK' : 'failed: ' . $saved['why']) . ' (' . ($saved['at'] ?? '?') . ')' : '');
