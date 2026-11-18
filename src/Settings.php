@@ -33,6 +33,7 @@ final class Settings
         'imap_host' => 'imap.hostinger.com',
         'imap_port' => '993',
         'fairfax_tax_rate' => '1.12',
+        'arlington_tax_rate' => '1.053',
     ];
 
     private static ?array $cache = null;

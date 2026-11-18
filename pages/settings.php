@@ -72,6 +72,8 @@ if (is_post()) {
             Settings::set('mail_senders_extra', mb_substr(strtolower(preg_replace('/[^a-z0-9.,\s-]/i', '', input('mail_senders_extra', '', 500)) ?? ''), 0, 500));
             $rate = parse_num(input('fairfax_tax_rate', '', 10));
             Settings::set('fairfax_tax_rate', $rate !== null && $rate >= 0 && $rate < 5 ? (string) $rate : '1.12');
+            $arl = parse_num(input('arlington_tax_rate', '', 10));
+            Settings::set('arlington_tax_rate', $arl !== null && $arl >= 0 && $arl < 5 ? (string) $arl : '1.053');
             flash('Free sources saved.');
             $anchor = '#free';
             break;
@@ -289,12 +291,20 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     </div>
 
     <div class="card mt-l">
-      <h3>Fairfax County public records <span class="tag tag-live">On</span></h3>
-      <p class="small soft mb-m">The county’s own open data, for every home in Fairfax County: assessed value, real estate tax, year built and remodelled, bedrooms, baths, living area, basement, condition, heating, roof, lot size, zoning — and every recorded sale. Looked up the first time a home is opened, and hourly for homes for sale. The county’s sales of the last 12 months in each ZIP with homes for sale are brought in every two weeks, so ARV and profit rest on real sale prices. Fairfax City and Falls Church keep separate records and are not included.</p>
+      <h3>County and state public records <span class="tag tag-live">On</span></h3>
+      <p class="small soft mb-m">Official open data from the assessors, for every home in the places below: assessed value, tax, year built, size, lot and the recorded sales (beds and baths where the assessor publishes them). Looked up the first time a home is opened, and hourly for homes for sale. Each ZIP’s fair-market sales of the last 12 months are brought in every two weeks, so ARV and profit rest on real sale prices. Elsewhere the paid sources and listing e-mails fill in; more places are added as their records are checked.</p>
+      <ul class="plain-list mb-m">
+        <?php foreach (App\Services\CountyRecords::SOURCES as $src): ?>
+        <li><span><strong><?= e($src::area()) ?></strong><span class="sub"><?= e($src::name()) ?></span></span><span class="end"><span class="tag tag-live">Connected</span></span></li>
+        <?php endforeach; ?>
+      </ul>
       <div class="form-grid">
-        <label class="field c4"><span>Real estate tax rate, $ per $100</span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
-          <small>Fairfax County FY 2027, adopted May 5, 2026: $1.12. Change it when the county adopts a new rate.</small></label>
+        <label class="field c4"><span>Fairfax County tax rate, $ per $100</span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
+          <small>FY 2027, adopted May 5, 2026: $1.12.</small></label>
+        <label class="field c4"><span>Arlington County tax rate, $ per $100</span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal">
+          <small>2026, adopted April 22, 2026: $1.053.</small></label>
       </div>
+      <p class="small muted mt-m">DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.</p>
       <?php if ($countyZips): ?>
       <p class="small soft mt-m">Recorded sales brought in: <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>
       <?php endif; ?>
@@ -306,7 +316,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     <form method="post" action="/settings"><?= csrf_field() ?><input type="hidden" name="do" value="mail_now"><button class="btn btn-sm" type="submit"><?= icon('mail', 14) ?>Check listing e-mails now</button></form>
     <?php endif; ?>
     <form method="post" action="/settings" class="actions"><?= csrf_field() ?><input type="hidden" name="do" value="county_zip">
-      <input class="input input-zip" name="zip" placeholder="ZIP, e.g. 22030" inputmode="numeric" maxlength="5" aria-label="Fairfax County ZIP code">
+      <input class="input input-zip" name="zip" placeholder="ZIP, e.g. 22030" inputmode="numeric" maxlength="5" aria-label="ZIP code">
       <button class="btn btn-sm" type="submit"><?= icon('download', 14) ?>Bring in that ZIP’s recorded sales</button></form>
   </div>
 </section>

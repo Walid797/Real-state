@@ -581,5 +581,28 @@ $ok($af['beds'] === 3 && $af['baths'] === 3.5 && $af['sqft'] === 3351 && $af['ye
 $ok($af['assessed_value'] === 1200000 && $af['tax_annual'] === (int) round(1200000 * 1.053 / 100) && $af['last_sale_price'] === 735000 && $af['last_sale_date'] === '2014-04-16', 'Arlington assessment, tax at $1.053, and last market sale');
 $ok($arl['county']['source'] === 'arlington' && $arl['county']['assessment_year'] === 2026 && $arl['county']['sales'][1]['type'] === 'Sale or Gift to Relative', 'the record carries its source and the sale history with readable types');
 
+/* ── Maryland and DC records ──────────────────────────────────────── */
+$M = App\Providers\County\Maryland::class;
+$D = App\Providers\County\DistrictOfColumbia::class;
+$ok(App\Services\CountyRecords::sourceFor(['state' => 'MD', 'zip' => '20910']) === $M && App\Services\CountyRecords::sourceFor(['state' => 'DC', 'zip' => '20007']) === $D
+    && App\Services\CountyRecords::sourceFor(['state' => 'VA', 'county' => 'District of Columbia', 'zip' => '20007']) === $D && App\Services\CountyRecords::sourceFor(['state' => 'TX', 'zip' => '78704']) === null, 'Maryland and DC homes find their sources; places without one get none');
+$ok($M::fairSale('1', 369500) && !$M::fairSale('4', 369500) && !$M::fairSale('2', 50000) && $D::fairSale('Q', 900000) && !$D::fairSale('U', 900000), 'only arm’s-length (MD code 1) and qualified (DC Q) sales count');
+$ms = new ReflectionMethod($M, 'shape');
+$ms->setAccessible(true);
+$md = $ms->invoke(null, ['attributes' => ['ACCTID' => '0101088920', 'PREMSNAM' => 'M V SMITH', 'YEARBLT' => '1998', 'SQFTSTRC' => 1848, 'LANDAREA' => 13.51, 'LUOM' => 'A', 'RESITYP' => 'SF',
+    'DESCSTYL' => 'STRY 1 Story With Basement', 'DESCCNST' => 'CNST Siding', 'NFMTTLVL' => 291200, 'NFMLNDVL' => 76300, 'NFMIMPVL' => 214900, 'TRADATE' => '20251107', 'CONSIDR1' => 369500, 'CONVEY1' => 1,
+    'SDATWEBADR' => 'https://sdat.dat.maryland.gov/RealProperty/Pages/viewdetails.aspx?County=01&SearchType=ACCT&District=01&AccountNumber=088920', 'JURSCODE' => 'ALLE'], 'geometry' => ['x' => -78.4, 'y' => 39.7]]);
+$ok($md['facts']['year_built'] === 1998 && $md['facts']['sqft'] === 1848 && $md['facts']['lot_sqft'] === 588496 && $md['facts']['property_type'] === 'Single Family' && $md['facts']['has_basement'] === true
+    && $md['facts']['assessed_value'] === 291200 && $md['facts']['last_sale_price'] === 369500 && $md['facts']['last_sale_date'] === '2025-11-07' && !isset($md['facts']['tax_annual']), 'Maryland parcel: year, size, acres to sq ft, basement from the style, value, last arm’s-length sale; no invented tax');
+$ok($md['county']['style'] === '1 Story With Basement' && str_starts_with($md['county']['record_url'], 'https://sdat.dat.maryland.gov/'), 'Maryland record keeps the style and the official SDAT link');
+$ds = new ReflectionMethod($D, 'shape');
+$ds->setAccessible(true);
+$dc = $ds->invoke(null, ['SSL' => '1302    0033', 'PROPERTY_ADDRESS' => '3548 T ST NW WASHINGTON DC 20007', 'LAND_USE_DESCRIPTION' => 'Residential-Row-Single-Family', 'LANDAREA' => 2084, 'TAXRATE' => 0.85,
+    'APPRAISED_VALUE_CURRENT_TOTAL' => 1088710.0, 'APPRAISED_VALUE_CURRENT_LAND' => 635220, 'APPRAISED_VALUE_CURRENT_BLDG' => 453490, 'APPRAISED_VALUE_PRIOR_TOTAL' => 1069260, 'HOMESTEAD_DESCRIPTION' => 'SENIOR CREDIT', 'OTR_NEIGHBORHOOD_NAME' => 'Burleith'],
+    ['BATHRM' => 1, 'HF_BATHRM' => 1, 'BEDRM' => 3, 'AYB' => 1909, 'YR_RMDL' => null, 'EYB' => 1975, 'STORIES' => 2, 'GBA' => 1316, 'STYLE_D' => '2 Story', 'STRUCT_D' => 'Row Inside', 'GRADE_D' => 'Above Average', 'CNDTN_D' => 'Good', 'HEAT_D' => 'Forced Air', 'AC' => 'Y', 'LANDAREA' => 1523],
+    [['SALE_DATE' => -2208970800000, 'SALE_PRICE' => null, 'QUALIFIED' => 'U'], ['SALE_DATE' => 1405569600000, 'SALE_PRICE' => 850000, 'QUALIFIED' => 'Q']], ['LATITUDE' => 38.91, 'LONGITUDE' => -77.07]);
+$ok($dc['facts']['beds'] === 3 && $dc['facts']['baths'] === 1.5 && $dc['facts']['sqft'] === 1316 && $dc['facts']['year_built'] === 1909 && $dc['facts']['property_type'] === 'Townhouse' && $dc['facts']['lat'] === 38.91, 'DC residential record: 3 beds, 1.5 baths, 1,316 sq ft, row house');
+$ok($dc['facts']['assessed_value'] === 1088710 && $dc['facts']['tax_annual'] === 9254 && $dc['facts']['last_sale_price'] === 850000 && count($dc['county']['sales']) === 1 && $dc['county']['parid'] === '1302 0033', 'DC value, tax at $0.85, qualified sale kept and the 1900 placeholder dropped');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

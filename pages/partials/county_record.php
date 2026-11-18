@@ -12,7 +12,7 @@ $labels = [
     'style' => 'Style', 'stories' => 'Stories', 'condition' => 'Condition (county)', 'grade' => 'Build quality', 'year_remodeled' => 'Remodelled',
     'effective_year' => 'Effective year built', 'basement' => 'Basement', 'basement_type' => 'Basement access', 'rec_room_sqft' => 'Rec room',
     'fireplaces' => 'Fireplaces', 'heating' => 'Heating / cooling', 'roof' => 'Roof', 'exterior' => 'Exterior walls',
-    'land_use' => 'Land use', 'zoning' => 'Zoning', 'water' => 'Water', 'sewer' => 'Sewer', 'gas' => 'Gas', 'exemption' => 'Tax exemption',
+    'land_use' => 'Land use', 'neighborhood' => 'Assessment neighbourhood', 'jurisdiction' => 'Jurisdiction', 'zoning' => 'Zoning', 'water' => 'Water', 'sewer' => 'Sewer', 'gas' => 'Gas', 'exemption' => 'Tax exemption',
 ];
 $kv = [];
 foreach ($labels as $k => $label) {
@@ -54,6 +54,9 @@ $sales = (array) ($cr['sales'] ?? []);
         </tbody>
       </table>
     </div>
+    <?php endif; ?>
+    <?php if (!empty($cr['record_url']) && preg_match('#^https://#i', (string) $cr['record_url'])): ?>
+    <p class="section-note"><a href="<?= e((string) $cr['record_url']) ?>" target="_blank" rel="noopener noreferrer">Open the official record</a></p>
     <?php endif; ?>
     <p class="section-note">Parcel <?= e((string) ($cr['parid'] ?? '—')) ?> (search it on the assessor’s site to see the full card) · read <?= e(ago($cr['fetched_at'] ?? null)) ?>. Beds, baths and size from the county fill only what the listing left blank.</p>
   <?php endif; ?>

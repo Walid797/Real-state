@@ -7,6 +7,8 @@ use App\Db;
 use App\PropertyRepo;
 use App\Providers\County\Arlington;
 use App\Providers\County\CountySource;
+use App\Providers\County\DistrictOfColumbia;
+use App\Providers\County\Maryland;
 use App\Providers\Fairfax;
 use App\Settings;
 
@@ -27,7 +29,7 @@ final class CountyRecords
     private const AREA_DAYS = 14;
 
     /** @var list<class-string<CountySource>> most specific first: a city before the state that contains it */
-    public const SOURCES = [Fairfax::class, Arlington::class];
+    public const SOURCES = [Fairfax::class, Arlington::class, DistrictOfColumbia::class, Maryland::class];
 
     /** @return class-string<CountySource>|null */
     public static function sourceFor(array $p): ?string
