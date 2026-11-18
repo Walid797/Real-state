@@ -1,10 +1,11 @@
-# Lee
-https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services/Lee_County_Parcels/FeatureServer
-# Miami-Dade
-https://gisweb.miamidade.gov/arcgis/rest/services/MD_ComparableSales/MapServer
-https://gisweb.miamidade.gov/arcgis/rest/services/AddressSearchMap_PropertiesWithZip/MapServer
-# Palm Beach
-https://pbcmaps.pbcgov.org/arcgis/rest/services/PAO
-https://pbcmaps.pbcgov.org/arcgis/rest/services/Parcels
-# Broward
-https://bcgishub.broward.org/server/rest/services/BCPA
+# Lee: sale codes, a residential sample, ZIP sales count
+https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services/Lee_County_Parcels/FeatureServer/0/query?where=1%3D1&outFields=S_1TC,S_1VI,S_1TOC&returnDistinctValues=true&f=json
+https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services/Lee_County_Parcels/FeatureServer/0/query?where=BEDROOMS%3E2%20AND%20S_1AMOUNT%3E100000&outFields=STRAP,SITENUMBER,SITESTREET,SITEUNIT,SITECITY,SITEZIP,JUST,ASSESSED,TAXABLE,LAND,BUILDING,MINBUILTY,HEATEDAREA,TOTALAREA,BEDROOMS,BATHROOMS,POOL,GARAGE,MAXSTORIES,LANDUSEDES,S_1DATE,S_1AMOUNT,S_1VI,S_1TC,S_1TOC,S_2DATE,S_2AMOUNT,S_2TC,LATITUDE,LONGITUDE,Property_URL,TAXINGDIST,GISACRES&resultRecordCount=1&f=json
+https://services2.arcgis.com/LvWGAAhHwbCJ2GMP/ArcGIS/rest/services/Lee_County_Parcels/FeatureServer/0/query?where=SITEZIP%3D%2733904%27%20AND%20S_1DATE%3E%3DDATE%20%272025-11-18%27&returnCountOnly=true&f=json
+# Miami-Dade: sale flags and a residential sample
+https://gisweb.miamidade.gov/arcgis/rest/services/MD_ComparableSales/MapServer/5/query?where=1%3D1&outFields=QU_FLG_1,VI_1&returnDistinctValues=true&f=json
+https://gisweb.miamidade.gov/arcgis/rest/services/MD_ComparableSales/MapServer/5/query?where=BEDROOM_COUNT%3E2%20AND%20PRICE_1%3E100000&outFields=FOLIO,TRUE_SITE_ADDR,TRUE_SITE_UNIT,TRUE_SITE_CITY,TRUE_SITE_ZIP_CODE,DOR_DESC,BEDROOM_COUNT,BATHROOM_COUNT,HALF_BATHROOM_COUNT,FLOOR_COUNT,BUILDING_HEATED_AREA,LOT_SIZE,YEAR_BUILT,ASSESSMENT_YEAR_CUR,LAND_VAL_CUR,BUILDING_VAL_CUR,TOTAL_VAL_CUR,ASSESSED_VAL_CUR,TOTAL_VAL_PRI,HSTEAD_EX_VAL_CUR,DOS_1,PRICE_1,QU_FLG_1,VI_1,DOS_2,PRICE_2,QU_FLG_2,MILLAGE&outSR=4326&returnGeometry=true&resultRecordCount=1&f=json
+# Palm Beach and Broward parcel layers
+https://pbcmaps.pbcgov.org/arcgis/rest/services/Parcels/Parcels/MapServer
+names https://pbcmaps.pbcgov.org/arcgis/rest/services/Parcels/salesovertime/MapServer
+https://bcgishub.broward.org/server/rest/services/BCPA/Parcels/FeatureServer
