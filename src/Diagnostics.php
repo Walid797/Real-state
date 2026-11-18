@@ -64,6 +64,13 @@ final class Diagnostics
         foreach (Db::all('SELECT channel, ok, subject, detail, created_at FROM notify_log ORDER BY id DESC LIMIT 8') as $m) {
             $out[] = sprintf('  %s %s %s "%s" %s', $m['created_at'], $m['channel'], $m['ok'] ? 'OK' : 'FAILED', $m['subject'], $m['detail']);
         }
+        $saved = json_decode((string) Settings::get('cesium_check', ''), true);
+        $out[] = '3D view: ' . (Settings::has('cesium_key') ? 'token set' : 'no token')
+            . ($saved ? ', saved check ' . ($saved['ok'] ? 'OK' : 'failed: ' . $saved['why']) . ' (' . ($saved['at'] ?? '?') . ')' : '');
+        if (Settings::has('cesium_key')) {
+            $now = Providers\CesiumIon::check((string) Settings::get('cesium_key'));
+            $out[] = '3D view, checked now from this server: ' . ($now['ok'] ? 'OK — ' : 'FAILED — ') . $now['why'];
+        }
         $out[] = 'PHP limits: memory ' . ini_get('memory_limit') . ', time ' . ini_get('max_execution_time') . 's, PHP ' . PHP_VERSION;
         $out[] = 'Log (last 12 lines):';
         foreach (self::logTail(12) ?: ['  (empty)'] as $l) {
