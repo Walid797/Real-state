@@ -753,3 +753,12 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
   .wl-anim .wl-dots { right: 12px; }
   .wl-end { padding: 80px 16px 100px; }
 }
+
+/* Hand-drawn empty-state sketches (Persian labels) */
+@font-face { font-family: "Vazirmatn"; src: url("fonts/vazirmatn-medium.woff2") format("woff2"); font-weight: 400 600; font-style: normal; font-display: swap; }
+.sketch { margin: 0 0 18px; max-width: 460px; background: #fff; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; }
+.sketch-art { display: block; width: 100%; height: auto; }
+.empty .sketch { margin-bottom: 22px; }
+.blank-sketch { display: grid; gap: 4px; }
+.blank-sketch .sketch { max-width: 380px; margin: 4px 0 6px; }
+@media print { .sketch { display: none; } }

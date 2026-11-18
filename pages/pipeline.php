@@ -72,6 +72,7 @@ View::header('Pipeline', 'pipeline');
 
 <?php if (!$rows): ?>
   <div class="empty">
+    <?= View::sketch('pipeline-empty') ?>
     <h2 class="display">Nothing here.</h2>
     <p>Star a home in the search results, or paste a link from Homes.com, Zillow, Realtor.com or Redfin. It lands here as “New”.</p>
     <p class="actions"><a class="btn btn-primary" href="/search">Search</a><?php if ($canEdit): ?><a class="btn" href="/add?watch=1">Add from a link</a><?php endif; ?></p>

@@ -81,3 +81,11 @@ node tests/smoke.cjs           # browser walk-through (needs Playwright)
 
 Icons: Lucide (ISC). Fonts: Newsreader, Public Sans (OFL). Map: Leaflet (BSD-2).
 Charts: Chart.js (MIT). Licences are in `public/assets/vendor/licenses/`.
+
+## Illustrations
+
+The empty-state sketches (`pages/partials/sketches/*.svg`) follow the
+[Ian Xiaohei Illustrations](https://github.com/helloianneo/ian-xiaohei-illustrations) skill by Ian (MIT),
+installed as a project skill in `.claude/skills/ian-xiaohei-illustrations` (its example images are left out to keep
+the deploy small). The skill expects an image model; here the drawings are plain SVG made by
+`python3 bin/make_sketches.py`, with Persian notes set in Vazirmatn (SIL OFL, `public/assets/fonts/vazirmatn-OFL.txt`).

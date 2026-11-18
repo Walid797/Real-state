@@ -49,6 +49,7 @@ View::header('Alerts', 'alerts');
 
 <?php if (!$alerts): ?>
   <div class="empty">
+    <?= View::sketch('alerts-empty') ?>
     <h2 class="display">No alerts yet.</h2>
     <p>Three kinds are worth having: a <strong>new listing</strong> that fits your budget and size, a <strong>price cut</strong> on a home you’re watching, and a <strong>new sale</strong> near a home you care about.</p>
     <p><a class="btn btn-primary" href="/alerts/new">Create the first one</a></p>

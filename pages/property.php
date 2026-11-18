@@ -22,7 +22,7 @@ $p = PropertyRepo::find((int) $params['id']);
 if (!$p) {
     http_response_code(404);
     View::header('Not found');
-    echo '<div class="empty"><h1 class="display">That home isn’t on file.</h1><p>It may have been deleted. Search for the address to add it again.</p><p><a class="btn" href="/search">Back to search</a></p></div>';
+    echo '<div class="empty">' . View::sketch('home-missing') . '<h1 class="display">That home isn’t on file.</h1><p>It may have been deleted. Search for the address to add it again.</p><p><a class="btn" href="/search">Back to search</a></p></div>';
     View::footer();
     return;
 }

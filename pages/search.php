@@ -267,6 +267,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
   <div class="results-list">
     <?php if ($res['error']): ?>
       <div class="empty">
+        <?= View::sketch('search-unclear') ?>
         <h1 class="display">Couldn’t read that place.</h1>
         <p><?= e($res['error']) ?></p>
       </div>
@@ -337,6 +338,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 
       <?php if (!$res['rows']): ?>
         <div class="empty">
+          <?= View::sketch('search-none') ?>
           <?php
           $any = PropertyRepo::search(['loc' => $loc, 'mode' => $mode, 'sold_days' => $f['sold_days'], 'limit' => 1])['total'];
           if ($any > 0): ?>

@@ -93,7 +93,7 @@ View::header('Dashboard', 'dashboard');
       <?php endforeach; ?>
     </ul>
     <?php else: ?>
-    <p class="blank">Search an area — every listing that comes in is scored on profit, ROI, price, ARV evidence, condition and risk.</p>
+    <div class="blank-sketch"><?= View::sketch('dashboard-start') ?><p class="blank">Search an area — every listing that comes in is scored on profit, ROI, price, ARV evidence, condition and risk.</p></div>
     <?php endif; ?>
   </section>
 

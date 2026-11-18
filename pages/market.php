@@ -194,6 +194,7 @@ View::header('Market', 'market');
 
 <?php if (!$regions): ?>
   <div class="empty">
+    <?= View::sketch('market-empty') ?>
     <h2 class="display">No areas tracked.</h2>
     <p>Add one above. The numbers come from Zillow Research’s public files — free, updated monthly, and they don’t touch your request allowance. The first import of an area takes up to a minute.</p>
   </div>

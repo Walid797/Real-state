@@ -420,5 +420,16 @@ Db::run('UPDATE users SET is_active = 0 WHERE id = ?', [$wu]);
 $ok(App\Services\Alerts::recipient(['user_id' => $wu])['email'] === '', 'a disabled person’s alerts go to nobody');
 Db::run('DELETE FROM users WHERE id = ?', [$wu]);
 
+/* ── Empty-state sketches ──────────────────────────────────────────── */
+foreach (glob(APP_ROOT . '/pages/partials/sketches/*.svg') as $svgFile) {
+    $svg = (string) file_get_contents($svgFile);
+    $name = basename($svgFile);
+    $ok(@simplexml_load_string($svg) !== false, "$name is well-formed SVG");
+    $ok(!preg_match('/<script|\son[a-z]+=|href=|<foreignObject/i', $svg), "$name has no script, handlers or links");
+    $ok(strlen($svg) < 14000, "$name stays small");
+}
+$ok(count(glob(APP_ROOT . '/pages/partials/sketches/*.svg')) === 7, 'all seven sketches are there');
+$ok(str_contains(App\View::sketch('pipeline-empty'), 'id="sk-pipeline-empty"') && App\View::sketch('../config') === '', 'sketches load by name only');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

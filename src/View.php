@@ -112,6 +112,23 @@ final class View
 <?php
     }
 
+    /**
+     * A hand-drawn empty-state sketch (pages/partials/sketches, drawn by bin/make_sketches.py
+     * in the style of the "Ian Xiaohei Illustrations" skill). Inline, so the Persian labels use the page's font.
+     */
+    public static function sketch(string $name): string
+    {
+        if (!preg_match('/^[a-z-]+$/', $name)) {
+            return '';
+        }
+        $file = APP_ROOT . '/pages/partials/sketches/' . $name . '.svg';
+        if (!is_file($file)) {
+            return '';
+        }
+        $svg = str_replace(['id="t"', 'aria-labelledby="t"'], ['id="sk-' . $name . '"', 'aria-labelledby="sk-' . $name . '"'], (string) file_get_contents($file));
+        return '<figure class="sketch" lang="fa">' . $svg . '</figure>';
+    }
+
     /** "RentCast 13 / 50" with a thin bar — the one number worth watching on a free plan. */
     public static function quotaChip(): string
     {

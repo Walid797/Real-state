@@ -165,6 +165,12 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await page.goto(propertyUrl); await page.waitForLoadState(); await shot('03-property', true);
     await noOverflow(page, 'property');
     await page.goto(BASE + '/pipeline'); await noOverflow(page, 'pipeline');
+    // an empty state with its sketch and Persian notes
+    await page.goto(BASE + '/property/99999999');
+    if (!(await page.locator('figure.sketch svg').count())) throw new Error('empty state has no sketch');
+    await page.evaluate(() => document.fonts.ready);
+    if (!(await page.evaluate(() => document.fonts.check('16px Vazirmatn')))) throw new Error('Persian font did not load');
+    await noOverflow(page, 'empty state'); await shot('04-empty-state');
   });
 
   await browser.close();
