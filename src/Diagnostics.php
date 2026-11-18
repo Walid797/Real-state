@@ -77,6 +77,10 @@ final class Diagnostics
             Db::all("SELECT JSON_UNQUOTE(JSON_EXTRACT(details, '$.county_record.source')) s, COUNT(*) n FROM properties WHERE JSON_EXTRACT(COALESCE(details, JSON_OBJECT()), '$.county_record') IS NOT NULL GROUP BY s")))
             . '; sales lists by source: ' . implode(', ', array_map(static fn ($r) => $r['s'] . ' ' . $r['n'],
             Db::all("SELECT SUBSTRING_INDEX(source_id, ':', 1) s, COUNT(*) n FROM properties WHERE source = 'county' GROUP BY s")));
+        foreach (Db::all("SELECT address, city, state, zip, county, JSON_UNQUOTE(JSON_EXTRACT(details, '$.county_tried_at')) tried FROM properties
+                          WHERE status IN ('for_sale','pending') AND county LIKE '%columbia%' LIMIT 4") as $r) {
+            $out[] = sprintf('  DC sample: %s, %s %s %s (county %s) tried %s', $r['address'], $r['city'], $r['state'], $r['zip'], $r['county'], $r['tried'] ?? 'never');
+        }
         $out[] = '  Homes for sale by state and county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
             Db::all("SELECT CONCAT(state, ' ', COALESCE(county, '')) county, COUNT(*) n FROM properties WHERE status IN ('for_sale','pending') GROUP BY state, county ORDER BY n DESC LIMIT 15")));
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);
