@@ -778,6 +778,11 @@ q { quotes: "“" "”"; font-style: italic; color: var(--ink-2); margin-right: 
 .aerial-bar { position: absolute; left: 12px; top: 12px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; }
 .aerial-bar[hidden] { display: none; }
 .aerial-bar .btn { background: rgba(255, 254, 251, .92); }
+@media (max-width: 640px) {
+  .aerial-bar { left: 8px; top: 8px; gap: 4px; }
+  .aerial-bar .btn { height: 32px; padding: 0 9px; font-size: 12.5px; }
+  .aerial-bar [data-aerial-full] span { display: none; }
+}
 .aerial-msg { position: absolute; left: 12px; right: 12px; bottom: 12px; margin: 0; padding: 8px 12px; border-radius: 8px; background: rgba(15, 21, 19, .82); color: #fff; z-index: 3; }
 .aerial-msg[hidden] { display: none; }
 .aerial:fullscreen { height: 100vh; border-radius: 0; }

@@ -134,6 +134,11 @@ final class Kernel
         $style = "'self'" . ($aerial ? " 'unsafe-inline'" : ''); // Cesium's credit line sets inline styles; scripts stay locked
         header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob: https:; style-src $style; script-src $script; "
             . "connect-src $connect; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'", true);
+        if ($aerial) {
+            // Cesium ion checks a token's "Allowed URLs" against the page's origin, so send the origin
+            // (never the path) on cross-site requests from this page. Everywhere else: same-origin only.
+            header('Referrer-Policy: strict-origin-when-cross-origin', true);
+        }
     }
 
     public static function plain(int $status, string $title, string $message): never

@@ -31,8 +31,8 @@ $aerialLeft = $aerialReady ? Quota::left('cesium') : 0;
       </div>
       <div class="aerial-bar" hidden>
         <button class="btn btn-sm" type="button" data-aerial-orbit><?= icon('refresh-cw', 14) ?><span>Pause</span></button>
-        <button class="btn btn-sm" type="button" data-aerial-reset><?= icon('map-pin', 14) ?>Back to the house</button>
-        <button class="btn btn-sm" type="button" data-aerial-full><?= icon('arrow-up-right', 14) ?>Full screen</button>
+        <button class="btn btn-sm" type="button" data-aerial-reset><?= icon('map-pin', 14) ?>House</button>
+        <button class="btn btn-sm" type="button" data-aerial-full><?= icon('arrow-up-right', 14) ?><span>Full screen</span></button>
       </div>
       <p class="aerial-msg small" role="status" hidden></p>
     </div>

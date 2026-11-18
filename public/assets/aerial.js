@@ -46,7 +46,7 @@
     var C = window.Cesium;
     C.Ion.defaultAccessToken = d.token;
     var widget = new C.CesiumWidget(stage, {
-      baseLayer: false, globe: false, skyBox: false, skyAtmosphere: new C.SkyAtmosphere(),
+      baseLayer: false, globe: false, skyBox: false, skyAtmosphere: false,
       scene3DOnly: true, requestRenderMode: false, msaaSamples: 4,
       showRenderLoopErrors: false
     });
@@ -94,7 +94,9 @@
       setTimeout(function () { if (target === home) settle(); }, 6000);
     }).catch(function (e) {
       var why = String(e && e.message ? e.message : e).replace(/\.+$/, '');
-      say('Google’s 3D tiles did not load (' + why + '). If this keeps happening, check the token under Settings → 3D view.');
+      say(/40[13]/.test(why)
+        ? 'Cesium refused this request (' + why + '). In ion, check that the token’s Allowed URLs include ' + location.origin + ' and that Google Photorealistic 3D Tiles is in My Assets.'
+        : 'Google’s 3D tiles did not load (' + why + '). Reload to try again.');
     });
 
     // Slow orbit until someone takes the controls.
