@@ -50,12 +50,12 @@ function fail_page(string $detail = ''): void
         header('Cache-Control: no-store');
     }
     $again = e($_SERVER['REQUEST_URI'] ?? '/');
-    echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
-        . '<title>Something went wrong</title><link rel="stylesheet" href="/assets/app.css">'
-        . '<body class="bare"><main class="page"><div class="empty"><h1 class="display">That didn’t work.</h1>'
-        . '<p>The page stopped part-way. It has been logged, so it can be looked into.</p>'
+    echo '<!doctype html><html lang="' . App\Locale::language() . '" dir="' . App\Locale::direction() . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<title>' . te('Something went wrong') . '</title><link rel="stylesheet" href="/assets/app.css">'
+        . '<body class="bare"><main class="page"><div class="empty"><h1 class="display">' . te('That didn’t work.') . '</h1>'
+        . '<p>' . te('The page stopped part-way. It has been logged, so it can be looked into.') . '</p>'
         . ($detail !== '' ? '<pre class="small">' . e($detail) . '</pre>' : '')
-        . '<p><a class="btn btn-primary" href="' . $again . '">Try again</a> <a class="btn" href="/">Dashboard</a></p></div></main></body></html>';
+        . '<p><a class="btn btn-primary" href="' . $again . '">' . te('Try again') . '</a> <a class="btn" href="/">' . te('Dashboard') . '</a></p></div></main></body></html>';
 }
 
 set_exception_handler(static function (Throwable $e) use ($debug): void {

@@ -23,7 +23,7 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await page.goto(BASE + '/login');
     await page.fill('input[name=email]', email);
     await page.fill('input[name=password]', PASS);
-    await Promise.all([page.waitForURL(BASE + '/'), page.click('button[type=submit]')]);
+    await Promise.all([page.waitForURL(BASE + '/'), page.locator('form[action="/login"] button[type=submit]').click()]);
   };
   const has = async (page, text) => { if (!(await page.content()).includes(text)) throw new Error(`missing text: ${text}`); };
   const noOverflow = async (page, what) => {
@@ -181,6 +181,29 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     await page.evaluate(() => document.fonts.ready);
     if (!(await page.evaluate(() => document.fonts.check('16px Vazirmatn')))) throw new Error('Persian font did not load');
     await noOverflow(page, 'empty state'); await shot('04-empty-state');
+  });
+
+  await run('persian', { width: 390, height: 844 }, async (page) => {
+    await page.goto(BASE + '/welcome');
+    await page.getByRole('button', { name: 'فارسی', exact: true }).click();
+    await page.locator('html[lang=fa][dir=rtl]').waitFor();
+    await has(page, 'خانه‌هایی را پیدا کنید که ارزش بازسازی دارند.');
+    await noOverflow(page, 'Persian welcome');
+
+    await login(page, 'owner@example.com');
+    await has(page, 'فرصت‌های پربازده');
+    const search = BASE + '/search?q=Austin%2C+TX&sort=score';
+    await page.goto(search, { waitUntil: 'domcontentloaded' });
+    await page.locator('html[lang=fa][dir=rtl]').waitFor();
+    await has(page, 'در Austin, TX');
+    await noOverflow(page, 'Persian search');
+
+    await page.getByRole('button', { name: 'English', exact: true }).click();
+    await page.locator('html[lang=en][dir=ltr]').waitFor();
+    if (page.url() !== search) throw new Error('changing language lost the current search');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('html[lang=en][dir=ltr]').waitFor();
+    await has(page, 'in Austin, TX');
   });
 
   await browser.close();

@@ -52,35 +52,35 @@ View::header('Dashboard', 'dashboard');
 <?php if (Auth::can('admin') && Settings::has('rentcast_key') && ($rcProblem = App\Providers\RentCast::problem())): ?>
 <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div>
   <strong><?= e($rcProblem['why']) ?></strong>
-  <span class="small soft">Until then searches show only homes already on file<?= App\Providers\OpenWebNinja::enabled() ? ' or come from the Zillow-data source' : '' ?>.</span>
-  <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>Open the RentCast API dashboard</a>
+  <span class="small soft"><?= te('Until then searches show only homes already on file') ?><?= App\Providers\OpenWebNinja::enabled() ? ' or come from the Zillow-data source' : '' ?>.</span>
+  <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?><?= te('Open the RentCast API dashboard') ?></a>
 </div></div>
 <?php endif; ?>
 <header class="page-head">
   <div>
     <p class="eyebrow"><?= e(fmt_date(now(), 'l, F j')) ?></p>
-    <h1 class="display"><?= $hello ? 'Hello, ' . e($hello) . '.' : 'Dashboard' ?></h1>
+    <h1 class="display"><?= $hello ? te('Hello, %s.', $hello) : te('Dashboard') ?></h1>
     <p><?= $k['good'] ? plural($k['good'], 'strong opportunity', 'strong opportunities') . ' on file' : 'No strong opportunities on file yet' ?><?= $k['mine'] ? ', ' . plural($k['mine'], 'home') . ' waiting on you' : '' ?>.</p>
   </div>
   <form class="quick-search" method="get" action="/search" role="search">
-    <label class="sr" for="dq">Search an area</label>
-    <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= e($stateName) ?>, a county, a city or ZIPs" required>
+    <label class="sr" for="dq"><?= te('Search an area') ?></label>
+    <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= e($stateName) ?><?= te(', a county, a city or ZIPs') ?>" required>
     <input type="hidden" name="types[]" value="Single Family"><input type="hidden" name="types[]" value="Townhouse">
     <input type="hidden" name="sort" value="score">
-    <button class="btn btn-primary" type="submit">Search</button>
+    <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </form>
 </header>
 
 <div class="kpis">
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span>Homes for sale on file</span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? '+' . number_format($k['new']) . ' this week' : 'none new this week' ?></small></a>
-  <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span>Strong opportunities</span><b><?= number_format($k['good']) ?></b><small>score 70 or more</small></a>
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span>Price cuts this week</span><b><?= number_format($k['cuts']) ?></b><small>still for sale</small></a>
-  <a class="kpi" href="/pipeline"><span>Under team review</span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? $k['mine'] . ' handled by you' : 'none handled by you' ?></small></a>
+  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? '+' . number_format($k['new']) . ' this week' : 'none new this week' ?></small></a>
+  <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
+  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span><?= te('Price cuts this week') ?></span><b><?= number_format($k['cuts']) ?></b><small><?= te('still for sale') ?></small></a>
+  <a class="kpi" href="/pipeline"><span><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? $k['mine'] . ' handled by you' : 'none handled by you' ?></small></a>
 </div>
 
 <div class="dash-grid">
   <section class="section">
-    <div class="section-head"><h2>Best opportunities now</h2><a class="aside" href="/search?<?= e(http_build_query(['q' => $stateName, 'sort' => 'score'])) ?>">All, by score</a></div>
+    <div class="section-head"><h2><?= te('Best opportunities now') ?></h2><a class="aside" href="/search?<?= e(http_build_query(['q' => $stateName, 'sort' => 'score'])) ?>"><?= te('All, by score') ?></a></div>
     <?php if ($top): ?>
     <ul class="plain-list opp-list">
       <?php foreach ($top as $r): $band = Score::band((int) $r['score']); ?>
@@ -88,17 +88,17 @@ View::header('Dashboard', 'dashboard');
         <span class="score-badge sm score-<?= $band ?>"><?= (int) $r['score'] ?></span>
         <a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?>, <?= e($r['city']) ?>
           <span class="sub"><?= e(money($r['list_price'])) ?> · <?= e(PropertyRepo::facts($r)) ?><?= $r['stage'] ? ' · ' . e(Pipeline::STAGES[$r['stage']]) . ($r['owner_name'] ? ' (' . e($r['owner_name']) . ')' : '') : '' ?></span></a>
-        <span class="end"><?php if ($r['est_profit'] !== null): ?><b class="<?= (int) $r['est_profit'] < 0 ? 'up' : 'down' ?> num"><?= e(money_short(abs((int) $r['est_profit']))) ?></b><br>est. profit<?php endif; ?></span>
+        <span class="end"><?php if ($r['est_profit'] !== null): ?><b class="<?= (int) $r['est_profit'] < 0 ? 'up' : 'down' ?> num"><?= e(money_short(abs((int) $r['est_profit']))) ?></b><br><?= te('est. profit') ?><?php endif; ?></span>
       </li>
       <?php endforeach; ?>
     </ul>
     <?php else: ?>
-    <div class="blank-sketch"><?= View::sketch('dashboard-start') ?><p class="blank">Search an area — every listing that comes in is scored on profit, ROI, price, ARV evidence, condition and risk.</p></div>
+    <div class="blank-sketch"><?= View::sketch('dashboard-start') ?><p class="blank"><?= te('Search an area — every listing that comes in is scored on profit, ROI, price, ARV evidence, condition and risk.') ?></p></div>
     <?php endif; ?>
   </section>
 
   <section class="section">
-    <div class="section-head"><h2>Recent price cuts</h2></div>
+    <div class="section-head"><h2><?= te('Recent price cuts') ?></h2></div>
     <?php if ($cuts): ?>
     <ul class="plain-list">
       <?php foreach ($cuts as $c): $d = ($c['price'] - $c['before_price']) / $c['before_price'] * 100; ?>
@@ -107,19 +107,19 @@ View::header('Dashboard', 'dashboard');
       <?php endforeach; ?>
     </ul>
     <?php else: ?>
-    <p class="blank">Price cuts show up here when an area is pulled again and an asking price has dropped.</p>
+    <p class="blank"><?= te('Price cuts show up here when an area is pulled again and an asking price has dropped.') ?></p>
     <?php endif; ?>
 
-    <div class="section-head mt-l"><h2>Pipeline</h2><a class="aside" href="/pipeline">Open</a></div>
+    <div class="section-head mt-l"><h2><?= te('Pipeline') ?></h2><a class="aside" href="/pipeline"><?= te('Open') ?></a></div>
     <div class="stage-mini">
       <?php foreach (Pipeline::STAGES as $key => $label): ?>
-      <a href="/pipeline#st-<?= $key ?>"><span><?= e($label) ?></span><b><?= (int) ($stages[$key] ?? 0) ?></b></a>
+      <a href="/pipeline#st-<?= $key ?>"><span><?= te($label) ?></span><b><?= (int) ($stages[$key] ?? 0) ?></b></a>
       <?php endforeach; ?>
     </div>
   </section>
 
   <section class="section">
-    <div class="section-head"><h2>Team activity</h2></div>
+    <div class="section-head"><h2><?= te('Team activity') ?></h2></div>
     <?php if ($activity): ?>
     <ul class="plain-list feed">
       <?php foreach ($activity as $a): ?>
@@ -129,27 +129,27 @@ View::header('Dashboard', 'dashboard');
       <?php endforeach; ?>
     </ul>
     <?php else: ?>
-    <p class="blank">Statuses, notes and deal changes from everyone on the team appear here.</p>
+    <p class="blank"><?= te('Statuses, notes and deal changes from everyone on the team appear here.') ?></p>
     <?php endif; ?>
 
-    <div class="section-head mt-l"><h2>Shortcuts</h2></div>
+    <div class="section-head mt-l"><h2><?= te('Shortcuts') ?></h2></div>
     <div class="shortcuts">
-      <a href="/search"><?= icon('search', 16) ?>Search homes</a>
-      <a href="/pipeline"><?= icon('kanban', 16) ?>Saved homes</a>
-      <a href="/alerts"><?= icon('bell', 16) ?>Alerts<?= $alertsOn ? ' · ' . $alertsOn . ' on' : '' ?></a>
-      <a href="/reports"><?= icon('file-spreadsheet', 16) ?>Reports</a>
-      <?php if (Auth::can('edit')): ?><a href="/add"><?= icon('link-2', 16) ?>Add from a link</a><?php endif; ?>
-      <?php if (Auth::can('admin')): ?><a href="/users"><?= icon('users', 16) ?>Team</a><?php endif; ?>
+      <a href="/search"><?= icon('search', 16) ?><?= te('Search homes') ?></a>
+      <a href="/pipeline"><?= icon('kanban', 16) ?><?= te('Saved homes') ?></a>
+      <a href="/alerts"><?= icon('bell', 16) ?><?= te('Alerts') ?><?= $alertsOn ? ' · ' . $alertsOn . ' on' : '' ?></a>
+      <a href="/reports"><?= icon('file-spreadsheet', 16) ?><?= te('Reports') ?></a>
+      <?php if (Auth::can('edit')): ?><a href="/add"><?= icon('link-2', 16) ?><?= te('Add from a link') ?></a><?php endif; ?>
+      <?php if (Auth::can('admin')): ?><a href="/users"><?= icon('users', 16) ?><?= te('Team') ?></a><?php endif; ?>
     </div>
     <?php if (Auth::can('admin')): ?>
     <p class="small muted mt-m">
       <?php foreach (Quota::PROVIDERS as $pid => $label): if (!Settings::has($pid . '_key')) { continue; } ?>
-        <?= e($label) ?>: <?= Quota::left($pid) ?> requests left this month. <?php endforeach; ?>
-      Scheduler <?= $lastRun ? 'ran ' . e(ago($lastRun)) : 'hasn’t run yet' ?>.
+        <?= te($label) ?>: <?= Quota::left($pid) ?> <?= te('requests left this month.') ?> <?php endforeach; ?>
+      <?= te('Scheduler') ?> <?= $lastRun ? 'ran ' . e(ago($lastRun)) : 'hasn’t run yet' ?>.
     </p>
     <?php endif; ?>
   </section>
 </div>
-<p class="section-note">Profit, ARV and scores are estimates from public data and your settings. They are not appraisals, inspections or advice.</p>
+<p class="section-note"><?= te('Profit, ARV and scores are estimates from public data and your settings. They are not appraisals, inspections or advice.') ?></p>
 <?php
 View::footer();

@@ -101,30 +101,30 @@ if (isset($params['id'])) {
     ];
     $zh = $summary($data['zhvi'] ?? []);
 
-    View::header($label . ' market', 'market');
+    View::header(t('%s market', $label), 'market');
     View::script('/assets/vendor/chart.umd.js');
     ?>
-    <nav class="crumbs"><a href="/market"><?= icon('arrow-left', 14) ?>Market</a></nav>
+    <nav class="crumbs"><a href="/market"><?= icon('arrow-left', 14) ?><?= te('Market') ?></a></nav>
     <header class="page-head">
       <div>
         <h1 class="display"><?= e($label) ?></h1>
-        <p><?php if ($zh): ?>Typical home value <strong><?= e(money($zh['value'])) ?></strong> in <?= e(fmt_date($zh['date'], 'F Y')) ?><?php if ($zh['yoy'] !== null): ?>, <span class="<?= $zh['yoy'] >= 0 ? 'up' : 'down' ?>"><?= e(pct($zh['yoy'])) ?></span> over twelve months<?php endif; ?>.<?php else: ?>No series on file yet.<?php endif; ?></p>
+        <p><?php if ($zh): ?><?= te('Typical home value') ?> <strong><?= e(money($zh['value'])) ?></strong> in <?= e(fmt_date($zh['date'], 'F Y')) ?><?php if ($zh['yoy'] !== null): ?>, <span class="<?= $zh['yoy'] >= 0 ? 'up' : 'down' ?>"><?= e(pct($zh['yoy'])) ?></span> <?= te('over twelve months') ?><?php endif; ?>.<?php else: ?><?= te('No series on file yet.') ?><?php endif; ?></p>
       </div>
       <div class="actions">
-        <a class="btn btn-sm" href="<?= e(url('/search', ['q' => $label])) ?>"><?= icon('search', 14) ?>Homes for sale</a>
+        <a class="btn btn-sm" href="<?= e(url('/search', ['q' => $label])) ?>"><?= icon('search', 14) ?><?= te('Homes for sale') ?></a>
         <form method="post" action="/market" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="import"><input type="hidden" name="id" value="<?= $rid ?>">
-          <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?>Update from Zillow<span class="cost">free</span></button></form>
+          <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?><?= te('Update from Zillow') ?><span class="cost"><?= te('free') ?></span></button></form>
         <?php if ($region['kind'] === 'zip' && RentCast::enabled()): ?>
-        <form method="post" action="/market" class="inline" data-confirm="Pull listing statistics for this ZIP? It uses one RentCast request."><?= csrf_field() ?><input type="hidden" name="do" value="rentcast"><input type="hidden" name="id" value="<?= $rid ?>">
-          <button class="btn btn-sm" type="submit"<?= Quota::can('rentcast') ? '' : ' disabled' ?>>Listing statistics<span class="cost">1 request</span></button></form>
+        <form method="post" action="/market" class="inline" data-confirm="<?= te('Pull listing statistics for this ZIP? It uses one RentCast request.') ?>"><?= csrf_field() ?><input type="hidden" name="do" value="rentcast"><input type="hidden" name="id" value="<?= $rid ?>">
+          <button class="btn btn-sm" type="submit"<?= Quota::can('rentcast') ? '' : ' disabled' ?>><?= te('Listing statistics') ?><span class="cost"><?= te('1 request') ?></span></button></form>
         <?php endif; ?>
       </div>
     </header>
 
     <?php if (!$data): ?>
       <div class="empty">
-        <h2 class="display">Nothing came back for <?= e($label) ?>.</h2>
-        <p>Zillow Research names areas its own way. A ZIP code is the surest match; for a city use the exact name Zillow uses.</p>
+        <h2 class="display"><?= te('Nothing came back for') ?> <?= e($label) ?>.</h2>
+        <p><?= te('Zillow Research names areas its own way. A ZIP code is the surest match; for a city use the exact name Zillow uses.') ?></p>
       </div>
     <?php endif; ?>
 
@@ -142,17 +142,17 @@ if (isset($params['id'])) {
     ?>
     <section class="section">
       <div class="section-head"><h2><?= e($title) ?></h2><span class="aside"><?= e(fmt_date($labels[0], 'M Y')) ?> – <?= e(fmt_date(end($labels), 'M Y')) ?></span></div>
-      <div class="chart-box"><canvas data-chart="chart-<?= $key ?>" role="img" aria-label="<?= e($title) ?> over time"></canvas></div>
+      <div class="chart-box"><canvas data-chart="chart-<?= $key ?>" role="img" aria-label="<?= e($title) ?> <?= te('over time') ?>"></canvas></div>
       <script type="application/json" id="chart-<?= $key ?>"><?= json_embed($payload) ?></script>
     </section>
     <?php endforeach; ?>
 
     <?php if ($data): ?>
     <section class="section">
-      <div class="section-head"><h2>Latest figures</h2></div>
+      <div class="section-head"><h2><?= te('Latest figures') ?></h2></div>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>Measure</th><th>Month</th><th class="r">Value</th><th class="r">12-month change</th></tr></thead>
+          <thead><tr><th><?= te('Measure') ?></th><th><?= te('Month') ?></th><th class="r"><?= te('Value') ?></th><th class="r"><?= te('12-month change') ?></th></tr></thead>
           <tbody>
           <?php foreach ($data as $metric => $s): $m = $summary($s); $usd = in_array($metric, ['zhvi', 'median_sale', 'median_list', 'median_ppsf'], true); ?>
             <tr><td><?= e(ZillowResearch::LABELS[$metric] ?? $metric) ?></td><td><?= e(fmt_date($m['date'], 'M Y')) ?></td>
@@ -162,13 +162,13 @@ if (isset($params['id'])) {
           </tbody>
         </table>
       </div>
-      <p class="section-note">Home values are Zillow’s Home Value Index (typical home, smoothed, seasonally adjusted). Metro figures cover the whole metropolitan area named after this city. Listing statistics come from RentCast and describe asking prices, not sales.</p>
+      <p class="section-note"><?= te('Home values are Zillow’s Home Value Index (typical home, smoothed, seasonally adjusted). Metro figures cover the whole metropolitan area named after this city. Listing statistics come from RentCast and describe asking prices, not sales.') ?></p>
     </section>
     <?php endif; ?>
 
-    <form method="post" action="/market" class="mt-l" data-confirm="Stop tracking this area and delete its figures?">
+    <form method="post" action="/market" class="mt-l" data-confirm="<?= te('Stop tracking this area and delete its figures?') ?>">
       <?= csrf_field() ?><input type="hidden" name="do" value="remove"><input type="hidden" name="id" value="<?= $rid ?>">
-      <button class="linkbtn danger small" type="submit">Stop tracking <?= e($label) ?></button>
+      <button class="linkbtn danger small" type="submit"><?= te('Stop tracking') ?> <?= e($label) ?></button>
     </form>
     <?php
     View::footer();
@@ -182,26 +182,26 @@ View::header('Market', 'market');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display">Market</h1>
-    <p>Follow a ZIP or a city month by month: what a typical home is worth, how fast homes go, how many are for sale.</p>
+    <h1 class="display"><?= te('Market') ?></h1>
+    <p><?= te('Follow a ZIP or a city month by month: what a typical home is worth, how fast homes go, how many are for sale.') ?></p>
   </div>
   <form class="actions" method="post" action="/market">
     <?= csrf_field() ?><input type="hidden" name="do" value="add">
-    <label><span class="sr">ZIP or city</span><input class="input" name="q" placeholder="33602 or Tampa, FL" required></label>
-    <button class="btn btn-primary" type="submit"><?= icon('plus', 15) ?>Track it</button>
+    <label><span class="sr"><?= te('ZIP or city') ?></span><input class="input" name="q" placeholder="33602 or Tampa, FL" required></label>
+    <button class="btn btn-primary" type="submit"><?= icon('plus', 15) ?><?= te('Track it') ?></button>
   </form>
 </header>
 
 <?php if (!$regions): ?>
   <div class="empty">
     <?= View::sketch('market-empty') ?>
-    <h2 class="display">No areas tracked.</h2>
-    <p>Add one above. The numbers come from Zillow Research’s public files — free, updated monthly, and they don’t touch your request allowance. The first import of an area takes up to a minute.</p>
+    <h2 class="display"><?= te('No areas tracked.') ?></h2>
+    <p><?= te('Add one above. The numbers come from Zillow Research’s public files — free, updated monthly, and they don’t touch your request allowance. The first import of an area takes up to a minute.') ?></p>
   </div>
 <?php else: ?>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Area</th><th class="r">Typical home value</th><th class="r">12 months</th><th class="r">5 years</th><th>Data through</th></tr></thead>
+      <thead><tr><th><?= te('Area') ?></th><th class="r"><?= te('Typical home value') ?></th><th class="r"><?= te('12 months') ?></th><th class="r"><?= te('5 years') ?></th><th><?= te('Data through') ?></th></tr></thead>
       <tbody>
       <?php foreach ($regions as $r):
           $s = $series((int) $r['id'])['zhvi'] ?? [];
@@ -211,7 +211,7 @@ View::header('Market', 'market');
       ?>
         <tr>
           <td><a class="main" href="/market/<?= (int) $r['id'] ?>"><?= e($r['kind'] === 'zip' ? $r['name'] : $r['name'] . ', ' . $r['state']) ?></a>
-            <span class="sub"><?= $r['kind'] === 'zip' ? 'ZIP code' : 'City' ?></span></td>
+            <span class="sub"><?= te($r['kind'] === 'zip' ? 'ZIP code' : 'City') ?></span></td>
           <td class="r"><?= $m ? e(money($m['value'])) : '—' ?></td>
           <td class="r"><?= $m && $m['yoy'] !== null ? '<span class="' . ($m['yoy'] >= 0 ? 'up' : 'down') . '">' . e(pct($m['yoy'])) . '</span>' : '—' ?></td>
           <td class="r"><?= $five !== null ? e(pct($five, 0)) : '—' ?></td>
@@ -221,7 +221,7 @@ View::header('Market', 'market');
       </tbody>
     </table>
   </div>
-  <p class="section-note">Refreshed automatically once a month by the scheduler.</p>
+  <p class="section-note"><?= te('Refreshed automatically once a month by the scheduler.') ?></p>
 <?php endif; ?>
 <?php
 View::footer();

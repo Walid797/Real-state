@@ -166,7 +166,7 @@ final class Auth
     {
         $ip = client_ip();
         if (self::throttled($ip)) {
-            return 'Too many tries. Wait ' . self::WINDOW_MINUTES . ' minutes and try again.';
+            return t('Too many tries. Wait %d minutes and try again.', self::WINDOW_MINUTES);
         }
         $user = Db::one('SELECT id, email, password_hash, session_epoch, is_active FROM users WHERE email = ?', [mb_strtolower($email)]);
         // Verify against a dummy hash when the user is unknown so timing does not reveal it.

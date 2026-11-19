@@ -108,103 +108,103 @@ $v = static fn (string $k) => isset($crit[$k]) ? e(is_float($crit[$k]) && $crit[
 
 View::header($alert ? $alert['name'] : 'New alert', 'alerts');
 ?>
-<nav class="crumbs"><a href="/alerts"><?= icon('arrow-left', 14) ?>Alerts</a></nav>
+<nav class="crumbs"><a href="/alerts"><?= icon('arrow-left', 14) ?><?= te('Alerts') ?></a></nav>
 <div class="narrow">
   <header class="page-head">
     <div>
       <h1 class="display"><?= $alert ? e($alert['name']) : 'New alert' ?></h1>
-      <?php if ($alert): ?><p>Created <?= e(fmt_date($alert['created_at'])) ?> · <?= $alert['last_checked_at'] ? 'last checked ' . e(ago($alert['last_checked_at'])) : 'not checked yet' ?></p><?php endif; ?>
+      <?php if ($alert): ?><p><?= te('Created') ?> <?= e(fmt_date($alert['created_at'])) ?> · <?= $alert['last_checked_at'] ? 'last checked ' . e(ago($alert['last_checked_at'])) : 'not checked yet' ?></p><?php endif; ?>
     </div>
   </header>
 
-  <?php foreach ($errors as $err): ?><p class="flash flash-err" role="alert"><?= e($err) ?></p><?php endforeach; ?>
+  <?php foreach ($errors as $err): ?><p class="flash flash-err" role="alert"><?= te($err) ?></p><?php endforeach; ?>
 
   <form method="post" action="<?= $alert ? '/alerts/' . $id : '/alerts/new' ?>">
     <?= csrf_field() ?>
     <div class="form-grid">
-      <label class="field c6"><span>Tell me about</span>
+      <label class="field c6"><span><?= te('Tell me about') ?></span>
         <select class="select" name="kind" data-kind-switch>
-          <?php foreach (Alerts::KINDS as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['kind'], $k) ?>><?= e($label) ?></option><?php endforeach; ?>
+          <?php foreach (Alerts::KINDS as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['kind'], $k) ?>><?= te($label) ?></option><?php endforeach; ?>
         </select></label>
-      <label class="field c6"><span>Area</span>
+      <label class="field c6"><span><?= te('Area') ?></span>
         <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Virginia · Fairfax County · Richmond · 22030, 20176">
-        <small data-kind="price_drop">Optional. Empty covers every home in the pipeline.</small></label>
+        <small data-kind="price_drop"><?= te('Optional. Empty covers every home in the pipeline.') ?></small></label>
 
       <?php foreach ([['Price ($)', 'price'], ['Bedrooms', 'beds'], ['Bathrooms', 'baths'], ['Living area (sqft)', 'sqft'], ['Year built', 'year'], ['Lot (sqft)', 'lot']] as [$label, $k]): ?>
-      <div class="field c4" data-kind="new_listing new_sale"><span><?= e($label) ?></span><div class="pair">
-        <input class="input" name="<?= $k ?>_min" inputmode="decimal" placeholder="Min" value="<?= $v($k . '_min') ?>" aria-label="<?= e($label) ?> minimum">
-        <input class="input" name="<?= $k ?>_max" inputmode="decimal" placeholder="Max" value="<?= $v($k . '_max') ?>" aria-label="<?= e($label) ?> maximum"></div></div>
+      <div class="field c4" data-kind="new_listing new_sale"><span><?= te($label) ?></span><div class="pair">
+        <input class="input" name="<?= $k ?>_min" inputmode="decimal" placeholder="<?= te('Min') ?>" value="<?= $v($k . '_min') ?>" aria-label="<?= te($label) ?> <?= te('minimum') ?>">
+        <input class="input" name="<?= $k ?>_max" inputmode="decimal" placeholder="<?= te('Max') ?>" value="<?= $v($k . '_max') ?>" aria-label="<?= te($label) ?> <?= te('maximum') ?>"></div></div>
       <?php endforeach; ?>
-      <label class="field c4" data-kind="new_listing"><span>HOA up to, $/mo</span><input class="input" name="hoa_max" inputmode="numeric" value="<?= $v('hoa_max') ?>" placeholder="0 = none"></label>
-      <label class="field c4" data-kind="new_listing"><span>Opportunity score, at least</span><input class="input" name="score_min" inputmode="numeric" value="<?= $v('score_min') ?>" placeholder="e.g. 60"></label>
-      <label class="field c4" data-kind="new_listing"><span>Est. profit, at least ($)</span><input class="input" name="profit_min" inputmode="numeric" value="<?= $v('profit_min') ?>" placeholder="e.g. 35,000"></label>
+      <label class="field c4" data-kind="new_listing"><span><?= te('HOA up to, $/mo') ?></span><input class="input" name="hoa_max" inputmode="numeric" value="<?= $v('hoa_max') ?>" placeholder="<?= te('0 = none') ?>"></label>
+      <label class="field c4" data-kind="new_listing"><span><?= te('Opportunity score, at least') ?></span><input class="input" name="score_min" inputmode="numeric" value="<?= $v('score_min') ?>" placeholder="e.g. 60"></label>
+      <label class="field c4" data-kind="new_listing"><span><?= te('Est. profit, at least ($)') ?></span><input class="input" name="profit_min" inputmode="numeric" value="<?= $v('profit_min') ?>" placeholder="e.g. 35,000"></label>
 
-      <div class="field c12" data-kind="new_listing"><span>Listing status</span>
+      <div class="field c12" data-kind="new_listing"><span><?= te('Listing status') ?></span>
         <div class="actions">
           <?php foreach (PropertyRepo::LISTING as $k => $label): ?>
-          <label class="check"><input type="checkbox" name="listing[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['listing'] ?? []), true)) ?>><?= e($label) ?></label>
+          <label class="check"><input type="checkbox" name="listing[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['listing'] ?? []), true)) ?>><?= te($label) ?></label>
           <?php endforeach; ?>
-        </div><small>None ticked = any active listing.</small></div>
-      <div class="field c12" data-kind="new_listing"><span>Condition</span>
+        </div><small><?= te('None ticked = any active listing.') ?></small></div>
+      <div class="field c12" data-kind="new_listing"><span><?= te('Condition') ?></span>
         <div class="actions">
           <?php foreach (App\Services\Condition::OVERALL as $k => $label): ?>
-          <label class="check"><input type="checkbox" name="cond[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['cond'] ?? []), true)) ?>><?= e($label) ?></label>
+          <label class="check"><input type="checkbox" name="cond[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['cond'] ?? []), true)) ?>><?= te($label) ?></label>
           <?php endforeach; ?>
-        </div><small>None ticked = any condition.</small></div>
+        </div><small><?= te('None ticked = any condition.') ?></small></div>
 
-      <div class="field c12" data-kind="new_listing new_sale"><span>Property type</span>
+      <div class="field c12" data-kind="new_listing new_sale"><span><?= te('Property type') ?></span>
         <div class="actions">
           <?php foreach (PropertyRepo::TYPES as $t): ?>
-          <label class="check"><input type="checkbox" name="types[]" value="<?= e($t) ?>"<?= checked(in_array($t, (array) ($crit['types'] ?? []), true)) ?>><?= e($t) ?></label>
+          <label class="check"><input type="checkbox" name="types[]" value="<?= e($t) ?>"<?= checked(in_array($t, (array) ($crit['types'] ?? []), true)) ?>><?= te($t) ?></label>
           <?php endforeach; ?>
         </div>
-        <small>None ticked means any type.</small></div>
+        <small><?= te('None ticked means any type.') ?></small></div>
 
-      <label class="field c6" data-kind="new_listing"><span>Only if priced under the area by</span>
+      <label class="field c6" data-kind="new_listing"><span><?= te('Only if priced under the area by') ?></span>
         <input class="input" name="below_median" inputmode="decimal" value="<?= $v('below_median') ?>" placeholder="e.g. 10 (%)">
-        <small>Compares the home’s $/sqft with the median of everything for sale in the area. Leave empty to skip.</small></label>
-      <label class="field c6" data-kind="price_drop"><span>Only cuts of at least</span>
+        <small><?= te('Compares the home’s $/sqft with the median of everything for sale in the area. Leave empty to skip.') ?></small></label>
+      <label class="field c6" data-kind="price_drop"><span><?= te('Only cuts of at least') ?></span>
         <input class="input" name="min_drop_pct" inputmode="decimal" value="<?= e((string) ($crit['min_drop_pct'] ?? '')) ?>" placeholder="e.g. 3 (%)">
-        <small>Leave empty to hear about every cut.</small></label>
+        <small><?= te('Leave empty to hear about every cut.') ?></small></label>
 
-      <label class="field c6"><span>Check</span>
+      <label class="field c6"><span><?= te('Check') ?></span>
         <select class="select" name="every_hours">
-          <?php foreach (Alerts::FREQUENCIES as $h => $label): ?><option value="<?= $h ?>"<?= selected($form['every_hours'], $h) ?>><?= e($label) ?> — about <?= (int) ceil(720 / $h) ?> requests a month</option><?php endforeach; ?>
+          <?php foreach (Alerts::FREQUENCIES as $h => $label): ?><option value="<?= $h ?>"<?= selected($form['every_hours'], $h) ?>><?= te($label) ?> <?= te('— about') ?> <?= (int) ceil(720 / $h) ?> <?= te('requests a month') ?></option><?php endforeach; ?>
         </select></label>
-      <div class="field c6"><span>When</span>
-        <span class="seg" role="group" aria-label="When to send">
-          <label><input type="radio" name="delivery" value="instant"<?= checked($form['delivery'] !== 'daily') ?>><span>As soon as found</span></label>
-          <label><input type="radio" name="delivery" value="daily"<?= checked($form['delivery'] === 'daily') ?>><span>Daily summary</span></label>
+      <div class="field c6"><span><?= te('When') ?></span>
+        <span class="seg" role="group" aria-label="<?= te('When to send') ?>">
+          <label><input type="radio" name="delivery" value="instant"<?= checked($form['delivery'] !== 'daily') ?>><span><?= te('As soon as found') ?></span></label>
+          <label><input type="radio" name="delivery" value="daily"<?= checked($form['delivery'] === 'daily') ?>><span><?= te('Daily summary') ?></span></label>
         </span></div>
-      <div class="field c6"><span>Send to</span>
+      <div class="field c6"><span><?= te('Send to') ?></span>
         <div class="actions">
           <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
-          <label class="check<?= empty($ready[$ch]) ? ' is-off' : '' ?>"><input type="checkbox" name="channels[]" value="<?= $ch ?>"<?= checked(in_array($ch, $form['channels'], true) && !empty($ready[$ch])) ?><?= empty($ready[$ch]) ? ' disabled' : '' ?>><?= $label ?></label>
+          <label class="check<?= empty($ready[$ch]) ? ' is-off' : '' ?>"><input type="checkbox" name="channels[]" value="<?= $ch ?>"<?= checked(in_array($ch, $form['channels'], true) && !empty($ready[$ch])) ?><?= empty($ready[$ch]) ? ' disabled' : '' ?>><?= te($label) ?></label>
           <?php endforeach; ?>
         </div>
-        <?php if (in_array(false, $ready, true)): ?><small>Greyed-out ones aren’t set up. <a href="/account">Add your Telegram</a> · email needs an admin to set up the mailbox.</small><?php endif; ?></div>
+        <?php if (in_array(false, $ready, true)): ?><small><?= te('Greyed-out ones aren’t set up.') ?> <a href="/account"><?= te('Add your Telegram') ?></a> <?= te('· email needs an admin to set up the mailbox.') ?></small><?php endif; ?></div>
 
       <div class="field c12">
-        <label class="check"><input type="checkbox" name="use_quota"<?= checked($form['use_quota']) ?>>Pull fresh data for this area on each check</label>
-        <small>Uses one request per check. Unticked, the alert only looks at what your own searches have already saved.</small>
+        <label class="check"><input type="checkbox" name="use_quota"<?= checked($form['use_quota']) ?>><?= te('Pull fresh data for this area on each check') ?></label>
+        <small><?= te('Uses one request per check. Unticked, the alert only looks at what your own searches have already saved.') ?></small>
       </div>
       <div class="field c12">
-        <label class="check"><input type="checkbox" name="enabled"<?= checked($form['enabled']) ?>>Alert is on</label>
+        <label class="check"><input type="checkbox" name="enabled"<?= checked($form['enabled']) ?>><?= te('Alert is on') ?></label>
       </div>
-      <label class="field c12"><span>Name</span>
-        <input class="input" name="name" value="<?= e($form['name']) ?>" placeholder="Leave empty and it names itself"></label>
+      <label class="field c12"><span><?= te('Name') ?></span>
+        <input class="input" name="name" value="<?= e($form['name']) ?>" placeholder="<?= te('Leave empty and it names itself') ?>"></label>
     </div>
 
     <div class="form-foot">
-      <button class="btn btn-primary" type="submit"><?= $alert ? 'Save changes' : 'Create alert' ?></button>
-      <a class="btn btn-ghost" href="/alerts">Cancel</a>
+      <button class="btn btn-primary" type="submit"><?= te($alert ? 'Save changes' : 'Create alert') ?></button>
+      <a class="btn btn-ghost" href="/alerts"><?= te('Cancel') ?></a>
     </div>
   </form>
 
   <?php if ($alert): ?>
   <section class="section">
-    <div class="section-head"><h2>What it has sent</h2>
-      <form method="post" action="/alerts/<?= $id ?>/act" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="run"><button class="linkbtn" type="submit">Check now</button></form></div>
+    <div class="section-head"><h2><?= te('What it has sent') ?></h2>
+      <form method="post" action="/alerts/<?= $id ?>/act" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="run"><button class="linkbtn" type="submit"><?= te('Check now') ?></button></form></div>
     <?php if (!$history): ?>
       <p class="blank"><?= e($alert['last_note'] ?: 'Nothing yet.') ?></p>
     <?php else: ?>
@@ -218,10 +218,10 @@ View::header($alert ? $alert['name'] : 'New alert', 'alerts');
   </section>
 
   <section class="section">
-    <div class="section-head"><h2>Remove</h2></div>
-    <form method="post" action="/alerts/<?= $id ?>/act" class="mt-m" data-confirm="Delete this alert and its history?">
+    <div class="section-head"><h2><?= te('Remove') ?></h2></div>
+    <form method="post" action="/alerts/<?= $id ?>/act" class="mt-m" data-confirm="<?= te('Delete this alert and its history?') ?>">
       <?= csrf_field() ?><input type="hidden" name="do" value="delete">
-      <button class="btn btn-danger btn-sm" type="submit"><?= icon('trash-2', 14) ?>Delete this alert</button>
+      <button class="btn btn-danger btn-sm" type="submit"><?= icon('trash-2', 14) ?><?= te('Delete this alert') ?></button>
     </form>
   </section>
   <?php endif; ?>

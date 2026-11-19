@@ -46,26 +46,26 @@ View::header('Pipeline', 'pipeline');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display">Pipeline</h1>
-    <p>Homes the team is working. One status per home, one person handling it — so nobody chases a house someone else is already negotiating.</p>
+    <h1 class="display"><?= te('Pipeline') ?></h1>
+    <p><?= te('Homes the team is working. One status per home, one person handling it — so nobody chases a house someone else is already negotiating.') ?></p>
   </div>
-  <?php if ($canEdit): ?><div class="actions"><a class="btn btn-primary" href="/add?watch=1"><?= icon('plus', 15) ?>Add from a link</a></div><?php endif; ?>
+  <?php if ($canEdit): ?><div class="actions"><a class="btn btn-primary" href="/add?watch=1"><?= icon('plus', 15) ?><?= te('Add from a link') ?></a></div><?php endif; ?>
 </header>
 
 <div class="stage-strip" role="list">
   <?php foreach (Pipeline::STAGES as $k => $l): ?>
-  <a role="listitem" class="stage-pill stage-<?= $k ?>" href="#st-<?= $k ?>"><span><?= e($l) ?></span><b><?= (int) ($counts[$k] ?? 0) ?></b></a>
+  <a role="listitem" class="stage-pill stage-<?= $k ?>" href="#st-<?= $k ?>"><span><?= te($l) ?></span><b><?= (int) ($counts[$k] ?? 0) ?></b></a>
   <?php endforeach; ?>
 </div>
 
 <form class="toolbar" method="get" action="/pipeline">
-  <span class="seg seg-sm" role="group" aria-label="Whose">
-    <label><input type="radio" name="who" value=""<?= checked($who !== 'me') ?> data-autosubmit><span>Everyone</span></label>
-    <label><input type="radio" name="who" value="me"<?= checked($who === 'me') ?> data-autosubmit><span>Handled by me</span></label>
+  <span class="seg seg-sm" role="group" aria-label="<?= te('Whose') ?>">
+    <label><input type="radio" name="who" value=""<?= checked($who !== 'me') ?> data-autosubmit><span><?= te('Everyone') ?></span></label>
+    <label><input type="radio" name="who" value="me"<?= checked($who === 'me') ?> data-autosubmit><span><?= te('Handled by me') ?></span></label>
   </span>
-  <span class="seg seg-sm" role="group" aria-label="Which">
+  <span class="seg seg-sm" role="group" aria-label="<?= te('Which') ?>">
     <?php foreach (['open' => 'Open', 'closed' => 'Closed', 'all' => 'All'] as $k => $l): ?>
-    <label><input type="radio" name="show" value="<?= $k ?>"<?= checked($show === $k) ?> data-autosubmit><span><?= $l ?></span></label>
+    <label><input type="radio" name="show" value="<?= $k ?>"<?= checked($show === $k) ?> data-autosubmit><span><?= te($l) ?></span></label>
     <?php endforeach; ?>
   </span>
 </form>
@@ -73,18 +73,18 @@ View::header('Pipeline', 'pipeline');
 <?php if (!$rows): ?>
   <div class="empty">
     <?= View::sketch('pipeline-empty') ?>
-    <h2 class="display">Nothing here.</h2>
-    <p>Star a home in the search results, or paste a link from Homes.com, Zillow, Realtor.com or Redfin. It lands here as “New”.</p>
-    <p class="actions"><a class="btn btn-primary" href="/search">Search</a><?php if ($canEdit): ?><a class="btn" href="/add?watch=1">Add from a link</a><?php endif; ?></p>
+    <h2 class="display"><?= te('Nothing here.') ?></h2>
+    <p><?= te('Star a home in the search results, or paste a link from Homes.com, Zillow, Realtor.com or Redfin. It lands here as “New”.') ?></p>
+    <p class="actions"><a class="btn btn-primary" href="/search"><?= te('Search') ?></a><?php if ($canEdit): ?><a class="btn" href="/add?watch=1"><?= te('Add from a link') ?></a><?php endif; ?></p>
   </div>
 <?php endif; ?>
 
 <?php foreach (Pipeline::STAGES as $stage => $label): if (empty($byStage[$stage])) { continue; } ?>
 <section class="section" id="st-<?= $stage ?>">
-  <div class="section-head"><h2><?= e($label) ?></h2><span class="aside"><?= plural(count($byStage[$stage]), 'home') ?></span></div>
+  <div class="section-head"><h2><?= te($label) ?></h2><span class="aside"><?= plural(count($byStage[$stage]), 'home') ?></span></div>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Home</th><th class="r">Price</th><th class="r">Est. profit</th><th class="r">Score</th><th>Handled by</th><th>Updated</th><th>Status</th></tr></thead>
+      <thead><tr><th><?= te('Home') ?></th><th class="r"><?= te('Price') ?></th><th class="r"><?= te('Est. profit') ?></th><th class="r"><?= te('Score') ?></th><th><?= te('Handled by') ?></th><th><?= te('Updated') ?></th><th><?= te('Status') ?></th></tr></thead>
       <tbody>
       <?php foreach ($byStage[$stage] as $r):
           $sale = in_array($r['status'], ['for_sale', 'pending'], true);
@@ -96,7 +96,7 @@ View::header('Pipeline', 'pipeline');
         <tr>
           <td><a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
             <span class="sub"><?= e($r['city']) ?>, <?= e($r['state']) ?> · <?= e(PropertyRepo::facts($r) ?: 'details not on file') ?><?= (int) $r['note_count'] ? ' · ' . plural((int) $r['note_count'], 'note') : '' ?></span></td>
-          <td class="r"><?= e(money($price)) ?><?php if ($delta !== null): ?><span class="sub <?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> since listed</span><?php else: ?><span class="sub"><?= $sale ? 'asking' : ($r['status'] === 'sold' ? 'sold' : 'off market') ?></span><?php endif; ?></td>
+          <td class="r"><?= e(money($price)) ?><?php if ($delta !== null): ?><span class="sub <?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></span><?php else: ?><span class="sub"><?= $sale ? 'asking' : ($r['status'] === 'sold' ? 'sold' : 'off market') ?></span><?php endif; ?></td>
           <td class="r"><?= $r['est_profit'] !== null ? '<span class="' . ((int) $r['est_profit'] < 0 ? 'up' : 'down') . '">' . e(money_short(abs((int) $r['est_profit']))) . '</span>' : '—' ?></td>
           <td class="r"><span class="score-badge sm score-<?= $band ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span></td>
           <td><?= $r['owner_name'] ? e($r['owner_name']) : '<span class="muted">No one</span>' ?></td>
@@ -105,12 +105,12 @@ View::header('Pipeline', 'pipeline');
             <?php if ($canEdit): ?>
             <form method="post" action="/property/<?= (int) $r['id'] ?>/act">
               <?= csrf_field() ?><input type="hidden" name="do" value="stage"><input type="hidden" name="back" value="/pipeline">
-              <label class="sr" for="st<?= (int) $r['id'] ?>">Status</label>
+              <label class="sr" for="st<?= (int) $r['id'] ?>"><?= te('Status') ?></label>
               <select class="select stage" id="st<?= (int) $r['id'] ?>" name="stage" data-autosubmit>
-                <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($r['stage'], $k) ?>><?= e($l) ?></option><?php endforeach; ?>
+                <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($r['stage'], $k) ?>><?= te($l) ?></option><?php endforeach; ?>
               </select>
             </form>
-            <?php else: ?><?= e($label) ?><?php endif; ?>
+            <?php else: ?><?= te($label) ?><?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>

@@ -209,93 +209,93 @@ if (is_post() && !in_array(input('do'), ['import', 'link'], true)) {
 
 $val = static fn (string $k) => e(is_float($form[$k]) || is_int($form[$k]) ? rtrim(rtrim(number_format((float) $form[$k], 2, '.', ''), '0'), '.') : (string) $form[$k]);
 
-View::header($edit ? 'Edit ' . $edit['address'] : 'Add a home', 'add');
+View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
 ?>
 <?php if ($edit): ?><nav class="crumbs"><a href="/property/<?= $editId ?>"><?= icon('arrow-left', 14) ?><?= e($edit['address']) ?></a></nav><?php endif; ?>
 <div class="narrow">
   <header class="page-head">
     <div>
-      <h1 class="display"><?= $edit ? 'Edit facts &amp; price' : ($near ? 'Add a sale nearby' : 'Add a home') ?></h1>
-      <p><?php if ($edit): ?>Change the asking price here and the old one is kept in the price history.<?php elseif ($near): ?>A sale you found elsewhere, close to <?= e($near['address']) ?>. It joins the comparable sales straight away.<?php else: ?>Found something on Zillow, Redfin or a yard sign? Enter it once — it shows up in searches, comps and alerts like any other home.<?php endif; ?></p>
+      <h1 class="display"><?= te($edit ? 'Edit facts & price' : ($near ? 'Add a sale nearby' : 'Add a home')) ?></h1>
+      <p><?php if ($edit): ?><?= te('Change the asking price here and the old one is kept in the price history.') ?><?php elseif ($near): ?><?= te('A sale you found elsewhere, close to') ?> <?= e($near['address']) ?><?= te('. It joins the comparable sales straight away.') ?><?php else: ?><?= te('Found something on Zillow, Redfin or a yard sign? Enter it once — it shows up in searches, comps and alerts like any other home.') ?><?php endif; ?></p>
     </div>
   </header>
 
-  <?php foreach ($errors as $err): ?><p class="flash flash-err" role="alert"><?= e($err) ?></p><?php endforeach; ?>
+  <?php foreach ($errors as $err): ?><p class="flash flash-err" role="alert"><?= te($err) ?></p><?php endforeach; ?>
   <?php if ($importResult): ?>
-    <p class="flash"><?= plural($importResult['ok'], 'row') ?> imported<?= $importResult['skipped'] ? ', ' . $importResult['skipped'] . ' skipped for a missing address' : '' ?>.
+    <p class="flash"><?= plural($importResult['ok'], 'row') ?> <?= te('imported') ?><?= $importResult['skipped'] ? ', ' . $importResult['skipped'] . ' skipped for a missing address' : '' ?>.
       <?= $importResult['geo'] ? '' : 'The file had no latitude/longitude columns, so these rows are searchable but won’t be used as comps.' ?></p>
   <?php endif; ?>
 
   <?php if (!$edit && !$near): ?>
   <section class="card link-card">
-    <h3><?= icon('link-2', 16) ?> Add from a listing link</h3>
-    <p class="small soft mb-m">Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. The address is read from the link itself — the other site is never downloaded — and the home goes into the team pipeline with a “View original listing” button.</p>
+    <h3><?= icon('link-2', 16) ?> <?= te('Add from a listing link') ?></h3>
+    <p class="small soft mb-m"><?= te('Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. The address is read from the link itself — the other site is never downloaded — and the home goes into the team pipeline with a “View original listing” button.') ?></p>
     <?php if ($linkError): ?><p class="err" role="alert"><?= e($linkError) ?></p><?php endif; ?>
     <form method="post" action="/add">
       <?= csrf_field() ?><input type="hidden" name="do" value="link">
       <div class="form-grid">
-        <label class="field c8"><span>Listing link</span><input class="input" type="url" name="url" value="<?= e($linkUrl) ?>" placeholder="https://www.homes.com/property/…" required></label>
-        <label class="field c4"><span>Asking price (optional)</span><input class="input" name="price" inputmode="numeric" placeholder="$"></label>
-        <label class="field c12"><span>Note for the team (optional)</span><input class="input" name="note" placeholder="Seen on Homes.com — price cut last week, vacant."></label>
+        <label class="field c8"><span><?= te('Listing link') ?></span><input class="input" type="url" name="url" value="<?= e($linkUrl) ?>" placeholder="https://www.homes.com/property/…" required></label>
+        <label class="field c4"><span><?= te('Asking price (optional)') ?></span><input class="input" name="price" inputmode="numeric" placeholder="$"></label>
+        <label class="field c12"><span><?= te('Note for the team (optional)') ?></span><input class="input" name="note" placeholder="<?= te('Seen on Homes.com — price cut last week, vacant.') ?>"></label>
       </div>
-      <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('plus', 15) ?>Add from link</button></div>
+      <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('plus', 15) ?><?= te('Add from link') ?></button></div>
     </form>
   </section>
-  <h2 class="eyebrow mt-l mb-m">Or type it in</h2>
+  <h2 class="eyebrow mt-l mb-m"><?= te('Or type it in') ?></h2>
   <?php endif; ?>
 
   <form method="post" action="<?= e(url('/add', ['id' => $editId ?: null])) ?>">
     <?= csrf_field() ?>
     <?php if ($edit): ?><input type="hidden" name="id" value="<?= $editId ?>"><?php endif; ?>
     <div class="form-grid">
-      <label class="field c12"><span>Street address</span>
+      <label class="field c12"><span><?= te('Street address') ?></span>
         <input class="input" name="address" value="<?= $val('address') ?>" placeholder="1204 Maple St" <?= $edit ? 'readonly' : 'required autofocus' ?> autocomplete="off"></label>
-      <label class="field c6"><span>City</span><input class="input" name="city" value="<?= $val('city') ?>"<?= $edit ? ' readonly' : '' ?>></label>
-      <label class="field c3"><span>State</span><input class="input" name="state" value="<?= $val('state') ?>" maxlength="20" placeholder="TX"<?= $edit ? ' readonly' : '' ?>></label>
-      <label class="field c3"><span>ZIP</span><input class="input" name="zip" value="<?= $val('zip') ?>" inputmode="numeric" maxlength="5"<?= $edit ? ' readonly' : '' ?>></label>
+      <label class="field c6"><span><?= te('City') ?></span><input class="input" name="city" value="<?= $val('city') ?>"<?= $edit ? ' readonly' : '' ?>></label>
+      <label class="field c3"><span><?= te('State') ?></span><input class="input" name="state" value="<?= $val('state') ?>" maxlength="20" placeholder="TX"<?= $edit ? ' readonly' : '' ?>></label>
+      <label class="field c3"><span><?= te('ZIP') ?></span><input class="input" name="zip" value="<?= $val('zip') ?>" inputmode="numeric" maxlength="5"<?= $edit ? ' readonly' : '' ?>></label>
 
-      <label class="field c4"><span>Status</span>
+      <label class="field c4"><span><?= te('Status') ?></span>
         <select class="select" name="status">
-          <?php foreach (['for_sale' => 'For sale', 'pending' => 'Pending', 'sold' => 'Sold', 'off_market' => 'Off market'] as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['status'], $k) ?>><?= $label ?></option><?php endforeach; ?>
+          <?php foreach (['for_sale' => 'For sale', 'pending' => 'Pending', 'sold' => 'Sold', 'off_market' => 'Off market'] as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['status'], $k) ?>><?= te($label) ?></option><?php endforeach; ?>
         </select></label>
-      <label class="field c4"><span>Asking price</span><input class="input" name="list_price" value="<?= $form['list_price'] ? e(number_format((float) $form['list_price'])) : '' ?>" inputmode="numeric" placeholder="$"></label>
-      <label class="field c4"><span>Listed on</span><input class="input" type="date" name="listed_date" value="<?= $val('listed_date') ?>"></label>
-      <label class="field c4"><span>Last sale price</span><input class="input" name="last_sale_price" value="<?= $form['last_sale_price'] ? e(number_format((float) $form['last_sale_price'])) : '' ?>" inputmode="numeric" placeholder="$"></label>
-      <label class="field c4"><span>Sold on</span><input class="input" type="date" name="last_sale_date" value="<?= $val('last_sale_date') ?>"></label>
-      <label class="field c4"><span>Type</span>
-        <select class="select" name="property_type"><option value="">Not sure</option>
-          <?php foreach (PropertyRepo::TYPES as $t): ?><option<?= selected($form['property_type'], $t) ?>><?= e($t) ?></option><?php endforeach; ?>
+      <label class="field c4"><span><?= te('Asking price') ?></span><input class="input" name="list_price" value="<?= $form['list_price'] ? e(number_format((float) $form['list_price'])) : '' ?>" inputmode="numeric" placeholder="$"></label>
+      <label class="field c4"><span><?= te('Listed on') ?></span><input class="input" type="date" name="listed_date" value="<?= $val('listed_date') ?>"></label>
+      <label class="field c4"><span><?= te('Last sale price') ?></span><input class="input" name="last_sale_price" value="<?= $form['last_sale_price'] ? e(number_format((float) $form['last_sale_price'])) : '' ?>" inputmode="numeric" placeholder="$"></label>
+      <label class="field c4"><span><?= te('Sold on') ?></span><input class="input" type="date" name="last_sale_date" value="<?= $val('last_sale_date') ?>"></label>
+      <label class="field c4"><span><?= te('Type') ?></span>
+        <select class="select" name="property_type"><option value=""><?= te('Not sure') ?></option>
+          <?php foreach (PropertyRepo::TYPES as $t): ?><option value="<?= e($t) ?>"<?= selected($form['property_type'], $t) ?>><?= te($t) ?></option><?php endforeach; ?>
         </select></label>
 
-      <label class="field c2"><span>Beds</span><input class="input" name="beds" value="<?= $val('beds') ?>" inputmode="decimal"></label>
-      <label class="field c2"><span>Baths</span><input class="input" name="baths" value="<?= $val('baths') ?>" inputmode="decimal"></label>
-      <label class="field c3"><span>Living area, sqft</span><input class="input" name="sqft" value="<?= $val('sqft') ?>" inputmode="numeric"></label>
-      <label class="field c3"><span>Lot, sqft</span><input class="input" name="lot_sqft" value="<?= $val('lot_sqft') ?>" inputmode="numeric"></label>
-      <label class="field c2"><span>Built</span><input class="input" name="year_built" value="<?= $val('year_built') ?>" inputmode="numeric" maxlength="4"></label>
-      <label class="field c4"><span>HOA, $ per month</span><input class="input" name="hoa_fee" value="<?= $val('hoa_fee') ?>" inputmode="decimal"></label>
-      <label class="field c8"><span>Link to the listing</span><input class="input" type="url" name="source_url" value="<?= $val('source_url') ?>" placeholder="https://www.zillow.com/homedetails/…"></label>
+      <label class="field c2"><span><?= te('Beds') ?></span><input class="input" name="beds" value="<?= $val('beds') ?>" inputmode="decimal"></label>
+      <label class="field c2"><span><?= te('Baths') ?></span><input class="input" name="baths" value="<?= $val('baths') ?>" inputmode="decimal"></label>
+      <label class="field c3"><span><?= te('Living area, sqft') ?></span><input class="input" name="sqft" value="<?= $val('sqft') ?>" inputmode="numeric"></label>
+      <label class="field c3"><span><?= te('Lot, sqft') ?></span><input class="input" name="lot_sqft" value="<?= $val('lot_sqft') ?>" inputmode="numeric"></label>
+      <label class="field c2"><span><?= te('Built') ?></span><input class="input" name="year_built" value="<?= $val('year_built') ?>" inputmode="numeric" maxlength="4"></label>
+      <label class="field c4"><span><?= te('HOA, $ per month') ?></span><input class="input" name="hoa_fee" value="<?= $val('hoa_fee') ?>" inputmode="decimal"></label>
+      <label class="field c8"><span><?= te('Link to the listing') ?></span><input class="input" type="url" name="source_url" value="<?= $val('source_url') ?>" placeholder="https://www.zillow.com/homedetails/…"></label>
 
-      <label class="field c12"><span><?= $edit ? 'Add a note for the team' : 'Note for the team' ?></span>
-        <textarea class="textarea" name="notes" rows="3" placeholder="Corner lot, backs onto the greenbelt."><?= e($form['notes']) ?></textarea></label>
-      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>>In the team pipeline</label></div>
+      <label class="field c12"><span><?= te($edit ? 'Add a note for the team' : 'Note for the team') ?></span>
+        <textarea class="textarea" name="notes" rows="3" placeholder="<?= te('Corner lot, backs onto the greenbelt.') ?>"><?= e($form['notes']) ?></textarea></label>
+      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>><?= te('In the team pipeline') ?></label></div>
     </div>
     <div class="form-foot">
-      <button class="btn btn-primary" type="submit"><?= $edit ? 'Save changes' : 'Add home' ?></button>
-      <a class="btn btn-ghost" href="<?= $edit ? '/property/' . $editId : '/' ?>">Cancel</a>
-      <?php if (!$edit): ?><span class="small muted">The map position is looked up for you (U.S. Census geocoder).</span><?php endif; ?>
+      <button class="btn btn-primary" type="submit"><?= te($edit ? 'Save changes' : 'Add home') ?></button>
+      <a class="btn btn-ghost" href="<?= $edit ? '/property/' . $editId : '/' ?>"><?= te('Cancel') ?></a>
+      <?php if (!$edit): ?><span class="small muted"><?= te('The map position is looked up for you (U.S. Census geocoder).') ?></span><?php endif; ?>
     </div>
   </form>
 
   <?php if (!$edit): ?>
   <section class="section">
-    <div class="section-head"><h2>Import a spreadsheet of sales</h2></div>
-    <p class="section-note">A CSV with a header row. County recorder exports and the Kaggle “USA Real Estate” dataset both work once the columns are named like this:</p>
+    <div class="section-head"><h2><?= te('Import a spreadsheet of sales') ?></h2></div>
+    <p class="section-note"><?= te('A CSV with a header row. County recorder exports and the Kaggle “USA Real Estate” dataset both work once the columns are named like this:') ?></p>
     <code class="block">address,city,state,zip,sale_price,sale_date,beds,baths,sqft,lot_sqft,year_built,property_type,lat,lng</code>
-    <p class="section-note">Only <b>address</b> and <b>zip</b> (or city + state) are required. Rows need <b>lat</b> and <b>lng</b> to count as comparable sales. Up to 5,000 rows and 3 MB per file.</p>
+    <p class="section-note"><?= te('Only') ?> <b>address</b> <?= te('and') ?> <b>zip</b> <?= te('(or city + state) are required. Rows need') ?> <b>lat</b> <?= te('and') ?> <b>lng</b> <?= te('to count as comparable sales. Up to 5,000 rows and 3 MB per file.') ?></p>
     <form method="post" action="/add" enctype="multipart/form-data" class="actions mt-m">
       <?= csrf_field() ?><input type="hidden" name="do" value="import">
-      <label><span class="sr">CSV file</span><input type="file" name="csv" accept=".csv,text/csv" required></label>
-      <button class="btn" type="submit"><?= icon('database', 15) ?>Import</button>
+      <label><span class="sr"><?= te('CSV file') ?></span><input type="file" name="csv" accept=".csv,text/csv" required></label>
+      <button class="btn" type="submit"><?= icon('database', 15) ?><?= te('Import') ?></button>
     </form>
   </section>
   <?php endif; ?>

@@ -36,19 +36,19 @@ View::header('Reset password', '', ['bare' => true]);
   <a class="brand" href="/login">Plat</a>
   <form class="bare-form" method="post" action="/forgot">
     <?= csrf_field() ?>
-    <h1 class="display">Reset password</h1>
+    <h1 class="display"><?= te('Reset password') ?></h1>
     <?php if ($sent): ?>
-      <p class="soft">If that address has an account, a reset link is on its way. It works for one hour.</p>
-      <p class="small muted">Nothing arrived? Email must be set up by an admin, or an admin can give you a reset link from the Team page.</p>
-      <a class="btn" href="/login">Back to sign in</a>
+      <p class="soft"><?= te('If that address has an account, a reset link is on its way. It works for one hour.') ?></p>
+      <p class="small muted"><?= te('Nothing arrived? Email must be set up by an admin, or an admin can give you a reset link from the Team page.') ?></p>
+      <a class="btn" href="/login"><?= te('Back to sign in') ?></a>
     <?php else: ?>
-      <p class="soft">We’ll email you a link to choose a new one.</p>
-      <label class="field"><span>Email</span><input class="input" type="email" name="email" autocomplete="username" required autofocus></label>
-      <button class="btn btn-primary" type="submit">Send reset link</button>
+      <p class="soft"><?= te('We’ll email you a link to choose a new one.') ?></p>
+      <label class="field"><span><?= te('Email') ?></span><input class="input" type="email" name="email" autocomplete="username" required autofocus></label>
+      <button class="btn btn-primary" type="submit"><?= te('Send reset link') ?></button>
     <?php endif; ?>
   </form>
-  <p class="small muted"><a href="/login">Back to sign in</a></p>
+  <p class="small muted"><a href="/login"><?= te('Back to sign in') ?></a></p>
 </section>
-<aside class="bare-art" aria-hidden="true"><blockquote>Links expire after an hour and work once.</blockquote><cite>Security</cite></aside>
+<aside class="bare-art" aria-hidden="true"><blockquote><?= te('Links expire after an hour and work once.') ?></blockquote><cite><?= te('Security') ?></cite></aside>
 <?php
 View::footer();

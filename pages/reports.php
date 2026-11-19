@@ -11,29 +11,29 @@ View::header('Reports', 'reports');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display">Reports</h1>
-    <p>Where the homes are, what they cost, which ones look best — and how the team’s finished projects compared with the estimates.</p>
+    <h1 class="display"><?= te('Reports') ?></h1>
+    <p><?= te('Where the homes are, what they cost, which ones look best — and how the team’s finished projects compared with the estimates.') ?></p>
   </div>
   <div class="actions no-print">
-    <a class="btn" href="/export.xlsx?report=1"><?= icon('file-spreadsheet', 15) ?>Excel</a>
-    <button class="btn" type="button" data-print><?= icon('printer', 15) ?>PDF / print</button>
+    <a class="btn" href="/export.xlsx?report=1"><?= icon('file-spreadsheet', 15) ?><?= te('Excel') ?></a>
+    <button class="btn" type="button" data-print><?= icon('printer', 15) ?><?= te('PDF / print') ?></button>
   </div>
 </header>
-<p class="print-only small">Printed <?= e(fmt_date(now(), 'F j, Y g:i a')) ?> · estimates, not appraisals.</p>
+<p class="print-only small"><?= te('Printed') ?> <?= e(fmt_date(now(), 'F j, Y g:i a')) ?> <?= te('· estimates, not appraisals.') ?></p>
 
-<nav class="setting-nav no-print" aria-label="Report sections">
-  <?php foreach ($tables as $t): ?><a href="#r-<?= $t['key'] ?>"><?= e($t['title']) ?></a><?php endforeach; ?>
+<nav class="setting-nav no-print" aria-label="<?= te('Report sections') ?>">
+  <?php foreach ($tables as $t): ?><a href="#r-<?= $t['key'] ?>"><?= te($t['title']) ?></a><?php endforeach; ?>
 </nav>
 
 <?php foreach ($tables as $t): ?>
 <section class="section report" id="r-<?= $t['key'] ?>">
-  <div class="section-head"><h2><?= e($t['title']) ?></h2><span class="aside"><?= e($t['note']) ?></span></div>
+  <div class="section-head"><h2><?= te($t['title']) ?></h2><span class="aside"><?= te($t['note']) ?></span></div>
   <?php if (!$t['rows']): ?>
-    <p class="blank">Nothing to show yet.</p>
+    <p class="blank"><?= te('Nothing to show yet.') ?></p>
   <?php else: ?>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><?php foreach ($t['header'] as $i => $h): ?><th<?= $i >= 2 ? ' class="r"' : '' ?>><?= e($h) ?></th><?php endforeach; ?></tr></thead>
+      <thead><tr><?php foreach ($t['header'] as $i => $h): ?><th<?= $i >= 2 ? ' class="r"' : '' ?>><?= te($h) ?></th><?php endforeach; ?></tr></thead>
       <tbody>
       <?php foreach ($t['rows'] as $row): ?>
         <tr>

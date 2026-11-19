@@ -103,49 +103,49 @@ View::header('Team', 'users');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display">Team</h1>
-    <p>Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.</p>
+    <h1 class="display"><?= te('Team') ?></h1>
+    <p><?= te('Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.') ?></p>
   </div>
 </header>
 
 <?php if ($link): ?>
 <div class="card">
-  <h3>Invitation link for <?= e($link['email']) ?></h3>
-  <p class="small soft mb-m"><?= $link['mailed'] ? 'It was also emailed to them.' : 'Email isn’t set up, so send this link yourself (WhatsApp, text, email).' ?> Anyone with the link can claim the account, so send it only to them.</p>
+  <h3><?= te('Invitation link for') ?> <?= e($link['email']) ?></h3>
+  <p class="small soft mb-m"><?= te($link['mailed'] ? 'It was also emailed to them.' : 'Email isn’t set up, so send this link yourself (WhatsApp, text, email).') ?> <?= te('Anyone with the link can claim the account, so send it only to them.') ?></p>
   <code class="block"><?= e($link['link']) ?></code>
-  <button class="btn btn-sm mt-m" type="button" data-copy="<?= e($link['link']) ?>"><?= icon('copy', 14) ?>Copy link</button>
+  <button class="btn btn-sm mt-m" type="button" data-copy="<?= e($link['link']) ?>"><?= icon('copy', 14) ?><?= te('Copy link') ?></button>
 </div>
 <?php endif; ?>
 
 <section class="section">
-  <div class="section-head"><h2>Members</h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
+  <div class="section-head"><h2><?= te('Members') ?></h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Person</th><th>Role</th><th>Sign-in</th><th>Last seen</th><th class="r">Actions taken</th><th></th></tr></thead>
+      <thead><tr><th><?= te('Person') ?></th><th><?= te('Role') ?></th><th><?= te('Sign-in') ?></th><th><?= te('Last seen') ?></th><th class="r"><?= te('Actions taken') ?></th><th></th></tr></thead>
       <tbody>
       <?php foreach ($users as $u): $pending = $u['password_hash'] === '' && !$u['google_sub']; ?>
         <tr<?= $u['is_active'] ? '' : ' class="muted"' ?>>
           <td><strong><?= e($u['name'] ?: '—') ?></strong><?= (int) $u['id'] === $me ? ' <span class="tag">You</span>' : '' ?><span class="sub"><?= e($u['email']) ?></span></td>
           <td>
             <form method="post" action="/users"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
-              <label class="sr" for="r<?= (int) $u['id'] ?>">Role</label>
+              <label class="sr" for="r<?= (int) $u['id'] ?>"><?= te('Role') ?></label>
               <select class="select stage" id="r<?= (int) $u['id'] ?>" name="role" data-autosubmit<?= $u['is_active'] ? '' : ' disabled' ?>>
-                <?php foreach (Auth::ROLES as $k => $label): ?><option value="<?= $k ?>"<?= selected($u['role'], $k) ?>><?= $label ?></option><?php endforeach; ?>
+                <?php foreach (Auth::ROLES as $k => $label): ?><option value="<?= $k ?>"<?= selected($u['role'], $k) ?>><?= te($label) ?></option><?php endforeach; ?>
               </select></form></td>
-          <td><?= $pending ? '<span class="tag tag-warn">Invite not accepted</span>' : ($u['google_sub'] ? 'Password · Google' : 'Password') ?>
+          <td><?= $pending ? '<span class="tag tag-warn">' . te('Invite not accepted') . '</span>' : te($u['google_sub'] ? 'Password · Google' : 'Password') ?>
             <?= $u['is_active'] ? '' : '<span class="tag tag-bad">Disabled</span>' ?></td>
           <td class="nowrap"><?= $u['last_login_at'] ? e(ago($u['last_login_at'])) : '<span class="muted">Never</span>' ?></td>
           <td class="r"><?= (int) $u['actions'] ?></td>
           <td class="r nowrap">
             <?php if ($pending || (int) $u['id'] !== $me): ?>
             <form method="post" action="/users" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="relink"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
-              <button class="linkbtn" type="submit"><?= $pending ? 'New invite link' : 'Password reset link' ?></button></form>
+              <button class="linkbtn" type="submit"><?= te($pending ? 'New invite link' : 'Password reset link') ?></button></form>
             <?php endif; ?>
             <?php if ((int) $u['id'] !== $me): ?>
             · <form method="post" action="/users" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="signout"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
-              <button class="linkbtn" type="submit">Sign out everywhere</button></form>
+              <button class="linkbtn" type="submit"><?= te('Sign out everywhere') ?></button></form>
             · <form method="post" action="/users" class="inline" data-confirm="<?= $u['is_active'] ? 'Disable this account? They are signed out at once.' : 'Enable this account again?' ?>"><?= csrf_field() ?><input type="hidden" name="do" value="toggle"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
-              <button class="linkbtn<?= $u['is_active'] ? ' danger' : '' ?>" type="submit"><?= $u['is_active'] ? 'Disable' : 'Enable' ?></button></form>
+              <button class="linkbtn<?= $u['is_active'] ? ' danger' : '' ?>" type="submit"><?= te($u['is_active'] ? 'Disable' : 'Enable') ?></button></form>
             <?php endif; ?>
           </td>
         </tr>
@@ -156,24 +156,24 @@ View::header('Team', 'users');
 </section>
 
 <section class="section narrow">
-  <div class="section-head"><h2>Invite someone</h2></div>
+  <div class="section-head"><h2><?= te('Invite someone') ?></h2></div>
   <form method="post" action="/users" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="invite">
     <div class="form-grid">
-      <label class="field c4"><span>Name</span><input class="input" name="name" placeholder="Ajmal Sultan" required></label>
-      <label class="field c5"><span>Email</span><input class="input" type="email" name="email" required></label>
-      <label class="field c3"><span>Role</span>
+      <label class="field c4"><span><?= te('Name') ?></span><input class="input" name="name" placeholder="Ajmal Sultan" required></label>
+      <label class="field c5"><span><?= te('Email') ?></span><input class="input" type="email" name="email" required></label>
+      <label class="field c3"><span><?= te('Role') ?></span>
         <select class="select" name="role">
-          <option value="partner">Partner</option><option value="viewer">Viewer</option><option value="admin">Admin</option>
+          <option value="partner"><?= te('Partner') ?></option><option value="viewer"><?= te('Viewer') ?></option><option value="admin"><?= te('Admin') ?></option>
         </select></label>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('send', 15) ?>Create invite link</button>
-      <span class="small muted">They set their own password, or sign in with Google using this same email.</span></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('send', 15) ?><?= te('Create invite link') ?></button>
+      <span class="small muted"><?= te('They set their own password, or sign in with Google using this same email.') ?></span></div>
   </form>
   <dl class="kv mt-l">
-    <div><dt>Admin</dt><dd>Everything, including team, data sources and settings</dd></div>
-    <div><dt>Partner</dt><dd>Search, statuses, notes, deal numbers, adding homes</dd></div>
-    <div><dt>Viewer</dt><dd>Reads homes, deals and reports; changes nothing</dd></div>
+    <div><dt><?= te('Admin') ?></dt><dd><?= te('Everything, including team, data sources and settings') ?></dd></div>
+    <div><dt><?= te('Partner') ?></dt><dd><?= te('Search, statuses, notes, deal numbers, adding homes') ?></dd></div>
+    <div><dt><?= te('Viewer') ?></dt><dd><?= te('Reads homes, deals and reports; changes nothing') ?></dd></div>
   </dl>
 </section>
 <?php

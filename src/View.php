@@ -37,15 +37,19 @@ final class View
         header('Content-Type: text/html; charset=utf-8');
         ?>
 <!doctype html>
-<html lang="en">
+<html lang="<?= Locale::language() ?>" dir="<?= Locale::direction() ?>"<?= self::browserLabels() ?>>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <meta name="color-scheme" content="light">
-<title><?= e($title) ?> · <?= e($site) ?></title>
+<title><?= te($title) ?> · <?= e($site) ?></title>
+<?php if (Locale::language() === 'fa'): ?>
+<link rel="preload" href="/assets/fonts/vazirmatn-medium.woff2" as="font" type="font/woff2" crossorigin>
+<?php else: ?>
 <link rel="preload" href="/assets/fonts/public-sans-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/assets/fonts/newsreader-latin-opsz-normal.woff2" as="font" type="font/woff2" crossorigin>
+<?php endif; ?>
 <?php if (!empty($opt['map'])): ?>
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
 <?php endif; ?>
@@ -53,50 +57,104 @@ final class View
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 </head>
 <body class="<?= $bare ? 'bare' : '' ?><?= !empty($opt['wide']) ? ' wide' : '' ?><?= !empty($opt['body']) ? ' ' . e($opt['body']) : '' ?>">
-<a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#main"><?= te('Skip to content') ?></a>
 <?php if (!$bare): ?>
 <header class="top">
   <div class="top-in">
     <button class="menu-btn" type="button" aria-controls="main-nav" aria-expanded="false" data-menu>
-      <span class="menu-open"><?= icon('menu', 22) ?></span><span class="menu-close"><?= icon('x', 22) ?></span><span class="sr">Menu</span>
+      <span class="menu-open"><?= icon('menu', 22) ?></span><span class="menu-close"><?= icon('x', 22) ?></span><span class="sr"><?= te('Menu') ?></span>
     </button>
-    <a class="brand" href="/" aria-label="<?= e($site) ?> — dashboard"><?= e($site) ?></a>
-    <nav class="nav" id="main-nav" aria-label="Main">
+    <a class="brand" href="/" aria-label="<?= e($site) ?> <?= te('— dashboard') ?>"><?= e($site) ?></a>
+    <nav class="nav" id="main-nav" aria-label="<?= te('Main') ?>">
       <?php foreach (self::NAV as $key => [$href, $label, $perm, $ico]): if (!Auth::can($perm)) { continue; } ?>
-      <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon($ico, 18) ?></span><?= $label ?></a>
+      <a href="<?= $href ?>"<?= $key === $active ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon($ico, 18) ?></span><?= te($label) ?></a>
       <?php endforeach; ?>
       <div class="nav-more">
-        <a href="/account"<?= $active === 'account' ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('user', 18) ?></span>My account<span class="nav-who"><?= e(Auth::name()) ?></span></a>
+        <a href="/account"<?= $active === 'account' ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('user', 18) ?></span><?= te('My account') ?><span class="nav-who"><?= e(Auth::name()) ?></span></a>
         <?php if (Auth::can('admin')): ?>
-        <a href="/settings"<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('settings', 18) ?></span>Settings, team &amp; sites</a>
+        <a href="/settings"<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' aria-current="page"' : '' ?>><span class="nav-ico" aria-hidden="true"><?= icon('settings', 18) ?></span><?= te('Settings, team & sites') ?></a>
         <div class="nav-quota"><?= self::quotaChip() ?></div>
         <?php endif; ?>
         <form method="post" action="/logout">
           <?= csrf_field() ?>
-          <button type="submit"><span class="nav-ico" aria-hidden="true"><?= icon('log-out', 18) ?></span>Sign out</button>
+          <button type="submit"><span class="nav-ico" aria-hidden="true"><?= icon('log-out', 18) ?></span><?= te('Sign out') ?></button>
         </form>
       </div>
     </nav>
     <div class="top-end">
+      <?php self::languageSwitch(); ?>
       <?= Auth::can('admin') ? self::quotaChip() : '' ?>
       <?php if (Auth::can('admin')): ?>
-      <a class="top-link<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' is-on' : '' ?>" href="/settings" title="Settings, team and sites"><?= icon('settings', 17) ?><span class="sr">Settings</span></a>
+      <a class="top-link<?= in_array($active, ['settings', 'users', 'sites'], true) ? ' is-on' : '' ?>" href="/settings" title="<?= te('Settings, team and sites') ?>"><?= icon('settings', 17) ?><span class="sr"><?= te('Settings') ?></span></a>
       <?php endif; ?>
-      <a class="who<?= $active === 'account' ? ' is-on' : '' ?>" href="/account" title="My account"><span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(Auth::name() ?: '?', 0, 1))) ?></span><span class="who-name"><?= e(Auth::name()) ?></span></a>
+      <a class="who<?= $active === 'account' ? ' is-on' : '' ?>" href="/account" title="<?= te('My account') ?>"><span class="avatar" aria-hidden="true"><?= e(mb_strtoupper(mb_substr(Auth::name() ?: '?', 0, 1))) ?></span><span class="who-name"><?= e(Auth::name()) ?></span></a>
       <form method="post" action="/logout" class="inline">
         <?= csrf_field() ?>
-        <button class="top-link" type="submit" title="Sign out"><?= icon('log-out', 17) ?><span class="sr">Sign out</span></button>
+        <button class="top-link" type="submit" title="<?= te('Sign out') ?>"><?= icon('log-out', 17) ?><span class="sr"><?= te('Sign out') ?></span></button>
       </form>
     </div>
   </div>
 </header>
+<?php elseif (($opt['body'] ?? '') !== 'welcome-body'): ?>
+<div class="bare-language"><?php self::languageSwitch(); ?></div>
 <?php endif; ?>
 <main id="main" class="<?= e($opt['main'] ?? ($bare ? 'bare-main' : 'page')) ?>">
 <?php
         $flash = flash();
         if ($flash) {
-            echo '<div class="flash flash-' . e($flash['type']) . '" role="status">' . e($flash['msg']) . '</div>';
+            echo '<div class="flash flash-' . e($flash['type']) . '" role="status">' . te($flash['msg']) . '</div>';
         }
+    }
+
+    /** Text needed after the browser makes an asynchronous request. */
+    private static function browserLabels(): string
+    {
+        if (Locale::language() === 'en') {
+            return '';
+        }
+        $messages = [
+            'Copied',
+            'Listing details found — updating the page…',
+            'No further details from the listing.',
+            'Couldn’t fetch the listing details. Reload to try again.',
+            'OpenStreetMap didn’t answer. Reload to try again.',
+            'From OpenStreetMap. Distance is a straight line; it says nothing about quality.',
+            'FEMA didn’t answer. Reload to try again.',
+            'FEMA zone',
+            'Zone',
+            'No census figures for this spot.',
+            'Median household income',
+            'Median home value',
+            'Median rent',
+            'Couldn’t load this. Reload to try again.',
+            'Owner-occupied',
+            'Vacant homes',
+            'Typical year built',
+            'Residents',
+            'Income, home values and rents for this neighbourhood need a free Census key.',
+            'Add it in Settings',
+            'Pause',
+            'Orbit',
+            'Could not load the 3D viewer.',
+            'Loading the 3D viewer…',
+        ];
+        $labels = array_combine($messages, array_map('t', $messages));
+        return ' data-ui-labels="' . e(json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) . '"';
+    }
+
+    public static function languageSwitch(): void
+    {
+        $persian = Locale::language() === 'fa';
+        ?>
+<form class="language-switch" method="post" action="/language">
+  <?= csrf_field() ?>
+  <input type="hidden" name="return" value="<?= e($_SERVER['REQUEST_URI'] ?? '/') ?>">
+  <button class="btn btn-ghost btn-sm" type="submit" name="language" value="<?= $persian ? 'en' : 'fa' ?>"
+          lang="<?= $persian ? 'en' : 'fa' ?>" dir="<?= $persian ? 'ltr' : 'rtl' ?>">
+    <?= $persian ? 'English' : 'فارسی' ?>
+  </button>
+</form>
+<?php
     }
 
     public static function footer(): void
@@ -148,7 +206,7 @@ final class View
                 . '</a>';
         }
         if ($out === '') {
-            $out = '<a class="quota quota-none" href="/settings#sources">Connect a data source</a>';
+            $out = '<a class="quota quota-none" href="/settings#sources">' . te('Connect a data source') . '</a>';
         }
         return $out;
     }
@@ -156,15 +214,15 @@ final class View
     public static function statusTag(array $p, string $mode = 'sale'): string
     {
         if ($mode === 'sold') {
-            return '<span class="tag tag-sold">Sold</span>';
+            return '<span class="tag tag-sold">' . te('Sold') . '</span>';
         }
         return match ($p['status'] ?? '') {
             'for_sale' => (($p['listing_type'] ?? '') && $p['listing_type'] !== 'Standard')
-                ? '<span class="tag tag-warn">' . e($p['listing_type']) . '</span>'
-                : '<span class="tag tag-live">For sale</span>',
-            'pending' => '<span class="tag tag-warn">Pending</span>',
-            'sold' => '<span class="tag tag-sold">Sold</span>',
-            default => '<span class="tag">Off market</span>',
+                ? '<span class="tag tag-warn">' . te($p['listing_type']) . '</span>'
+                : '<span class="tag tag-live">' . te('For sale') . '</span>',
+            'pending' => '<span class="tag tag-warn">' . te('Pending') . '</span>',
+            'sold' => '<span class="tag tag-sold">' . te('Sold') . '</span>',
+            default => '<span class="tag">' . te('Off market') . '</span>',
         };
     }
 
@@ -186,8 +244,8 @@ final class View
         $link = static fn (int $p, string $label, bool $on = true) => $on
             ? '<a class="btn btn-ghost" href="' . e(url('/search', $query + ['page' => $p > 1 ? $p : null])) . '">' . $label . '</a>'
             : '<span class="btn btn-ghost is-off">' . $label . '</span>';
-        return '<nav class="pager" aria-label="Pages">' . $link($page - 1, 'Previous', $page > 1)
-            . '<span class="pager-at">Page ' . $page . ' of ' . $pages . '</span>'
-            . $link($page + 1, 'Next', $page < $pages) . '</nav>';
+        return '<nav class="pager" aria-label="' . te('Pages') . '">' . $link($page - 1, te('Previous'), $page > 1)
+            . '<span class="pager-at">' . te('Page %1$d of %2$d', $page, $pages) . '</span>'
+            . $link($page + 1, te('Next'), $page < $pages) . '</nav>';
     }
 }

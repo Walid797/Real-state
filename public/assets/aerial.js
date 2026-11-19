@@ -4,6 +4,9 @@
 (function () {
   'use strict';
 
+  var labels = JSON.parse(document.documentElement.getAttribute('data-ui-labels') || '{}');
+  var ui = function (text) { return labels[text] || text; };
+
   var box = document.querySelector('[data-aerial]');
   if (!box) return;
   var stage = box.querySelector('.aerial-stage');
@@ -25,7 +28,7 @@
     return new Promise(function (ok, fail) {
       if (window.Cesium) return ok();
       var s = document.createElement('script');
-      s.src = src; s.onload = ok; s.onerror = function () { fail(new Error('Could not load the 3D viewer.')); };
+      s.src = src; s.onload = ok; s.onerror = function () { fail(new Error(ui('Could not load the 3D viewer.'))); };
       document.head.appendChild(s);
     });
   };
@@ -117,7 +120,7 @@
         heading = camera.heading; pitch = camera.pitch;
         range = C.Cartesian3.distance(camera.positionWC, target);
       }
-      orbitBtn.querySelector('span').textContent = on ? 'Pause' : 'Orbit';
+      orbitBtn.querySelector('span').textContent = on ? ui('Pause') : ui('Orbit');
     };
     orbitBtn.addEventListener('click', function () { setOrbit(!orbiting); });
     box.querySelector('[data-aerial-reset]').addEventListener('click', function () {
@@ -131,7 +134,7 @@
 
   openBtn.addEventListener('click', function () {
     openBtn.disabled = true;
-    say('Loading the 3D viewer…');
+    say(ui('Loading the 3D viewer…'));
     loadCss(BASE + 'Widgets/widgets.css');
     Promise.all([ask(), loadScript(BASE + 'Cesium.js')]).then(function (r) {
       var d = r[0];

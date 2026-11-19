@@ -8,6 +8,18 @@ function e(mixed $v): string
     return htmlspecialchars((string) ($v ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+/** Translate interface copy. Use e() directly for user and provider data. */
+function t(string $message, mixed ...$values): string
+{
+    $translation = App\Locale::text($message);
+    return $values ? sprintf($translation, ...$values) : $translation;
+}
+
+function te(string $message, mixed ...$values): string
+{
+    return e(t($message, ...$values));
+}
+
 /** UTC timestamp for DB writes. The connection runs in UTC as well. */
 function now(): string
 {
@@ -180,27 +192,27 @@ function fmt_date(?string $v, string $format = 'M j, Y', string $dash = '—'): 
 function ago(?string $utc): string
 {
     if (!$utc) {
-        return 'never';
+        return t('never');
     }
     $t = strtotime($utc . ' UTC');
     if ($t === false) {
-        return 'never';
+        return t('never');
     }
     $s = max(0, time() - $t);
     if ($s < 90) {
-        return 'just now';
+        return t('just now');
     }
     if ($s < 3600) {
-        return (int) round($s / 60) . ' min ago';
+        return t('%d min ago', (int) round($s / 60));
     }
     if ($s < 86400) {
-        return (int) round($s / 3600) . 'h ago';
+        return t('%dh ago', (int) round($s / 3600));
     }
     if ($s < 172800) {
-        return 'yesterday';
+        return t('yesterday');
     }
     if ($s < 86400 * 60) {
-        return (int) round($s / 86400) . ' days ago';
+        return t('%d days ago', (int) round($s / 86400));
     }
     return fmt_date($utc);
 }
@@ -216,6 +228,10 @@ function days_since(?string $date): ?int
 
 function plural(int|float $n, string $one, ?string $many = null): string
 {
+    $label = t($one);
+    if ($label !== $one) {
+        return number_format($n) . ' ' . $label;
+    }
     return number_format($n) . ' ' . ($n == 1 ? $one : ($many ?? $one . 's'));
 }
 

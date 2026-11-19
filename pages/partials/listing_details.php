@@ -27,15 +27,15 @@ foreach (['heating' => 'Heating', 'cooling' => 'Cooling', 'parking' => 'Parking'
 $autoNow = ListingDetails::wanted($p);
 ?>
 <section class="section" id="listing-details"<?= $autoNow ? ' data-auto-details="/api/details/' . (int) $id . '" data-csrf="' . e(App\Auth::csrfToken()) . '"' : '' ?>>
-  <div class="section-head"><h2>Property details</h2><?php if (!empty($d['zillow'])): ?><span class="aside">from the listing, via Zillow data</span><?php endif; ?></div>
+  <div class="section-head"><h2><?= te('Property details') ?></h2><?php if (!empty($d['zillow'])): ?><span class="aside"><?= te('from the listing, via Zillow data') ?></span><?php endif; ?></div>
   <?php if ($kv): ?>
-  <dl class="kv"><?php foreach ($kv as $k => $v): ?><div><dt><?= e($k) ?></dt><dd><?= e($v) ?></dd></div><?php endforeach; ?></dl>
+  <dl class="kv"><?php foreach ($kv as $k => $v): ?><div><dt><?= te($k) ?></dt><dd><?= e($v) ?></dd></div><?php endforeach; ?></dl>
   <?php elseif ($autoNow): ?>
-  <p class="blank auto-details-msg"><span class="spin" aria-hidden="true"></span>Fetching the full listing — taxes, HOA, features and photos…</p>
+  <p class="blank auto-details-msg"><span class="spin" aria-hidden="true"></span><?= te('Fetching the full listing — taxes, HOA, features and photos…') ?></p>
   <?php elseif (!empty($d['zillow'])): ?>
-  <p class="blank">The listing on Zillow lists no further details.</p>
+  <p class="blank"><?= te('The listing on Zillow lists no further details.') ?></p>
   <?php elseif (!App\Providers\OpenWebNinja::enabled()): ?>
-  <p class="blank">Full listing details (taxes, HOA, features, photos) come from Zillow data. <?= App\Auth::can('admin') ? '<a href="/settings#sources">Add the free OpenWeb Ninja key</a> and they are fetched by themselves when a home is opened.' : 'An admin can turn this on under Settings.' ?></p>
+  <p class="blank"><?= te('Full listing details (taxes, HOA, features, photos) come from Zillow data.') ?> <?= App\Auth::can('admin') ? '<a href="/settings#sources">Add the free OpenWeb Ninja key</a> and they are fetched by themselves when a home is opened.' : 'An admin can turn this on under Settings.' ?></p>
   <?php else: ?>
   <p class="blank"><?= match (true) {
       !empty($d['zillow_error']) => 'The last try to fetch the listing didn’t get through (' . e(ago($d['zillow_tried_at'])) . '). The site tries again tomorrow, or use “Read the listing” now.',

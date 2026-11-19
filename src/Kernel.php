@@ -13,6 +13,7 @@ final class Kernel
     private const ROUTES = [
         ['GET', '#^/welcome$#', 'welcome', 'public', 'public'],
         ['GET|POST', '#^/login$#', 'login', 'public', 'public'],
+        ['POST', '#^/language$#', 'language', 'public', 'public'],
         ['GET|POST', '#^/setup$#', 'setup', 'public', 'public'],
         ['GET|POST', '#^/invite$#', 'invite', 'public', 'public'],
         ['GET|POST', '#^/forgot$#', 'forgot', 'public', 'public'],
@@ -103,7 +104,8 @@ final class Kernel
         }
         http_response_code(404);
         View::header('Not found');
-        echo '<div class="empty"><h1 class="display">That page isn’t here.</h1><p>The link may be old, or the record was deleted.</p><p><a class="btn" href="/">Back to the dashboard</a></p></div>';
+        echo '<div class="empty"><h1 class="display">' . te('That page isn’t here.') . '</h1><p>' . te('The link may be old, or the record was deleted.') . '</p>'
+            . '<p><a class="btn" href="/">' . te('Back to the dashboard') . '</a></p></div>';
         View::footer();
     }
 
@@ -146,9 +148,9 @@ final class Kernel
     {
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
-        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex"><title>' . e($title) . '</title><link rel="stylesheet" href="/assets/app.css">'
-            . '<body class="bare"><main class="bare-box"><h1 class="display">' . e($title) . '</h1><p>' . e($message) . '</p></main></body></html>';
+        echo '<!doctype html><html lang="' . Locale::language() . '" dir="' . Locale::direction() . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<meta name="robots" content="noindex"><title>' . te($title) . '</title><link rel="stylesheet" href="/assets/app.css">'
+            . '<body class="bare"><main class="bare-box"><h1 class="display">' . te($title) . '</h1><p>' . te($message) . '</p></main></body></html>';
         exit;
     }
 }

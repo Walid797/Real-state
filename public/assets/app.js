@@ -2,6 +2,11 @@
 (function () {
   'use strict';
 
+  var labels = JSON.parse(document.documentElement.getAttribute('data-ui-labels') || '{}');
+  var ui = function (text) {
+    return Object.prototype.hasOwnProperty.call(labels, text) ? labels[text] : text;
+  };
+
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
   var readJson = function (id) {
@@ -178,7 +183,7 @@
     if (!b || !navigator.clipboard) return;
     navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function () {
       var old = b.textContent;
-      b.textContent = 'Copied';
+      b.textContent = ui('Copied');
       setTimeout(function () { b.textContent = old; }, 1400);
     });
   });
@@ -307,9 +312,9 @@
         var v = pl.count === 0 ? '<span class="muted">none within ' + pl.radius + ' mi</span>'
           : pl.count + ' · nearest ' + Number(pl.nearest).toFixed(1) + ' mi';
         return '<div class="ctx-row"><span>' + esc(pl.label) + '</span><span class="num" title="' + esc(pl.name || '') + '">' + v + '</span></div>';
-      }).join('') + '<p class="small muted">From OpenStreetMap. Distance is a straight line; it says nothing about quality.</p>';
+      }).join('') + '<p class="small muted">' + esc(ui('From OpenStreetMap. Distance is a straight line; it says nothing about quality.')) + '</p>';
     };
-    var fail = function () { near.innerHTML = '<p class="small muted">OpenStreetMap didn’t answer. Reload to try again.</p>'; };
+    var fail = function () { near.innerHTML = '<p class="small muted">' + esc(ui('OpenStreetMap didn’t answer. Reload to try again.')) + '</p>'; };
     var miles = function (a1, o1, a2, o2) {
       var r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
       var h = Math.sin(dA / 2) * Math.sin(dA / 2) + Math.cos(a1 * r) * Math.cos(a2 * r) * Math.sin(dO / 2) * Math.sin(dO / 2);
@@ -380,12 +385,12 @@
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (d.status === 'fetched') {
         // Everything on the page (tax, HOA, condition, score) changes, so show it fresh.
-        if (autoMsg) autoMsg.textContent = 'Listing details found — updating the page…';
+        if (autoMsg) autoMsg.textContent = ui('Listing details found — updating the page…');
         setTimeout(function () { window.location.reload(); }, 400);
       } else if (autoMsg) {
-        autoMsg.textContent = d.message || 'No further details from the listing.';
+        autoMsg.textContent = d.message || ui('No further details from the listing.');
       }
-    }).catch(function () { if (autoMsg) autoMsg.textContent = 'Couldn’t fetch the listing details. Reload to try again.'; });
+    }).catch(function () { if (autoMsg) autoMsg.textContent = ui('Couldn’t fetch the listing details. Reload to try again.'); });
   }
 
   /* ── Flood zone + neighbourhood (free lookups, loaded after the page) ── */
@@ -399,34 +404,34 @@
         var hood = $('[data-hood]');
         if (flood) {
           if (!d.flood) {
-            flood.innerHTML = '<p class="small muted">FEMA didn’t answer. Reload to try again.</p>';
+            flood.innerHTML = '<p class="small muted">' + esc(ui('FEMA didn’t answer. Reload to try again.')) + '</p>';
           } else {
             var tag = { high: 'tag-bad', moderate: 'tag-warn', low: 'tag-live', unknown: '' }[d.flood.risk] || '';
-            flood.innerHTML = row('FEMA zone', d.flood.zone ? '<span class="tag ' + tag + '">Zone ' + esc(d.flood.zone) + '</span>' : '—')
+            flood.innerHTML = row(ui('FEMA zone'), d.flood.zone ? '<span class="tag ' + tag + '">' + esc(ui('Zone')) + ' ' + esc(d.flood.zone) + '</span>' : '—')
               + '<p class="small soft">' + esc(d.flood.label) + (d.flood.risk === 'high' ? '. Lenders usually require flood insurance here.' : '.') + '</p>';
           }
         }
         if (hood) {
           var c = d.census;
           if (!c && d.census_key === false) {
-            hood.innerHTML = '<p class="small soft">Income, home values and rents for this neighbourhood need a free Census key. <a href="/settings#sources">Add it in Settings</a> — it takes a minute.</p>';
+            hood.innerHTML = '<p class="small soft">' + esc(ui('Income, home values and rents for this neighbourhood need a free Census key.')) + ' <a href="/settings#sources">' + esc(ui('Add it in Settings')) + '</a>.</p>';
           } else if (!c) {
-            hood.innerHTML = '<p class="small muted">No census figures for this spot.</p>';
+            hood.innerHTML = '<p class="small muted">' + esc(ui('No census figures for this spot.')) + '</p>';
           } else {
             var n = function (v, pre, post) { return v == null ? '—' : (pre || '') + Math.round(v).toLocaleString('en-US') + (post || ''); };
-            hood.innerHTML = row('Median household income', n(c.median_income, '$'))
-              + row('Median home value', n(c.median_home_value, '$'))
-              + row('Median rent', n(c.median_rent, '$', '/mo'))
-              + row('Owner-occupied', c.owner_share == null ? '—' : c.owner_share + '%')
-              + row('Vacant homes', c.vacancy == null ? '—' : c.vacancy + '%')
-              + row('Typical year built', c.median_year_built ? Math.round(c.median_year_built) : '—')
-              + row('Residents', n(c.population))
+            hood.innerHTML = row(ui('Median household income'), n(c.median_income, '$'))
+              + row(ui('Median home value'), n(c.median_home_value, '$'))
+              + row(ui('Median rent'), n(c.median_rent, '$', '/mo'))
+              + row(ui('Owner-occupied'), c.owner_share == null ? '—' : c.owner_share + '%')
+              + row(ui('Vacant homes'), c.vacancy == null ? '—' : c.vacancy + '%')
+              + row(ui('Typical year built'), c.median_year_built ? Math.round(c.median_year_built) : '—')
+              + row(ui('Residents'), n(c.population))
               + '<p class="small muted">Census tract ' + esc(c.tract_name || '') + ', ACS ' + esc(c.year) + ' five-year estimates.</p>';
           }
         }
       })
       .catch(function () {
-        $$('[data-flood], [data-hood]').forEach(function (el) { el.innerHTML = '<p class="small muted">Couldn’t load this. Reload to try again.</p>'; });
+        $$('[data-flood], [data-hood]').forEach(function (el) { el.innerHTML = '<p class="small muted">' + esc(ui('Couldn’t load this. Reload to try again.')) + '</p>'; });
       });
   }
 })();

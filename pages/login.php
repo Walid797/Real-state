@@ -38,26 +38,26 @@ View::header('Sign in', '', ['bare' => true]);
   <form class="bare-form" method="post" action="/login" autocomplete="on">
     <?= csrf_field() ?>
     <input type="hidden" name="next" value="<?= e(input('next', '/', 300)) ?>">
-    <h1 class="display">Sign in</h1>
-    <p class="soft">Private to your team.</p>
-    <?php if ($note): ?><p class="small down" role="status"><?= e($note['msg']) ?></p><?php endif; ?>
-    <?php if ($error): ?><p class="err" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <h1 class="display"><?= te('Sign in') ?></h1>
+    <p class="soft"><?= te('Private to your team.') ?></p>
+    <?php if ($note): ?><p class="small down" role="status"><?= te($note['msg']) ?></p><?php endif; ?>
+    <?php if ($error): ?><p class="err" role="alert"><?= te($error) ?></p><?php endif; ?>
     <label class="field">
-      <span>Email</span>
+      <span><?= te('Email') ?></span>
       <input class="input" type="email" name="email" value="<?= e($email) ?>" autocomplete="username" required autofocus>
     </label>
     <label class="field">
-      <span>Password</span>
+      <span><?= te('Password') ?></span>
       <input class="input" type="password" name="password" autocomplete="current-password" required>
     </label>
-    <button class="btn btn-primary" type="submit">Sign in</button>
-    <p class="small mt-m"><a href="/forgot">Forgot your password?</a></p>
+    <button class="btn btn-primary" type="submit"><?= te('Sign in') ?></button>
+    <p class="small mt-m"><a href="/forgot"><?= te('Forgot your password?') ?></a></p>
     <?php if (App\Settings::has('google_client_id') && App\Settings::has('google_client_secret')): ?>
-    <div class="or"><span>or</span></div>
-    <a class="btn btn-google" href="<?= e(url('/auth/google', ['next' => input('next', '', 300) ?: null])) ?>"><?= icon('google', 16) ?>Continue with Google</a>
+    <div class="or"><span><?= te('or') ?></span></div>
+    <a class="btn btn-google" href="<?= e(url('/auth/google', ['next' => input('next', '', 300) ?: null])) ?>"><?= icon('google', 16) ?><?= te('Continue with Google') ?></a>
     <?php endif; ?>
   </form>
-  <p class="small muted">Not indexed by search engines. Sessions end after 14 days. No account? Ask an admin for an invitation.</p>
+  <p class="small muted"><?= te('Not indexed by search engines. Sessions end after 14 days. No account? Ask an admin for an invitation.') ?></p>
 </section>
 <aside class="bare-art" aria-hidden="true">
   <svg class="plat" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#3d4b47" stroke-width="1">
@@ -67,8 +67,8 @@ View::header('Sign in', '', ['bare' => true]);
     <path d="M90 113 L250 98 M235 300 L60 310" stroke-dasharray="4 6"/>
     <circle cx="322" cy="368" r="3" fill="#14b8a6" stroke="none"/>
   </svg>
-  <blockquote>Know what the house next door sold for before you make the call.</blockquote>
-  <cite>Lot 14 · Block 3</cite>
+  <blockquote><?= te('Know what the house next door sold for before you make the call.') ?></blockquote>
+  <cite><?= te('Lot 14 · Block 3') ?></cite>
 </aside>
 <?php
 View::footer();

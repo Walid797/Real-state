@@ -72,71 +72,71 @@ $ready = Notifier::ready(Notifier::recipient($me));
 View::header('My account', 'account');
 ?>
 <div class="narrow">
-<header class="page-head"><div><h1 class="display">My account</h1><p><?= e($me['email']) ?> · <?= e(Auth::ROLES[$me['role']]) ?></p></div></header>
+<header class="page-head"><div><h1 class="display"><?= te('My account') ?></h1><p><?= e($me['email']) ?> · <?= te(Auth::ROLES[$me['role']]) ?></p></div></header>
 
 <section class="section">
-  <div class="section-head"><h2>Profile and alerts</h2></div>
+  <div class="section-head"><h2><?= te('Profile and alerts') ?></h2></div>
   <form method="post" action="/account" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="profile">
     <div class="form-grid">
-      <label class="field c6"><span>Name the team sees</span><input class="input" name="name" value="<?= e($me['name']) ?>" maxlength="80"></label>
-      <label class="field c6"><span>Your Telegram chat ID</span><input class="input mono" name="telegram_chat" value="<?= e($me['telegram_chat']) ?>" placeholder="123456789">
-        <small>Your alerts go here. Open the team’s bot in Telegram and press Start, then get the number from @userinfobot. A group ID (starts with −) works too.</small></label>
+      <label class="field c6"><span><?= te('Name the team sees') ?></span><input class="input" name="name" value="<?= e($me['name']) ?>" maxlength="80"></label>
+      <label class="field c6"><span><?= te('Your Telegram chat ID') ?></span><input class="input mono" name="telegram_chat" value="<?= e($me['telegram_chat']) ?>" placeholder="123456789">
+        <small><?= te('Your alerts go here. Open the team’s bot in Telegram and press Start, then get the number from @userinfobot. A group ID (starts with −) works too.') ?></small></label>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save</button>
-      <span class="small muted">Email alerts go to <?= e($me['email']) ?>.</span></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save') ?></button>
+      <span class="small muted"><?= te('Email alerts go to') ?> <?= e($me['email']) ?>.</span></div>
   </form>
   <div class="actions mt-m">
-    <span class="small muted">Send yourself a test:</span>
+    <span class="small muted"><?= te('Send yourself a test:') ?></span>
     <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
     <form method="post" action="/account" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="test"><input type="hidden" name="channel" value="<?= $ch ?>">
-      <button class="btn btn-sm" type="submit"<?= $ready[$ch] ? '' : ' disabled' ?>><?= icon('send', 14) ?><?= $label ?></button></form>
+      <button class="btn btn-sm" type="submit"<?= $ready[$ch] ? '' : ' disabled' ?>><?= icon('send', 14) ?><?= te($label) ?></button></form>
     <?php endforeach; ?>
   </div>
 </section>
 
 <section class="section" id="whatsapp">
-  <div class="section-head"><h2>WhatsApp</h2><span class="aside"><?= $ready['whatsapp'] ? 'on for your alerts' : 'not set' ?></span></div>
-  <p class="small soft mt-s">Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.</p>
+  <div class="section-head"><h2><?= te('WhatsApp') ?></h2><span class="aside"><?= $ready['whatsapp'] ? 'on for your alerts' : 'not set' ?></span></div>
+  <p class="small soft mt-s"><?= te('Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.') ?></p>
   <ol class="steps mt-s mb-m">
-    <li>Open <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer">CallMeBot’s WhatsApp page</a> and save the bot’s number shown there in your phone’s contacts.</li>
-    <li>From your WhatsApp, send it exactly: <span class="mono">I allow callmebot to send me messages</span></li>
-    <li>It replies with an API key, usually within a few minutes. Enter your number and that key here.</li>
+    <li><?= te('Open') ?> <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer"><?= te('CallMeBot’s WhatsApp page') ?></a> <?= te('and save the bot’s number shown there in your phone’s contacts.') ?></li>
+    <li><?= te('From your WhatsApp, send it exactly:') ?> <span class="mono">I allow callmebot to send me messages</span></li>
+    <li><?= te('It replies with an API key, usually within a few minutes. Enter your number and that key here.') ?></li>
   </ol>
   <form method="post" action="/account" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="whatsapp">
     <div class="form-grid">
-      <label class="field c6"><span>Your WhatsApp number</span><input class="input mono" name="whatsapp_phone" value="<?= e($me['whatsapp_phone'] ?? '') ?>" placeholder="+1 804 555 0123" inputmode="tel">
-        <small>With the country code. Leave empty to stop WhatsApp alerts.</small></label>
-      <label class="field c6"><span>CallMeBot API key</span><input class="input mono" name="callmebot_key" value="" placeholder="<?= !empty($me['callmebot_key']) ? 'saved — leave empty to keep' : '123456' ?>">
-        <small>Stored encrypted.</small></label>
+      <label class="field c6"><span><?= te('Your WhatsApp number') ?></span><input class="input mono" name="whatsapp_phone" value="<?= e($me['whatsapp_phone'] ?? '') ?>" placeholder="+1 804 555 0123" inputmode="tel">
+        <small><?= te('With the country code. Leave empty to stop WhatsApp alerts.') ?></small></label>
+      <label class="field c6"><span><?= te('CallMeBot API key') ?></span><input class="input mono" name="callmebot_key" value="" placeholder="<?= !empty($me['callmebot_key']) ? 'saved — leave empty to keep' : '123456' ?>">
+        <small><?= te('Stored encrypted.') ?></small></label>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save WhatsApp</button>
-      <span class="small muted">CallMeBot is free and sometimes slow; Telegram is the most reliable.</span></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save WhatsApp') ?></button>
+      <span class="small muted"><?= te('CallMeBot is free and sometimes slow; Telegram is the most reliable.') ?></span></div>
   </form>
 </section>
 
 <section class="section">
-  <div class="section-head"><h2>Password</h2></div>
+  <div class="section-head"><h2><?= te('Password') ?></h2></div>
   <form method="post" action="/account" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="password">
     <div class="form-grid">
       <?php if ($me['password_hash'] !== ''): ?>
-      <label class="field c4"><span>Current password</span><input class="input" type="password" name="current_password" autocomplete="current-password" required></label>
+      <label class="field c4"><span><?= te('Current password') ?></span><input class="input" type="password" name="current_password" autocomplete="current-password" required></label>
       <?php endif; ?>
-      <label class="field c4"><span>New password</span><input class="input" type="password" name="new_password" autocomplete="new-password" minlength="12" required></label>
-      <label class="field c4"><span>Again</span><input class="input" type="password" name="new_password2" autocomplete="new-password" minlength="12" required></label>
+      <label class="field c4"><span><?= te('New password') ?></span><input class="input" type="password" name="new_password" autocomplete="new-password" minlength="12" required></label>
+      <label class="field c4"><span><?= te('Again') ?></span><input class="input" type="password" name="new_password2" autocomplete="new-password" minlength="12" required></label>
     </div>
-    <div class="form-foot"><button class="btn" type="submit">Change password</button></div>
+    <div class="form-foot"><button class="btn" type="submit"><?= te('Change password') ?></button></div>
   </form>
 </section>
 
 <section class="section">
-  <div class="section-head"><h2>Devices</h2></div>
-  <form method="post" action="/account" class="mt-m" data-confirm="Sign out on every device, including this one?">
+  <div class="section-head"><h2><?= te('Devices') ?></h2></div>
+  <form method="post" action="/account" class="mt-m" data-confirm="<?= te('Sign out on every device, including this one?') ?>">
     <?= csrf_field() ?><input type="hidden" name="do" value="everywhere">
-    <button class="btn btn-danger" type="submit"><?= icon('log-out', 15) ?>Sign out everywhere</button>
-    <span class="small muted">Use this if you signed in on a computer that isn’t yours.</span>
+    <button class="btn btn-danger" type="submit"><?= icon('log-out', 15) ?><?= te('Sign out everywhere') ?></button>
+    <span class="small muted"><?= te('Use this if you signed in on a computer that isn’t yours.') ?></span>
   </form>
 </section>
 </div>

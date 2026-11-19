@@ -174,7 +174,7 @@ $cronUrl = abs_url('/cron', ['key' => (string) Config::get('cron_key', '')]);
 $s = static fn (string $k) => e((string) (Settings::get($k) ?? ''));
 $secretField = static function (string $key, string $label, string $hint = '') : string {
     $has = Settings::has($key);
-    return '<label class="field c8"><span>' . e($label) . '</span>'
+    return '<label class="field c8"><span>' . te($label) . '</span>'
         . '<input class="input mono" type="password" name="' . $key . '" autocomplete="off" spellcheck="false" placeholder="' . ($has ? e(Settings::masked($key)) . ' — saved; type to replace' : 'Paste it here') . '">'
         . ($hint ? '<small>' . $hint . '</small>' : '') . '</label>'
         . '<div class="field c4"><span>&nbsp;</span>' . ($has ? '<label class="check"><input type="checkbox" name="' . $key . '_remove">Remove this key</label>' : '<span class="small muted">Not connected</span>') . '</div>';
@@ -182,71 +182,71 @@ $secretField = static function (string $key, string $label, string $hint = '') :
 
 View::header('Settings', 'settings');
 ?>
-<header class="page-head"><div><h1 class="display">Settings</h1></div></header>
-<nav class="setting-nav" aria-label="Sections">
-  <a href="#sources">Data sources</a><a href="#free">Free sources</a><a href="#aerial">3D view</a><a href="#usage">Usage</a><a href="#notify">Delivery</a><a href="#schedule">Schedule</a><a href="#site">Site &amp; sign-in</a><a href="/users">Team</a><a href="#data">Data</a>
+<header class="page-head"><div><h1 class="display"><?= te('Settings') ?></h1></div></header>
+<nav class="setting-nav" aria-label="<?= te('Sections') ?>">
+  <a href="#sources"><?= te('Data sources') ?></a><a href="#free"><?= te('Free sources') ?></a><a href="#aerial"><?= te('3D view') ?></a><a href="#usage"><?= te('Usage') ?></a><a href="#notify"><?= te('Delivery') ?></a><a href="#schedule"><?= te('Schedule') ?></a><a href="#site"><?= te('Site & sign-in') ?></a><a href="/users"><?= te('Team') ?></a><a href="#data"><?= te('Data') ?></a>
 </nav>
 
 <div class="narrow">
 <section class="section" id="sources">
-  <div class="section-head"><h2>Data sources</h2></div>
+  <div class="section-head"><h2><?= te('Data sources') ?></h2></div>
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="sources">
     <div class="card">
       <?php $rcProblem = App\Providers\RentCast::problem(); ?>
-      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad">Key refused</span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= Settings::has('rentcast_key') ? 'Connected' : 'Not connected' ?></span><?php endif; ?></h3>
+      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= Settings::has('rentcast_key') ? 'Connected' : 'Not connected' ?></span><?php endif; ?></h3>
       <?php if ($rcProblem && Settings::has('rentcast_key')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($rcProblem['why']) ?></strong>
-        <span class="small soft">Last refused <?= e(ago($rcProblem['at'])) ?>. Refused requests are not counted against your 50.</span>
-        <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?>Open the RentCast API dashboard</a></div></div>
+        <span class="small soft"><?= te('Last refused') ?> <?= e(ago($rcProblem['at'])) ?><?= te('. Refused requests are not counted against your 50.') ?></span>
+        <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?><?= te('Open the RentCast API dashboard') ?></a></div></div>
       <?php endif; ?>
-      <p class="small soft mb-m">Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.</p>
+      <p class="small soft mb-m"><?= te('Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.') ?></p>
       <ol class="steps mb-m">
-        <li>Create an account at <a href="https://app.rentcast.io/app/api" target="_blank" rel="noopener noreferrer">app.rentcast.io → API</a> and choose the free Developer plan.</li>
-        <li>Press “Create API key” and paste it below.</li>
+        <li><?= te('Create an account at') ?> <a href="https://app.rentcast.io/app/api" target="_blank" rel="noopener noreferrer">app.rentcast.io → API</a> <?= te('and choose the free Developer plan.') ?></li>
+        <li><?= te('Press “Create API key” and paste it below.') ?></li>
       </ol>
       <div class="form-grid">
         <?= $secretField('rentcast_key', 'API key') ?>
-        <label class="field c4"><span>Requests per month</span><input class="input" name="rentcast_limit" value="<?= $s('rentcast_limit') ?>" inputmode="numeric">
-          <small>Keep at 50 on the free plan — RentCast bills past it.</small></label>
-        <label class="field c4"><span>Kept for searching by hand</span><input class="input" name="rentcast_reserve" value="<?= $s('rentcast_reserve') ?>" inputmode="numeric">
-          <small>Alerts never touch these.</small></label>
+        <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="rentcast_limit" value="<?= $s('rentcast_limit') ?>" inputmode="numeric">
+          <small><?= te('Keep at 50 on the free plan — RentCast bills past it.') ?></small></label>
+        <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="rentcast_reserve" value="<?= $s('rentcast_reserve') ?>" inputmode="numeric">
+          <small><?= te('Alerts never touch these.') ?></small></label>
       </div>
     </div>
 
     <div class="card">
-      <h3>Zillow data, through OpenWeb Ninja <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= Settings::has('openwebninja_key') ? 'Connected' : 'Optional' ?></span></h3>
-      <p class="small soft mb-m">Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.</p>
+      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= Settings::has('openwebninja_key') ? 'Connected' : 'Optional' ?></span></h3>
+      <p class="small soft mb-m"><?= te('Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.') ?></p>
       <ol class="steps mb-m">
-        <li>Sign up at <a href="https://www.openwebninja.com/api/real-time-zillow-data" target="_blank" rel="noopener noreferrer">openwebninja.com → Real-Time Zillow Data</a> and subscribe to the Free plan.</li>
-        <li>Copy the key from the developer portal and paste it below.</li>
+        <li><?= te('Sign up at') ?> <a href="https://www.openwebninja.com/api/real-time-zillow-data" target="_blank" rel="noopener noreferrer">openwebninja.com → Real-Time Zillow Data</a> <?= te('and subscribe to the Free plan.') ?></li>
+        <li><?= te('Copy the key from the developer portal and paste it below.') ?></li>
       </ol>
       <div class="form-grid">
         <?= $secretField('openwebninja_key', 'API key', 'A third-party service that reads Zillow for you; Zillow itself offers no public API.') ?>
-        <label class="field c4"><span>Requests per month</span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
-        <label class="field c4"><span>Kept for searching by hand</span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
-        <label class="field c4"><span>Fetched by themselves, per month</span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
-          <small>The first time a home is opened or added to the pipeline, its full listing is fetched once. 0 turns this off. <?= App\Services\ListingDetails::autoUsed() ?> used this month.</small></label>
+        <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
+        <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
+        <label class="field c4"><span><?= te('Fetched by themselves, per month') ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
+          <small><?= te('The first time a home is opened or added to the pipeline, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?></small></label>
       </div>
     </div>
 
     <div class="card">
-      <h3>How searches use them</h3>
+      <h3><?= te('How searches use them') ?></h3>
       <div class="form-grid mt-m">
-        <label class="field c6"><span>Search with</span>
+        <label class="field c6"><span><?= te('Search with') ?></span>
           <select class="select" name="search_provider">
-            <option value="auto"<?= selected(Settings::get('search_provider'), 'auto') ?>>RentCast first, Zillow data when it runs out</option>
-            <option value="rentcast"<?= selected(Settings::get('search_provider'), 'rentcast') ?>>RentCast only</option>
-            <option value="openwebninja"<?= selected(Settings::get('search_provider'), 'openwebninja') ?>>Zillow data only</option>
+            <option value="auto"<?= selected(Settings::get('search_provider'), 'auto') ?>><?= te('RentCast first, Zillow data when it runs out') ?></option>
+            <option value="rentcast"<?= selected(Settings::get('search_provider'), 'rentcast') ?>><?= te('RentCast only') ?></option>
+            <option value="openwebninja"<?= selected(Settings::get('search_provider'), 'openwebninja') ?>><?= te('Zillow data only') ?></option>
           </select></label>
-        <label class="field c6"><span>Reuse a pulled area for, hours</span><input class="input" name="snapshot_hours" value="<?= $s('snapshot_hours') ?>" inputmode="numeric">
-          <small>Within this time the same area is answered from your own database, free.</small></label>
+        <label class="field c6"><span><?= te('Reuse a pulled area for, hours') ?></span><input class="input" name="snapshot_hours" value="<?= $s('snapshot_hours') ?>" inputmode="numeric">
+          <small><?= te('Within this time the same area is answered from your own database, free.') ?></small></label>
         <?= $secretField('census_key', 'Census API key', 'Free, and needed for the neighbourhood panel (income, home values, rents). Request one at <a href="https://api.census.gov/data/key_signup.html" target="_blank" rel="noopener noreferrer">api.census.gov/data/key_signup.html</a> — it arrives by email.') ?>
       </div>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save data sources</button></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save data sources') ?></button></div>
   </form>
-  <p class="section-note">Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).</p>
+  <p class="section-note"><?= te('Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).') ?></p>
 </section>
 
 <?php
@@ -256,28 +256,28 @@ $mailbox = (string) (Settings::get('smtp_user') ?? '');
 $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_%' ORDER BY v DESC LIMIT 12");
 ?>
 <section class="section" id="free">
-  <div class="section-head"><h2>Free sources</h2><span class="aside">no keys, no monthly limit</span></div>
+  <div class="section-head"><h2><?= te('Free sources') ?></h2><span class="aside"><?= te('no keys, no monthly limit') ?></span></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="free">
     <div class="card">
-      <h3>Listing e-mails <?= $mailOn ? '<span class="tag tag-live">On</span>' : '<span class="tag">Off</span>' ?></h3>
-      <p class="small soft mb-m">New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.</p>
+      <h3><?= te('Listing e-mails') ?> <?= $mailOn ? '<span class="tag tag-live">On</span>' : '<span class="tag">Off</span>' ?></h3>
+      <p class="small soft mb-m"><?= te('New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.') ?></p>
       <?php if (Settings::get('mail_last_error')): ?>
-      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e((string) Settings::get('mail_last_error')) ?></strong><span class="small soft">The mailbox is the one under Delivery below; check its address and password.</span></div></div>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e((string) Settings::get('mail_last_error')) ?></strong><span class="small soft"><?= te('The mailbox is the one under Delivery below; check its address and password.') ?></span></div></div>
       <?php endif; ?>
       <ol class="steps mb-m">
-        <li>The site reads the mailbox it sends alerts from: <strong class="mono"><?= $mailbox !== '' ? e($mailbox) : 'set it up under Delivery first' ?></strong>.</li>
-        <li><strong>Zillow:</strong> search the area with your filters → <strong>Save search</strong> → e-mail <strong>Instantly</strong>. In Zillow’s account settings, set the e-mail address to the mailbox above (or forward Zillow’s e-mails to it from your own inbox).</li>
-        <li><strong>Redfin / Homes.com / Realtor.com:</strong> the same — save the search with instant e-mail updates going to that mailbox.</li>
-        <li><strong>Agent with MLS access:</strong> ask them to set up an MLS auto-e-mail (“listing alert”) for your criteria to that mailbox; it carries the most complete data. Add the sender’s domain below if it isn’t listed.</li>
-        <li>Tick the box, save, and press <strong>Check now</strong> once to see it work.</li>
+        <li><?= te('The site reads the mailbox it sends alerts from:') ?> <strong class="mono"><?= $mailbox !== '' ? e($mailbox) : 'set it up under Delivery first' ?></strong>.</li>
+        <li><strong>Zillow:</strong> <?= te('search the area with your filters →') ?> <strong><?= te('Save search') ?></strong> <?= te('→ e-mail') ?> <strong><?= te('Instantly') ?></strong><?= te('. In Zillow’s account settings, set the e-mail address to the mailbox above (or forward Zillow’s e-mails to it from your own inbox).') ?></li>
+        <li><strong>Redfin / Homes.com / Realtor.com:</strong> <?= te('the same — save the search with instant e-mail updates going to that mailbox.') ?></li>
+        <li><strong><?= te('Agent with MLS access:') ?></strong> <?= te('ask them to set up an MLS auto-e-mail (“listing alert”) for your criteria to that mailbox; it carries the most complete data. Add the sender’s domain below if it isn’t listed.') ?></li>
+        <li><?= te('Tick the box, save, and press') ?> <strong><?= te('Check now') ?></strong> <?= te('once to see it work.') ?></li>
       </ol>
       <div class="form-grid">
-        <label class="check c12"><input type="checkbox" name="mail_listings_on"<?= Settings::get('mail_listings_on') === '1' ? ' checked' : '' ?>>Read listing e-mails from this mailbox</label>
-        <label class="field c6"><span>Mail server (IMAP)</span><input class="input" name="imap_host" value="<?= $s('imap_host') ?>"></label>
-        <label class="field c2"><span>Port</span><input class="input" name="imap_port" value="<?= $s('imap_port') ?>" inputmode="numeric"></label>
-        <label class="field c12"><span>More sender domains to trust</span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com">
-          <small>Already trusted: <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?>. Only mail the mail server confirms came from these domains is read; other mail is left alone.</small></label>
+        <label class="check c12"><input type="checkbox" name="mail_listings_on"<?= Settings::get('mail_listings_on') === '1' ? ' checked' : '' ?>><?= te('Read listing e-mails from this mailbox') ?></label>
+        <label class="field c6"><span><?= te('Mail server (IMAP)') ?></span><input class="input" name="imap_host" value="<?= $s('imap_host') ?>"></label>
+        <label class="field c2"><span><?= te('Port') ?></span><input class="input" name="imap_port" value="<?= $s('imap_port') ?>" inputmode="numeric"></label>
+        <label class="field c12"><span><?= te('More sender domains to trust') ?></span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com">
+          <small><?= te('Already trusted:') ?> <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?><?= te('. Only mail the mail server confirms came from these domains is read; other mail is left alone.') ?></small></label>
       </div>
       <?php if ($mailLog): ?>
       <ul class="plain-list mt-m">
@@ -291,26 +291,26 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     </div>
 
     <div class="card mt-l">
-      <h3>County and state public records <span class="tag tag-live">On</span></h3>
-      <p class="small soft mb-m">Official open data from the assessors, for every home in the places below: assessed value, tax, year built, size, lot and the recorded sales (beds and baths where the assessor publishes them). Looked up the first time a home is opened, and hourly for homes for sale. Each ZIP’s fair-market sales of the last 12 months are brought in every two weeks, so ARV and profit rest on real sale prices. Elsewhere the paid sources and listing e-mails fill in; more places are added as their records are checked.</p>
+      <h3><?= te('County and state public records') ?> <span class="tag tag-live"><?= te('On') ?></span></h3>
+      <p class="small soft mb-m"><?= te('Official open data from the assessors, for every home in the places below: assessed value, tax, year built, size, lot and the recorded sales (beds and baths where the assessor publishes them). Looked up the first time a home is opened, and hourly for homes for sale. Each ZIP’s fair-market sales of the last 12 months are brought in every two weeks, so ARV and profit rest on real sale prices. Elsewhere the paid sources and listing e-mails fill in; more places are added as their records are checked.') ?></p>
       <ul class="plain-list mb-m">
         <?php foreach (App\Services\CountyRecords::SOURCES as $src): ?>
-        <li><span><strong><?= e($src::area()) ?></strong><span class="sub"><?= e($src::name()) ?></span></span><span class="end"><span class="tag tag-live">Connected</span></span></li>
+        <li><span><strong><?= e($src::area()) ?></strong><span class="sub"><?= e($src::name()) ?></span></span><span class="end"><span class="tag tag-live"><?= te('Connected') ?></span></span></li>
         <?php endforeach; ?>
       </ul>
       <div class="form-grid">
-        <label class="field c4"><span>Fairfax County tax rate, $ per $100</span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
-          <small>FY 2027, adopted May 5, 2026: $1.12.</small></label>
-        <label class="field c4"><span>Arlington County tax rate, $ per $100</span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal">
-          <small>2026, adopted April 22, 2026: $1.053.</small></label>
+        <label class="field c4"><span><?= te('Fairfax County tax rate, $ per $100') ?></span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
+          <small><?= te('FY 2027, adopted May 5, 2026: $1.12.') ?></small></label>
+        <label class="field c4"><span><?= te('Arlington County tax rate, $ per $100') ?></span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal">
+          <small><?= te('2026, adopted April 22, 2026: $1.053.') ?></small></label>
       </div>
       <?php $missingCounties = App\Services\CountyRecords::missing(); ?>
-      <h3 class="mt-l">Counties without a source yet</h3>
+      <h3 class="mt-l"><?= te('Counties without a source yet') ?></h3>
       <?php if ($missingCounties): ?>
-      <p class="small soft mb-m">Places with homes for sale on file whose assessor records aren’t connected yet, most homes first. Each week this list is checked: counties that publish their records openly are added after a live test; those that don’t are noted here.</p>
+      <p class="small soft mb-m"><?= te('Places with homes for sale on file whose assessor records aren’t connected yet, most homes first. Each week this list is checked: counties that publish their records openly are added after a live test; those that don’t are noted here.') ?></p>
       <div class="table-wrap">
         <table class="table">
-          <thead><tr><th>County</th><th>State</th><th class="r">Homes for sale</th><th>ZIP codes</th></tr></thead>
+          <thead><tr><th><?= te('County') ?></th><th><?= te('State') ?></th><th class="r"><?= te('Homes for sale') ?></th><th><?= te('ZIP codes') ?></th></tr></thead>
           <tbody>
           <?php foreach ($missingCounties as $mc): ?>
             <tr><td><?= e($mc['county'] ?: 'Unknown county') ?></td><td><?= e($mc['state']) ?></td><td class="r"><?= (int) $mc['homes'] ?></td><td class="mono small"><?= e($mc['zips']) ?></td></tr>
@@ -319,70 +319,70 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
         </table>
       </div>
       <?php else: ?>
-      <p class="small soft">Every county with homes for sale on file has its records connected.</p>
+      <p class="small soft"><?= te('Every county with homes for sale on file has its records connected.') ?></p>
       <?php endif; ?>
-      <p class="small muted mt-m">DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.</p>
+      <p class="small muted mt-m"><?= te('DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.') ?></p>
       <?php if ($countyZips): ?>
-      <p class="small soft mt-m">Recorded sales brought in: <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>
+      <p class="small soft mt-m"><?= te('Recorded sales brought in:') ?> <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>
       <?php endif; ?>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save free sources</button></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save free sources') ?></button></div>
   </form>
   <div class="actions mt-m">
     <?php if ($mailOn): ?>
-    <form method="post" action="/settings"><?= csrf_field() ?><input type="hidden" name="do" value="mail_now"><button class="btn btn-sm" type="submit"><?= icon('mail', 14) ?>Check listing e-mails now</button></form>
+    <form method="post" action="/settings"><?= csrf_field() ?><input type="hidden" name="do" value="mail_now"><button class="btn btn-sm" type="submit"><?= icon('mail', 14) ?><?= te('Check listing e-mails now') ?></button></form>
     <?php endif; ?>
     <form method="post" action="/settings" class="actions"><?= csrf_field() ?><input type="hidden" name="do" value="county_zip">
-      <input class="input input-zip" name="zip" placeholder="ZIP, e.g. 22030" inputmode="numeric" maxlength="5" aria-label="ZIP code">
-      <button class="btn btn-sm" type="submit"><?= icon('download', 14) ?>Bring in that ZIP’s recorded sales</button></form>
+      <input class="input input-zip" name="zip" placeholder="<?= te('ZIP, e.g. 22030') ?>" inputmode="numeric" maxlength="5" aria-label="<?= te('ZIP code') ?>">
+      <button class="btn btn-sm" type="submit"><?= icon('download', 14) ?><?= te('Bring in that ZIP’s recorded sales') ?></button></form>
   </div>
 </section>
 
 <?php $aerialCheck = json_decode((string) Settings::get('cesium_check', ''), true) ?: null; ?>
 <section class="section" id="aerial">
-  <div class="section-head"><h2>3D view</h2><span class="aside"><?= Settings::has('cesium_key') ? Quota::used('cesium') . ' of ' . Quota::limit('cesium') . ' used this month' : 'off' ?></span></div>
+  <div class="section-head"><h2><?= te('3D view') ?></h2><span class="aside"><?= Settings::has('cesium_key') ? Quota::used('cesium') . ' of ' . Quota::limit('cesium') . ' used this month' : 'off' ?></span></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="aerial">
     <div class="card">
-      <h3>Look around in 3D, through Cesium ion
-        <?php if (!Settings::has('cesium_key')): ?><span class="tag">Off</span>
-        <?php elseif ($aerialCheck && !$aerialCheck['ok'] && !empty($aerialCheck['unreachable'])): ?><span class="tag tag-warn">Not checked</span>
-        <?php elseif ($aerialCheck && !$aerialCheck['ok']): ?><span class="tag tag-bad">Token refused</span>
-        <?php else: ?><span class="tag tag-live">On</span><?php endif; ?></h3>
-      <p class="small soft mb-m">Every home’s page gets a “Look around” panel: a slow flight around the house over Google’s photorealistic 3D map — roof, yard, driveway, street and neighbours. Cesium ion passes Google’s 3D tiles through its free plan, so no Google account or bank card is needed here.</p>
+      <h3><?= te('Look around in 3D, through Cesium ion') ?>
+        <?php if (!Settings::has('cesium_key')): ?><span class="tag"><?= te('Off') ?></span>
+        <?php elseif ($aerialCheck && !$aerialCheck['ok'] && !empty($aerialCheck['unreachable'])): ?><span class="tag tag-warn"><?= te('Not checked') ?></span>
+        <?php elseif ($aerialCheck && !$aerialCheck['ok']): ?><span class="tag tag-bad"><?= te('Token refused') ?></span>
+        <?php else: ?><span class="tag tag-live"><?= te('On') ?></span><?php endif; ?></h3>
+      <p class="small soft mb-m"><?= te('Every home’s page gets a “Look around” panel: a slow flight around the house over Google’s photorealistic 3D map — roof, yard, driveway, street and neighbours. Cesium ion passes Google’s 3D tiles through its free plan, so no Google account or bank card is needed here.') ?></p>
       <?php if ($aerialCheck && !$aerialCheck['ok'] && Settings::has('cesium_key')): ?>
       <?php if (!empty($aerialCheck['unreachable'])): ?>
-      <div class="callout mb-m" role="status"><?= icon('info', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft">The token is saved and the 3D view may well work — open a home to see. Save again later to re-check.</span></div></div>
+      <div class="callout mb-m" role="status"><?= icon('info', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('The token is saved and the 3D view may well work — open a home to see. Save again later to re-check.') ?></span></div></div>
       <?php else: ?>
-      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft">Checked <?= e(ago($aerialCheck['at'])) ?>. Follow steps 2 and 3 again, then save.</span></div></div>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('Checked') ?> <?= e(ago($aerialCheck['at'])) ?><?= te('. Follow steps 2 and 3 again, then save.') ?></span></div></div>
       <?php endif; ?>
       <?php endif; ?>
       <ol class="steps mb-m">
-        <li>Create a free account at <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener noreferrer">ion.cesium.com/signup</a> and pick the free <strong>Community</strong> plan. An email address is enough to sign up.</li>
-        <li>In ion, open <strong>Asset Depot</strong>, search for <strong>Google Photorealistic 3D Tiles</strong> and press <strong>Add to my assets</strong>.</li>
-        <li>Open <strong>Access Tokens</strong> → <strong>Create token</strong>. Name it “<?= e((string) Settings::get('site_name', 'Plat')) ?> 3D view”, keep the scope <span class="mono">assets:read</span>, and under <strong>Allowed URLs</strong> add <span class="mono"><?= e(rtrim(abs_url('/'), '/')) ?></span> so the token works on this site only.</li>
-        <li>Copy the token (a long text starting with <span class="mono">eyJ</span>), paste it below and save. The site checks it with Cesium straight away.</li>
-        <li>Open any home and press <strong>Open 3D view</strong> under “Look around”.</li>
+        <li><?= te('Create a free account at') ?> <a href="https://ion.cesium.com/signup" target="_blank" rel="noopener noreferrer">ion.cesium.com/signup</a> <?= te('and pick the free') ?> <strong>Community</strong> <?= te('plan. An email address is enough to sign up.') ?></li>
+        <li><?= te('In ion, open') ?> <strong>Asset Depot</strong><?= te(', search for') ?> <strong>Google Photorealistic 3D Tiles</strong> <?= te('and press') ?> <strong>Add to my assets</strong>.</li>
+        <li><?= te('Open') ?> <strong>Access Tokens</strong> → <strong>Create token</strong><?= te('. Name it “') ?><?= e((string) Settings::get('site_name', 'Plat')) ?> <?= te('3D view”, keep the scope') ?> <span class="mono">assets:read</span><?= te(', and under') ?> <strong>Allowed URLs</strong> <?= te('add') ?> <span class="mono"><?= e(rtrim(abs_url('/'), '/')) ?></span> <?= te('so the token works on this site only.') ?></li>
+        <li><?= te('Copy the token (a long text starting with') ?> <span class="mono">eyJ</span><?= te('), paste it below and save. The site checks it with Cesium straight away.') ?></li>
+        <li><?= te('Open any home and press') ?> <strong><?= te('Open 3D view') ?></strong> <?= te('under “Look around”.') ?></li>
       </ol>
       <div class="form-grid">
         <?= $secretField('cesium_key', 'Cesium ion access token') ?>
-        <label class="field c4"><span>3D views per month</span><input class="input" name="cesium_limit" value="<?= $s('cesium_limit') ?>" inputmode="numeric">
-          <small>The free plan allows 1,000 openings of Google’s 3D tiles a month; 900 leaves a margin.</small></label>
+        <label class="field c4"><span><?= te('3D views per month') ?></span><input class="input" name="cesium_limit" value="<?= $s('cesium_limit') ?>" inputmode="numeric">
+          <small><?= te('The free plan allows 1,000 openings of Google’s 3D tiles a month; 900 leaves a margin.') ?></small></label>
       </div>
-      <p class="small muted mt-m">Each press of “Open 3D view” counts as one. The free Community plan is meant for personal and early-stage use; Cesium asks companies with more than $50K a year in revenue to use a paid plan. Imagery belongs to Google and can be months or years old.</p>
+      <p class="small muted mt-m"><?= te('Each press of “Open 3D view” counts as one. The free Community plan is meant for personal and early-stage use; Cesium asks companies with more than $50K a year in revenue to use a paid plan. Imagery belongs to Google and can be months or years old.') ?></p>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save 3D view</button></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save 3D view') ?></button></div>
   </form>
 </section>
 
 <section class="section" id="usage">
-  <div class="section-head"><h2>Usage this month</h2><span class="aside">resets in <?= plural(Quota::resetsIn(), 'day') ?></span></div>
+  <div class="section-head"><h2><?= te('Usage this month') ?></h2><span class="aside"><?= te('resets in') ?> <?= plural(Quota::resetsIn(), 'day') ?></span></div>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Source</th><th class="r">Used</th><th class="r">Allowance</th><th class="r">Left for you</th><th class="r">Left for alerts</th></tr></thead>
+      <thead><tr><th><?= te('Source') ?></th><th class="r"><?= te('Used') ?></th><th class="r"><?= te('Allowance') ?></th><th class="r"><?= te('Left for you') ?></th><th class="r"><?= te('Left for alerts') ?></th></tr></thead>
       <tbody>
       <?php foreach (Quota::PROVIDERS as $pid => $label): ?>
-        <tr><td><?= e($label) ?><?= Settings::has($pid . '_key') ? '' : ' <span class="muted small">— not connected</span>' ?></td>
+        <tr><td><?= te($label) ?><?= Settings::has($pid . '_key') ? '' : ' <span class="muted small">— not connected</span>' ?></td>
           <td class="r"><?= Quota::used($pid) ?></td><td class="r"><?= Quota::limit($pid) ?></td>
           <td class="r"><?= Quota::left($pid) ?></td><td class="r"><?= Quota::left($pid, 'cron') ?></td></tr>
       <?php endforeach; ?>
@@ -390,73 +390,73 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     </table>
   </div>
   <?php if ($log): ?>
-  <h3 class="eyebrow mt-l">Last requests</h3>
+  <h3 class="eyebrow mt-l"><?= te('Last requests') ?></h3>
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>When</th><th>Source</th><th>What</th><th>By</th><th class="r">Result</th><th class="r">Time</th></tr></thead>
+      <thead><tr><th><?= te('When') ?></th><th><?= te('Source') ?></th><th><?= te('What') ?></th><th><?= te('By') ?></th><th class="r"><?= te('Result') ?></th><th class="r"><?= te('Time') ?></th></tr></thead>
       <tbody>
       <?php foreach ($log as $l): ?>
         <tr><td class="nowrap"><?= e(ago($l['created_at'])) ?></td><td><?= e(Quota::PROVIDERS[$l['provider']] ?? $l['provider']) ?></td>
           <td class="mono"><?= e($l['endpoint']) ?><?php if ($l['note']): ?><span class="sub"><?= e($l['note']) ?></span><?php endif; ?></td>
-          <td><?= $l['context'] === 'cron' ? 'alert' : 'you' ?></td>
+          <td><?= te($l['context'] === 'cron' ? 'alert' : 'you') ?></td>
           <td class="r"><?= in_array((int) $l['status'], [200, 404], true) ? '<span class="tag tag-live">' . (int) $l['status'] . '</span>' : '<span class="tag tag-bad">' . ((int) $l['status'] ?: 'no reply') . '</span>' ?></td>
-          <td class="r"><?= number_format((int) $l['ms']) ?> ms</td></tr>
+          <td class="r"><?= number_format((int) $l['ms']) ?> <?= te('ms') ?></td></tr>
       <?php endforeach; ?>
       </tbody>
     </table>
   </div>
   <?php endif; ?>
-  <p class="section-note">Every answered request is counted, including ones that find nothing, so the meter can only run ahead of the provider’s own count — never behind it.</p>
+  <p class="section-note"><?= te('Every answered request is counted, including ones that find nothing, so the meter can only run ahead of the provider’s own count — never behind it.') ?></p>
 </section>
 
 <section class="section" id="notify">
-  <div class="section-head"><h2>Where alerts are delivered</h2></div>
+  <div class="section-head"><h2><?= te('Where alerts are delivered') ?></h2></div>
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="notify">
     <div class="card">
-      <h3>Email <span class="tag<?= $ready['email'] ? ' tag-live' : '' ?>"><?= $ready['email'] ? 'Ready' : 'Not set' ?></span></h3>
-      <p class="small soft mb-m">Sent through a mailbox on your own domain, so it lands in the inbox instead of spam. Create one in hPanel → Emails if you don’t have it yet.</p>
+      <h3><?= te('Email') ?> <span class="tag<?= $ready['email'] ? ' tag-live' : '' ?>"><?= te($ready['email'] ? 'Ready' : 'Not set') ?></span></h3>
+      <p class="small soft mb-m"><?= te('Sent through a mailbox on your own domain, so it lands in the inbox instead of spam. Create one in hPanel → Emails if you don’t have it yet.') ?></p>
       <div class="form-grid">
-        <label class="field c6"><span>Send alerts to</span><input class="input" type="email" name="notify_email" value="<?= $s('notify_email') ?>" placeholder="you@gmail.com"></label>
-        <label class="field c6"><span>Mailbox that sends them</span><input class="input" name="smtp_user" value="<?= $s('smtp_user') ?>" placeholder="alerts@hoshmand.net" autocomplete="off"></label>
+        <label class="field c6"><span><?= te('Send alerts to') ?></span><input class="input" type="email" name="notify_email" value="<?= $s('notify_email') ?>" placeholder="you@gmail.com"></label>
+        <label class="field c6"><span><?= te('Mailbox that sends them') ?></span><input class="input" name="smtp_user" value="<?= $s('smtp_user') ?>" placeholder="alerts@hoshmand.net" autocomplete="off"></label>
         <?= $secretField('smtp_pass', 'That mailbox’s password') ?>
-        <label class="field c6"><span>Mail server</span><input class="input" name="smtp_host" value="<?= $s('smtp_host') ?>"></label>
-        <label class="field c3"><span>Port</span><input class="input" name="smtp_port" value="<?= $s('smtp_port') ?>" inputmode="numeric"></label>
-        <label class="field c3"><span>Security</span>
+        <label class="field c6"><span><?= te('Mail server') ?></span><input class="input" name="smtp_host" value="<?= $s('smtp_host') ?>"></label>
+        <label class="field c3"><span><?= te('Port') ?></span><input class="input" name="smtp_port" value="<?= $s('smtp_port') ?>" inputmode="numeric"></label>
+        <label class="field c3"><span><?= te('Security') ?></span>
           <select class="select" name="smtp_secure">
             <option value="ssl"<?= selected(Settings::get('smtp_secure'), 'ssl') ?>>SSL (465)</option>
             <option value="tls"<?= selected(Settings::get('smtp_secure'), 'tls') ?>>STARTTLS (587)</option>
-            <option value="none"<?= selected(Settings::get('smtp_secure'), 'none') ?>>None</option>
+            <option value="none"<?= selected(Settings::get('smtp_secure'), 'none') ?>><?= te('None') ?></option>
           </select></label>
       </div>
     </div>
 
     <div class="card">
-      <h3>Telegram <span class="tag<?= $ready['telegram'] ? ' tag-live' : '' ?>"><?= $ready['telegram'] ? 'Ready' : 'Not set' ?></span></h3>
-      <p class="small soft">Free, instant and the most dependable of the three.</p>
+      <h3><?= te('Telegram') ?> <span class="tag<?= $ready['telegram'] ? ' tag-live' : '' ?>"><?= te($ready['telegram'] ? 'Ready' : 'Not set') ?></span></h3>
+      <p class="small soft"><?= te('Free, instant and the most dependable of the three.') ?></p>
       <ol class="steps mb-m">
-        <li>In Telegram, message <b>@BotFather</b>, send <span class="mono">/newbot</span> and follow it. Copy the token it gives you.</li>
-        <li>Open your new bot and press Start.</li>
-        <li>Message <b>@userinfobot</b> to see your numeric ID. That’s the chat ID.</li>
+        <li><?= te('In Telegram, message') ?> <b>@BotFather</b><?= te(', send') ?> <span class="mono">/newbot</span> <?= te('and follow it. Copy the token it gives you.') ?></li>
+        <li><?= te('Open your new bot and press Start.') ?></li>
+        <li><?= te('Message') ?> <b>@userinfobot</b> <?= te('to see your numeric ID. That’s the chat ID.') ?></li>
       </ol>
       <div class="form-grid">
         <?= $secretField('telegram_token', 'Bot token') ?>
-        <label class="field c6"><span>Chat ID</span><input class="input mono" name="telegram_chat" value="<?= $s('telegram_chat') ?>" placeholder="123456789"></label>
+        <label class="field c6"><span><?= te('Chat ID') ?></span><input class="input mono" name="telegram_chat" value="<?= $s('telegram_chat') ?>" placeholder="123456789"></label>
       </div>
     </div>
 
     <div class="card">
-      <h3>WhatsApp <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= $ready['whatsapp'] ? 'Yours is ready' : 'Per person' ?></span></h3>
-      <p class="small soft">CallMeBot can only message the number that asked it for a key, so each person turns WhatsApp on for themselves under <a href="/account#whatsapp">My account → WhatsApp</a>. It takes about three minutes.</p>
+      <h3><?= te('WhatsApp') ?> <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= te($ready['whatsapp'] ? 'Yours is ready' : 'Per person') ?></span></h3>
+      <p class="small soft"><?= te('CallMeBot can only message the number that asked it for a key, so each person turns WhatsApp on for themselves under') ?> <a href="/account#whatsapp"><?= te('My account → WhatsApp') ?></a><?= te('. It takes about three minutes.') ?></p>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save delivery settings</button></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save delivery settings') ?></button></div>
   </form>
 
   <div class="actions mt-m">
-    <span class="small muted">Send a test:</span>
+    <span class="small muted"><?= te('Send a test:') ?></span>
     <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
     <form method="post" action="/settings" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="test"><input type="hidden" name="channel" value="<?= $ch ?>">
-      <button class="btn btn-sm" type="submit"<?= $ready[$ch] ? '' : ' disabled' ?>><?= icon('send', 14) ?><?= $label ?></button></form>
+      <button class="btn btn-sm" type="submit"<?= $ready[$ch] ? '' : ' disabled' ?>><?= icon('send', 14) ?><?= te($label) ?></button></form>
     <?php endforeach; ?>
   </div>
   <?php if ($sent): ?>
@@ -470,86 +470,86 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
 </section>
 
 <section class="section" id="schedule">
-  <div class="section-head"><h2>Schedule</h2><span class="aside"><?= $lastRun ? 'last ran ' . e(ago($lastRun)) : 'has not run yet' ?></span></div>
-  <p class="section-note">Alerts are checked, and market data refreshed, by one command that should run every hour. In hPanel go to <b>Advanced → Cron Jobs</b>, choose “Custom”, set it to every hour, and paste:</p>
+  <div class="section-head"><h2><?= te('Schedule') ?></h2><span class="aside"><?= $lastRun ? 'last ran ' . e(ago($lastRun)) : 'has not run yet' ?></span></div>
+  <p class="section-note"><?= te('Alerts are checked, and market data refreshed, by one command that should run every hour. In hPanel go to') ?> <b>Advanced → Cron Jobs</b><?= te(', choose “Custom”, set it to every hour, and paste:') ?></p>
   <code class="block"><?= e($cronCmd) ?></code>
-  <p class="section-note">If your plan only offers URL-based cron, call this address hourly instead. Treat it like a password.</p>
+  <p class="section-note"><?= te('If your plan only offers URL-based cron, call this address hourly instead. Treat it like a password.') ?></p>
   <code class="block"><?= e($cronUrl) ?></code>
   <form method="post" action="/settings" class="actions mt-m"><?= csrf_field() ?><input type="hidden" name="do" value="run">
-    <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?>Run it once now</button>
-    <span class="small muted">Run by hand it may use your own requests rather than the alerts’ share.</span></form>
+    <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?><?= te('Run it once now') ?></button>
+    <span class="small muted"><?= te('Run by hand it may use your own requests rather than the alerts’ share.') ?></span></form>
 </section>
 
 <section class="section" id="site">
-  <div class="section-head"><h2>Site, sign-in and deal defaults</h2></div>
+  <div class="section-head"><h2><?= te('Site, sign-in and deal defaults') ?></h2></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="site">
     <div class="form-grid">
-      <label class="field c4"><span>Site name</span><input class="input" name="site_name" value="<?= $s('site_name') ?>" maxlength="30"></label>
-      <label class="field c4"><span>Home state</span><input class="input" name="default_state" value="<?= $s('default_state') ?>" maxlength="20">
-        <small>“Entire state” searches and county names use this.</small></label>
+      <label class="field c4"><span><?= te('Site name') ?></span><input class="input" name="site_name" value="<?= $s('site_name') ?>" maxlength="30"></label>
+      <label class="field c4"><span><?= te('Home state') ?></span><input class="input" name="default_state" value="<?= $s('default_state') ?>" maxlength="20">
+        <small><?= te('“Entire state” searches and county names use this.') ?></small></label>
     </div>
 
     <div class="card mt-l">
-      <h3>Sign in with Google <span class="tag<?= Settings::has('google_client_id') && Settings::has('google_client_secret') ? ' tag-live' : '' ?>"><?= Settings::has('google_client_id') && Settings::has('google_client_secret') ? 'On' : 'Off' ?></span></h3>
+      <h3><?= te('Sign in with Google') ?> <span class="tag<?= Settings::has('google_client_id') && Settings::has('google_client_secret') ? ' tag-live' : '' ?>"><?= te(Settings::has('google_client_id') && Settings::has('google_client_secret') ? 'On' : 'Off') ?></span></h3>
       <ol class="steps mb-m">
-        <li>Open <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → APIs &amp; Services → Credentials</a> (any Google account, free).</li>
-        <li>Configure the consent screen (External, app name, your email), then Create credentials → OAuth client ID → Web application.</li>
-        <li>Under Authorized redirect URIs add <span class="mono"><?= e(abs_url('/auth/google/callback')) ?></span></li>
-        <li>Paste the client ID and secret here. Only people on the Team page can sign in.</li>
+        <li><?= te('Open') ?> <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer">Google Cloud → APIs &amp; Services → Credentials</a> <?= te('(any Google account, free).') ?></li>
+        <li><?= te('Configure the consent screen (External, app name, your email), then Create credentials → OAuth client ID → Web application.') ?></li>
+        <li><?= te('Under Authorized redirect URIs add') ?> <span class="mono"><?= e(abs_url('/auth/google/callback')) ?></span></li>
+        <li><?= te('Paste the client ID and secret here. Only people on the Team page can sign in.') ?></li>
       </ol>
       <div class="form-grid">
-        <label class="field c12"><span>Client ID</span><input class="input mono" name="google_client_id" value="<?= $s('google_client_id') ?>" spellcheck="false"></label>
+        <label class="field c12"><span><?= te('Client ID') ?></span><input class="input mono" name="google_client_id" value="<?= $s('google_client_id') ?>" spellcheck="false"></label>
         <?= $secretField('google_client_secret', 'Client secret') ?>
       </div>
     </div>
 
     <div class="card">
-      <h3>Deal calculator defaults</h3>
-      <p class="small soft mb-m">Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.</p>
+      <h3><?= te('Deal calculator defaults') ?></h3>
+      <p class="small soft mb-m"><?= te('Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.') ?></p>
       <div class="form-grid">
         <?php foreach (App\Services\Deal::SETTINGS as $k => [$label, $def, $unit]): ?>
-        <label class="field c4"><span><?= e($label) ?></span><input class="input" name="<?= $k ?>" value="<?= e((string) (Settings::get($k) ?? '')) ?>" placeholder="<?= e($def . ' ' . $unit) ?>" inputmode="decimal"></label>
+        <label class="field c4"><span><?= te($label) ?></span><input class="input" name="<?= $k ?>" value="<?= e((string) (Settings::get($k) ?? '')) ?>" placeholder="<?= e($def . ' ' . t($unit)) ?>" inputmode="decimal"></label>
         <?php endforeach; ?>
       </div>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit">Save</button><span class="small muted">Your own name, password and Telegram are on <a href="/account">My account</a>.</span></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save') ?></button><span class="small muted"><?= te('Your own name, password and Telegram are on') ?> <a href="/account"><?= te('My account') ?></a>.</span></div>
   </form>
 </section>
 
 <section class="section" id="data">
-  <div class="section-head"><h2>What’s stored</h2></div>
+  <div class="section-head"><h2><?= te('What’s stored') ?></h2></div>
   <dl class="kv">
-    <div><dt>Homes on file</dt><dd><?= number_format($counts['homes']) ?></dd></div>
-    <div><dt>With a recorded sale</dt><dd><?= number_format($counts['sales']) ?></dd></div>
-    <div><dt>Price events</dt><dd><?= number_format($counts['events']) ?></dd></div>
-    <div><dt>Cached free lookups</dt><dd><?= number_format($counts['cache']) ?></dd></div>
+    <div><dt><?= te('Homes on file') ?></dt><dd><?= number_format($counts['homes']) ?></dd></div>
+    <div><dt><?= te('With a recorded sale') ?></dt><dd><?= number_format($counts['sales']) ?></dd></div>
+    <div><dt><?= te('Price events') ?></dt><dd><?= number_format($counts['events']) ?></dd></div>
+    <div><dt><?= te('Cached free lookups') ?></dt><dd><?= number_format($counts['cache']) ?></dd></div>
   </dl>
-  <form method="post" action="/settings" class="mt-m" data-confirm="Clear cached lookups and area snapshots? Saved homes stay, but each area’s next search will use a request.">
+  <form method="post" action="/settings" class="mt-m" data-confirm="<?= te('Clear cached lookups and area snapshots? Saved homes stay, but each area’s next search will use a request.') ?>">
     <?= csrf_field() ?><input type="hidden" name="do" value="cache">
-    <button class="linkbtn small" type="submit">Clear caches and force fresh pulls</button>
+    <button class="linkbtn small" type="submit"><?= te('Clear caches and force fresh pulls') ?></button>
   </form>
-  <h3 class="eyebrow mt-l">Recent log</h3>
+  <h3 class="eyebrow mt-l"><?= te('Recent log') ?></h3>
   <?php $tail = App\Diagnostics::logTail(20); ?>
   <?php if ($tail): ?>
   <pre class="logtail"><?php foreach (array_reverse($tail) as $line): ?><span class="<?= preg_match('/\[(fatal|uncaught)\]|PHP (Fatal|Warning)/', $line) ? 'is-bad' : (str_contains($line, '[slow]') ? 'is-warn' : '') ?>"><?= e(mb_substr($line, 0, 500)) ?></span>
 <?php endforeach; ?></pre>
-  <p class="section-note">Newest first. Errors are marked red, slow pages amber; each data pull writes one line with how long each step took.</p>
+  <p class="section-note"><?= te('Newest first. Errors are marked red, slow pages amber; each data pull writes one line with how long each step took.') ?></p>
   <?php else: ?>
-  <p class="blank">Nothing logged — no errors so far.</p>
+  <p class="blank"><?= te('Nothing logged — no errors so far.') ?></p>
   <?php endif; ?>
-  <h3 class="eyebrow mt-l">Backups</h3>
+  <h3 class="eyebrow mt-l"><?= te('Backups') ?></h3>
   <?php $backups = App\Backup::list(); ?>
   <?php if ($backups): ?>
   <ul class="plain-list">
     <?php foreach (array_slice($backups, 0, 7) as $b): ?>
-    <li><a class="main" href="/backup/<?= e($b['name']) ?>"><?= e($b['name']) ?></a><span class="end"><?= number_format($b['size'] / 1024, 0) ?> KB · <?= e(ago(gmdate('Y-m-d H:i:s', $b['time']))) ?></span></li>
+    <li><a class="main" href="/backup/<?= e($b['name']) ?>"><?= e($b['name']) ?></a><span class="end"><?= number_format($b['size'] / 1024, 0) ?> <?= te('KB ·') ?> <?= e(ago(gmdate('Y-m-d H:i:s', $b['time']))) ?></span></li>
     <?php endforeach; ?>
   </ul>
   <?php else: ?>
-  <p class="blank">The scheduler writes one every day and keeps the last 14.</p>
+  <p class="blank"><?= te('The scheduler writes one every day and keeps the last 14.') ?></p>
   <?php endif; ?>
-  <p class="section-note">A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. API keys and passwords inside are encrypted with a key that lives only in the server’s config file.</p>
+  <p class="section-note"><?= te('A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. API keys and passwords inside are encrypted with a key that lives only in the server’s config file.') ?></p>
 </section>
 </div>
 <?php
