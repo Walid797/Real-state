@@ -72,7 +72,8 @@ $ownReady = OpenWebNinja::enabled();
 $rcLeft = $rcReady ? Quota::left('rentcast') : 0;
 $ownLeft = $ownReady ? Quota::left('openwebninja') : 0;
 $eventLabel = ['listed' => 'Listed', 'price_change' => 'Price changed', 'sold' => 'Sold', 'removed' => 'Taken off the market', 'relisted' => 'Listed again'];
-$backQ = $p['city'] !== '' ? $p['city'] . ', ' . $p['state'] : $p['zip'];
+$backQ = !empty($d['official_zip_source']) ? $p['zip'] : ($p['city'] !== '' ? $p['city'] . ', ' . $p['state'] : $p['zip']);
+$photos = $d['photos'] ?? ($p['photo_url'] ? [$p['photo_url']] : []);
 
 /* Investment analysis. Stored figures are refreshed when the record changed since the last scoring. */
 if ($p['scored_at'] === null || $p['scored_at'] < $p['updated_at'] || strtotime($p['scored_at'] . ' UTC') < time() - 86400) {
@@ -129,7 +130,7 @@ if (count($series) >= 2) {
       <span class="tag tag-data-<?= e($p['data_status']) ?>" title="<?= te('How much of the listing we have') ?>"><?= te($dataLabels[$p['data_status']] ?? $p['data_status']) ?></span>
       <?php foreach (array_filter(explode(',', (string) $p['flags'])) as $fl): ?><span class="tag tag-warn"><?= e(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
     </div>
-    <h1 class="display"><?= e($p['address']) ?></h1>
+    <h1 class="display"><bdi><?= e($p['address']) ?></bdi></h1>
     <p class="where"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
   </div>
   <div class="p-price">
@@ -174,9 +175,9 @@ if (count($series) >= 2) {
   <div><b><?= $p['hoa_fee'] !== null ? ((float) $p['hoa_fee'] > 0 ? '$' . number_format((float) $p['hoa_fee']) : 'None') : '—' ?></b><span><?= te('HOA per month') ?></span></div>
 </div>
 
-<?php if (!empty($d['photos'])): ?>
+<?php if ($photos): ?>
 <div class="photos" aria-label="<?= te('Listing photos') ?>">
-  <?php foreach (array_slice($d['photos'], 0, 24) as $i => $src): ?>
+  <?php foreach (array_slice($photos, 0, 24) as $i => $src): ?>
   <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">
   <?php endforeach; ?>
 </div>
@@ -460,7 +461,7 @@ if (count($series) >= 2) {
 
     <div class="card">
       <h3><?= te('This record') ?></h3>
-      <p class="small muted"><?= te('Source:') ?> <?= e(['rentcast' => 'RentCast', 'openwebninja' => 'Zillow data', 'manual' => 'entered by hand', 'import' => 'CSV import'][$p['source']] ?? $p['source']) ?><?= $p['source_site'] ? ' · found on ' . e($p['source_site']) : '' ?><?= te('. First on file') ?> <?= e(fmt_date($p['first_seen_at'])) ?>.</p>
+      <p class="small muted"><?= te('Source:') ?> <?= e($d['official_zip_source'] ?? (['rentcast' => 'RentCast', 'openwebninja' => 'Zillow data', 'manual' => 'entered by hand', 'import' => 'CSV import'][$p['source']] ?? $p['source'])) ?><?= $p['source_site'] ? ' · found on ' . e($p['source_site']) : '' ?><?= te('. First on file') ?> <?= e(fmt_date($p['first_seen_at'])) ?>.</p>
       <?php if ($canEdit): ?>
       <form method="post" action="/property/<?= $id ?>/act" class="mt-m">
         <?= csrf_field() ?><input type="hidden" name="do" value="data_status">

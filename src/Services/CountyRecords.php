@@ -136,7 +136,7 @@ final class CountyRecords
                 $row['events'][] = ['event' => 'sold', 'price' => $s['price'], 'date' => $s['date']];
             }
         }
-        PropertyRepo::upsert($row, 'county');
+        PropertyRepo::upsert(PropertyRepo::keepLatestSale($p, $row), 'county');
         Activity::log('pull', $id, $src::name());
         return 'found';
     }

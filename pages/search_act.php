@@ -5,6 +5,7 @@ use App\Address;
 use App\Auth;
 use App\Db;
 use App\Services\Search;
+use App\Services\ZipSales;
 
 $do = input('do');
 $me = Auth::userId();
@@ -37,6 +38,21 @@ if ($do === 'save') {
 }
 
 if (Search::zipOnly($loc)) {
+    if ($loc['type'] === 'zip' && $do === 'zip_rentcast') {
+        Auth::require('edit');
+        $pull = Search::ensureSnapshot($loc, $f, force: true, rentCastOnly: true);
+        $message = $pull['fetched'] ? t('RentCast results are ready.') : t('RentCast did not return results.');
+        $notice = $pull['notice'] ? t($pull['notice']) : '';
+        flash($pull['fetched'] ? trim($message . ' ' . $notice) : ($notice ?: $message), $pull['fetched'] && !$notice ? 'ok' : 'warn');
+        redirect($back . '#saved-search-results');
+    }
+    if ($loc['type'] === 'zip' && $do === 'open_zip_property') {
+        $id = ZipSales::open($loc['zip'], input('source_id', '', 190));
+        if ($id !== null) {
+            redirect('/property/' . $id);
+        }
+        flash('That official record expired. Check the ZIP again to fetch it.', 'warn');
+    }
     redirect($back . ($loc['type'] === 'zip' ? '#zip-records' : ''));
 }
 

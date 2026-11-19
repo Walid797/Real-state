@@ -41,7 +41,7 @@ final class PropertyRepo
      * @param array $p normalised fields; needs address + (zip or city/state)
      * @return array{id:int, created:bool, old_price:?int, new_price:?int}
      */
-    public static function upsert(array $p, string $source): array
+    public static function upsert(array $p, string $source, bool $keepExisting = false): array
     {
         $address = trim((string) ($p['address'] ?? ''));
         $city = Address::titleCity((string) ($p['city'] ?? ''));
@@ -63,6 +63,9 @@ final class PropertyRepo
 
         $incomingStatus = isset(self::DATA_RANK[$p['data_status'] ?? '']) ? $p['data_status'] : ($source === 'manual' ? null : 'limited');
         $existing = Db::one('SELECT * FROM properties WHERE addr_hash = ?', [$hash]);
+        if ($existing !== null && $keepExisting) {
+            return ['id' => (int) $existing['id'], 'created' => false, 'old_price' => null, 'new_price' => null];
+        }
         if ($incomingStatus !== null && ($existing === null || (self::DATA_RANK[$existing['data_status']] ?? 9) < self::DATA_RANK[$incomingStatus])) {
             $data['data_status'] = $incomingStatus; // only ever upgraded here; "link dead" / "removed" stay as people set them
         }
@@ -137,6 +140,22 @@ final class PropertyRepo
         }
 
         return ['id' => $id, 'created' => $created, 'old_price' => $old, 'new_price' => $new];
+    }
+
+    /** Enrichment sources sometimes have an older snapshot of the last sale. */
+    public static function keepLatestSale(array $current, array $incoming): array
+    {
+        $latest = self::date($current['last_sale_date'] ?? null);
+        $date = self::date($incoming['last_sale_date'] ?? null);
+        $price = (int) ($incoming['last_sale_price'] ?? 0);
+        if ($latest === null || empty($current['last_sale_price']) || ($date !== null && $date >= $latest && $price > 0)) {
+            return $incoming;
+        }
+        unset($incoming['last_sale_date'], $incoming['last_sale_price']);
+        if ($date !== null && $date < $latest && $price > 0) {
+            $incoming['events'][] = ['event' => 'sold', 'date' => $date, 'price' => $price];
+        }
+        return $incoming;
     }
 
     private static function clean(string $col, mixed $v): mixed

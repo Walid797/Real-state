@@ -309,9 +309,20 @@ try {
     $eq(ZipSales::request($zip)['state'], 'pending', 'repeated searches share the queue item');
     Db::run("UPDATE zip_sales SET state = 'ready', fetched_at = ?, payload = ? WHERE zip = ?", [now(), json_encode($verified), $zip]);
     $eq(ZipSales::request($zip)['rows'], [$sale], 'ready result is confined to its ZIP');
+    $eq(ZipSales::open('22031', $sale['source_id']), null, 'an official property cannot be opened from a different ZIP');
+    $opened = ZipSales::open($zip, $sale['source_id']);
+    $ok($opened !== null && PropertyRepo::find($opened)['zip'] === $zip, 'verified record opens in the normal property view');
+    Db::run("UPDATE properties SET status = 'for_sale', list_price = 450000 WHERE id = ?", [$opened]);
+    $eq(ZipSales::open($zip, $sale['source_id']), $opened, 'opening again reuses the same saved property');
+    $eq(PropertyRepo::find($opened)['status'], 'for_sale', 'opening the official record preserves the existing listing');
+    $older = ['last_sale_date' => '2015-02-27', 'last_sale_price' => 200000] + $sale;
+    PropertyRepo::upsert(PropertyRepo::keepLatestSale(PropertyRepo::find($opened), $older), 'county');
+    $eq(PropertyRepo::find($opened)['last_sale_date'], today(), 'older enrichment preserves the latest verified sale date');
+    $eq((int) PropertyRepo::find($opened)['last_sale_price'], 400000, 'latest sale date keeps its corresponding price');
     Db::run('UPDATE zip_sales SET expires_at = ? WHERE zip = ?', [now(), $zip]);
     $expired = ZipSales::request($zip);
     $ok($expired['state'] === 'pending' && $expired['rows'] === [], 'expired results are hidden and the ZIP is queued again');
+    $eq(ZipSales::open($zip, $sale['source_id']), null, 'expired list items cannot reopen from the cached result');
 } finally {
     $pdo->rollBack();
 }

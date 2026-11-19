@@ -3,7 +3,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Address;
 use App\Db;
+use App\PropertyRepo;
 use App\Providers\County\Arlington;
 use App\Providers\County\DistrictOfColumbia;
 use App\Providers\County\LeeCounty;
@@ -56,6 +58,44 @@ final class ZipSales
             'fetched_at' => $row['fetched_at'] ?? null,
             'rows' => $row && $row['state'] === 'ready' ? self::verifiedRows($zip, json_decode($row['payload'], true) ?? []) : [],
         ];
+    }
+
+    /** Open the normal property page using a record verified against this ZIP's current result. */
+    public static function open(string $zip, string $sourceId): ?int
+    {
+        $result = self::request($zip);
+        foreach ($result['rows'] as $record) {
+            if ($record['source_id'] !== $sourceId) {
+                continue;
+            }
+            $hash = Address::hash($record['address'], $record['city'] ?? '', $record['state'] ?? '', $zip);
+            try {
+                return Db::tx(static function () use ($record, $result, $zip): int {
+                    $opened = PropertyRepo::upsert($record + [
+                        'details' => ['official_zip_source' => $result['source']],
+                    ], 'county', keepExisting: true);
+                    $id = $opened['id'];
+                    if (!$opened['created']) {
+                        Db::run('UPDATE properties SET last_sale_date = ?, last_sale_price = ?, updated_at = ?
+                                 WHERE id = ? AND zip = ? AND (last_sale_date IS NULL OR last_sale_date < ?)',
+                            [$record['last_sale_date'], $record['last_sale_price'], now(), $id, $zip, $record['last_sale_date']]);
+                        PropertyRepo::addEvent($id, 'sold', (int) $record['last_sale_price'], $record['last_sale_date'], 'county');
+                    }
+                    return $id;
+                });
+            } catch (\PDOException $e) {
+                // Two users can open the same new address at once.
+                if ((int) ($e->errorInfo[1] ?? 0) !== 1062) {
+                    throw $e;
+                }
+                $existing = Db::val('SELECT id FROM properties WHERE addr_hash = ? AND zip = ?', [$hash, $zip]);
+                if ($existing === null) {
+                    throw $e;
+                }
+                return (int) $existing;
+            }
+        }
+        return null;
     }
 
     /** Remove expired responses, then retrieve one ZIP without blocking interactive searches. */

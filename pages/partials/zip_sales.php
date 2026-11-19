@@ -1,23 +1,40 @@
 <?php
 declare(strict_types=1);
 
+use App\Auth;
+use App\PropertyRepo;
+use App\Providers\RentCast;
+use App\Quota;
+
 $zipRecords = $official['rows'];
 $zipPageSize = 25;
 $zipPages = max(1, (int) ceil(count($zipRecords) / $zipPageSize));
 $zipPage = min($zipPages, max(1, (int) input('zip_page', '1')));
 $zipUrl = static fn (int $p): string => url('/search', $query + ['zip_page' => $p > 1 ? $p : null]) . '#zip-records';
-$specs = [
-    'property_type' => 'Property type', 'beds' => 'Bedrooms', 'baths' => 'Bathrooms',
-    'sqft' => 'Sqft living area', 'lot_sqft' => 'Lot, sqft', 'year_built' => 'Year built',
-    'assessed_value' => 'Assessed', 'tax_annual' => 'Real estate tax a year', 'has_basement' => 'Basement',
-    'garage_spaces' => 'Garage spaces', 'lat' => 'Latitude', 'lng' => 'Longitude',
-];
+$rentCastReady = RentCast::enabled();
+$rentCastLeft = $rentCastReady ? Quota::left(RentCast::ID) : 0;
 ?>
 <section class="section" id="zip-records">
   <div class="section-head">
     <h2><?= te('Official ZIP records') ?> <bdi><?= e($loc['zip']) ?></bdi></h2>
     <?php if ($official['source'] !== null): ?><span class="aside"><?= e($official['source']) ?></span><?php endif; ?>
   </div>
+  <?php if (Auth::can('edit')): ?>
+  <form class="actions mt-s mb-m" method="post" action="/search/act"
+        data-confirm="<?= te('Search this ZIP now with RentCast? This uses one RentCast request.') ?>">
+    <?= csrf_field() ?>
+    <input type="hidden" name="do" value="zip_rentcast">
+    <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
+    <button class="btn btn-sm" type="submit"<?= $rentCastLeft > 0 ? '' : ' disabled' ?>>
+      <?= icon('search', 15) ?><?= te('Search now with RentCast') ?><span class="cost"><?= te('1 request') ?></span>
+    </button>
+    <?php if ($rentCastReady && $rentCastLeft === 0): ?>
+    <span class="small soft"><?= te('No RentCast requests remain this month.') ?></span>
+    <?php elseif (!$rentCastReady): ?>
+    <span class="small soft"><?= te('Connect RentCast to use instant search.') ?></span>
+    <?php endif; ?>
+  </form>
+  <?php endif; ?>
   <?php if ($official['state'] === 'unavailable'): ?>
     <p class="blank"><?= te('No official sales source is connected for this ZIP.') ?></p>
   <?php elseif ($official['state'] === 'pending'): ?>
@@ -31,37 +48,24 @@ $specs = [
       <p class="blank"><?= te('No verified residential sales were returned for this exact ZIP.') ?></p>
     <?php else: ?>
       <p class="small"><?= te('%d recorded properties · the search filters apply to saved properties below.', count($zipRecords)) ?></p>
-      <div class="table-wrap">
-        <table class="table">
-          <thead><tr><th><?= te('Address') ?></th><th><?= te('Sold on') ?></th><th class="r"><?= te('Price') ?></th><th><?= te('Property details') ?></th></tr></thead>
-          <tbody>
-          <?php foreach (array_slice($zipRecords, ($zipPage - 1) * $zipPageSize, $zipPageSize) as $record): ?>
-          <tr>
-            <td><strong><bdi><?= e($record['address']) ?></bdi></strong><span class="sub"><bdi><?= e(implode(' ', array_filter([$record['city'] ?? '', $record['state'] ?? '', $record['zip']]))) ?></bdi></span></td>
-            <td><?= e(fmt_date($record['last_sale_date'])) ?></td>
-            <td class="r"><bdi><?= e(money($record['last_sale_price'])) ?></bdi></td>
-            <td>
-              <details>
-                <summary><?= te('Property details') ?></summary>
-                <dl class="kv">
-                <?php foreach ($specs as $key => $label): ?>
-                  <?php if (!isset($record[$key]) || $record[$key] === '') { continue; } ?>
-                  <div><dt><?= te($label) ?></dt><dd><?php
-                    echo match ($key) {
-                        'assessed_value', 'tax_annual' => e(money($record[$key])),
-                        'has_basement' => te($record[$key] ? 'Yes' : 'No'),
-                        'property_type' => te($record[$key]),
-                        default => e($record[$key]),
-                    };
-                  ?></dd></div>
-                <?php endforeach; ?>
-                </dl>
-              </details>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
+      <div class="rows">
+        <?php foreach (array_slice($zipRecords, ($zipPage - 1) * $zipPageSize, $zipPageSize) as $record): ?>
+        <article class="hrow hrow-x">
+          <div class="price"><bdi><?= e(money($record['last_sale_price'])) ?></bdi></div>
+          <div class="body">
+            <form class="inline" method="post" action="/search/act">
+              <?= csrf_field() ?>
+              <input type="hidden" name="do" value="open_zip_property">
+              <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
+              <input type="hidden" name="source_id" value="<?= e($record['source_id']) ?>">
+              <button type="submit" class="addr linkbtn"><bdi><?= e($record['address']) ?></bdi></button>
+            </form>
+            <span class="where"><bdi><?= e(implode(' ', array_filter([$record['city'] ?? '', $record['state'] ?? '', $record['zip']]))) ?></bdi></span>
+            <div class="facts"><?= e(PropertyRepo::facts($record + ['beds' => null, 'baths' => null])) ?></div>
+          </div>
+          <div class="side"><span class="side-meta"><?= te('Sold') ?> <?= e(fmt_date($record['last_sale_date'])) ?></span></div>
+        </article>
+        <?php endforeach; ?>
       </div>
       <?php if ($zipPages > 1): ?>
       <nav class="pager" aria-label="<?= te('Official ZIP records') ?>">

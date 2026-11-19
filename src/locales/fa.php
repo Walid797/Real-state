@@ -3,8 +3,17 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Search now with RentCast' => 'جست‌وجوی فوری با RentCast',
+    'Search this ZIP now with RentCast? This uses one RentCast request.' => 'همین حالا این کد پستی را در RentCast جست‌وجو کنیم؟ یک درخواست از سهمیه مصرف می‌شود.',
+    'No RentCast requests remain this month.' => 'سهمیهٔ RentCast برای این ماه تمام شده است.',
+    'Connect RentCast to use instant search.' => 'برای جست‌وجوی فوری، RentCast را وصل کنید.',
+    'An enabled RentCast key and one available request are needed for instant search.' => 'جست‌وجوی فوری به کلید فعال RentCast و یک درخواست باقی‌مانده نیاز دارد.',
+    'RentCast results are ready.' => 'نتایج RentCast آماده است.',
+    'RentCast did not return results.' => 'نتیجه‌ای از RentCast دریافت نشد.',
+    'That official record expired. Check the ZIP again to fetch it.' => 'این سابقهٔ رسمی منقضی شده است. برای دریافت دوباره، کد پستی را بررسی کنید.',
+    'Zillow did not return details for this exact address.' => 'Zillow برای همین نشانی جزئیاتی برنگرداند.',
     'Official ZIP records' => 'سوابق رسمی کد پستی',
-    'These results are from your saved properties. No commercial API requests were used.' => 'این نتایج از ملک‌های ذخیره‌شده‌اند. سهمیهٔ API تجاری مصرف نشد.',
+    'The count above is for saved properties.' => 'عدد بالا شمار ملک‌های ذخیره‌شده است.',
     'Open one ZIP at a time to request its official records.' => 'برای درخواست سوابق رسمی، هر کد پستی را جداگانه باز کنید.',
     'No saved properties match this ZIP search.' => 'ملک ذخیره‌شده‌ای مطابق این جست‌وجوی کد پستی نیست.',
     'No official sales source is connected for this ZIP.' => 'برای این کد پستی هنوز منبع رسمی فروش وصل نشده است.',

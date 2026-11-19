@@ -279,7 +279,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         <h1 class="display"><?= e(plural($res['total'], $mode === 'sold' ? 'sale' : 'home')) ?> <span class="muted-h"><?= te('in %s', $loc['label']) ?></span></h1>
       <p class="results-meta">
           <?php if ($zipOnly): ?>
-            <?= te('These results are from your saved properties. No commercial API requests were used.') ?>
+            <?= te('The count above is for saved properties.') ?>
           <?php elseif ($snap && $res['partial']): ?>
             <?= te('From saved data (last pull') ?> <?= e(ago($snap['fetched_at'])) ?><?= te('). These filters or areas weren’t all pulled, so there may be more.') ?>
           <?php elseif ($snap): ?>
@@ -353,7 +353,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <p class="note mt-s" role="status"><?= icon('info', 16) ?><span><?= te($res['notice']) ?></span></p>
       <?php endif; ?>
 
-      <div class="results-tools">
+      <div class="results-tools" id="saved-search-results">
         <form method="post" action="/search/act" class="inline">
           <?= csrf_field() ?><input type="hidden" name="do" value="save">
           <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
