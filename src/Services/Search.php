@@ -168,7 +168,7 @@ final class Search
             return $out; // the caller sends address lookups to the property page
         }
 
-        if (!self::zipOnly($loc) && ($opt['fetch'] ?? true) !== false) {
+        if (($opt['fetch'] ?? true) !== false) {
             $plan = self::plan($loc, $f, $ctx);
             $out['needs'] = $plan['needs'];
             // One pull for a simple area happens on its own; several pulls wait for a "yes".
@@ -200,11 +200,6 @@ final class Search
         $out['rows'] = $res['rows'];
         $out['total'] = $res['total'];
         return $out;
-    }
-
-    public static function zipOnly(array $loc): bool
-    {
-        return array_unique(array_column(Address::areas($loc), 'type')) === ['zip'];
     }
 
     /**
@@ -326,7 +321,7 @@ final class Search
         ), 'id'));
     }
 
-    public static function ensureSnapshot(array $loc, array $f, string $ctx = 'manual', bool $force = false, ?int $maxAgeHours = null, bool $rentCastOnly = false): array
+    public static function ensureSnapshot(array $loc, array $f, string $ctx = 'manual', bool $force = false, ?int $maxAgeHours = null): array
     {
         $mode = ($f['mode'] ?? 'sale') === 'sold' ? 'sold' : 'sale';
         $c = self::cover($loc, $f, $maxAgeHours);
@@ -341,13 +336,9 @@ final class Search
             }
         }
 
+        $provider = self::provider($ctx);
         $latest = self::latestSnapshot($loc, $mode);
-        $provider = $rentCastOnly ? (RentCast::enabled() && Quota::can(RentCast::ID, $ctx) ? RentCast::ID : null) : self::provider($ctx);
         if ($provider === null) {
-            if ($rentCastOnly) {
-                return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null,
-                    'notice' => 'An enabled RentCast key and one available request are needed for instant search.'];
-            }
             $notice = (!RentCast::enabled() && !OpenWebNinja::enabled())
                 ? 'No data source is connected yet — showing only what’s already saved. Add a free API key in Settings.'
                 : ($ctx === 'cron' ? 'Quota reserved for manual searches; used saved data.'
@@ -378,7 +369,7 @@ final class Search
         }
         // RentCast refused the key (no active plan, wrong key): use the Zillow-data source instead if it is set up.
         $fellBack = false;
-        if (!$rentCastOnly && !$res['ok'] && $provider === RentCast::ID && in_array(RentCast::$lastStatus, [401, 403], true)
+        if (!$res['ok'] && $provider === RentCast::ID && in_array(RentCast::$lastStatus, [401, 403], true)
             && Settings::get('search_provider', 'auto') === 'auto' && OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx)) {
             $res = OpenWebNinja::search($loc, $mode, $ctx);
             $provider = OpenWebNinja::ID;
@@ -391,13 +382,6 @@ final class Search
         }
         $t1 = microtime(true);
 
-        $allInArea = true;
-        if ($rentCastOnly && $loc['type'] === 'zip') {
-            $exact = array_values(array_filter($res['items'], static fn (array $item): bool =>
-                preg_match('/^' . preg_quote($loc['zip'], '/') . '(?:-?[0-9]{4})?$/D', (string) ($item['zip'] ?? '')) === 1));
-            $allInArea = count($exact) === count($res['items']);
-            $res['items'] = $exact;
-        }
         $ids = [];
         Db::tx(static function () use ($res, $provider, &$ids) {
             foreach ($res['items'] as $item) {
@@ -408,7 +392,7 @@ final class Search
                 }
             }
         });
-        if ($mode === 'sale' && $provider === RentCast::ID && $sig === '' && !$res['truncated'] && $allInArea) {
+        if ($mode === 'sale' && $provider === RentCast::ID && $sig === '' && !$res['truncated']) {
             PropertyRepo::retireMissing($loc, $provider, $started);
         }
         // Recorded before any scoring, so a page cut off from here on never pays for the same pull twice.

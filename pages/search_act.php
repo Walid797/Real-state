@@ -5,7 +5,6 @@ use App\Address;
 use App\Auth;
 use App\Db;
 use App\Services\Search;
-use App\Services\ZipSales;
 
 $do = input('do');
 $me = Auth::userId();
@@ -37,29 +36,20 @@ if ($do === 'save') {
     redirect($back);
 }
 
-if (Search::zipOnly($loc)) {
-    if ($loc['type'] === 'zip' && $do === 'zip_rentcast') {
-        Auth::require('edit');
-        $pull = Search::ensureSnapshot($loc, $f, force: true, rentCastOnly: true);
-        $message = $pull['fetched'] ? t('RentCast results are ready.') : t('RentCast did not return results.');
-        $notice = $pull['notice'] ? t($pull['notice']) : '';
-        flash($pull['fetched'] ? trim($message . ' ' . $notice) : ($notice ?: $message), $pull['fetched'] && !$notice ? 'ok' : 'warn');
-        redirect($back . '#saved-search-results');
-    }
-    if ($loc['type'] === 'zip' && $do === 'open_zip_property') {
-        $id = ZipSales::open($loc['zip'], input('source_id', '', 190));
-        if ($id !== null) {
-            redirect('/property/' . $id);
-        }
-        flash('That official record expired. Check the ZIP again to fetch it.', 'warn');
-    }
-    redirect($back . ($loc['type'] === 'zip' ? '#zip-records' : ''));
-}
-
 if ($do === 'area_sales') {
     // One request: the last 12 months of recorded sales for the whole area — real comparables for every listing in it.
     Auth::require('edit');
     @set_time_limit(180);
+    if ($loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null) {
+        // The county publishes its sales: free, and no request used.
+        $r = App\Services\CountyRecords::areaSales($loc['zip'], 150);
+        $ids = array_map('intval', array_column(App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sale', 'limit' => 500])['rows'], 'id'));
+        if ($r['ok'] && $ids) {
+            App\Services\Score::refreshMany(Search::scoreFirst($ids, 500), 6);
+        }
+        flash($r['message'] . ($r['ok'] ? ' ARV and profit now come from real sales; the rest of the area is re-scored within minutes.' : ''), $r['ok'] && $r['sales'] ? 'ok' : 'warn');
+        redirect($back);
+    }
     $fs = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types']]);
     $r = Search::run($fs, ['confirm' => true]);
     $sold = App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'];

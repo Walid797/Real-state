@@ -120,26 +120,15 @@ final class Fairfax implements CountySource
         $t = microtime(true);
         // Every parcel id in the ZIP, from the address points (they carry the position too).
         $points = [];
-        $ambiguous = [];
         foreach (self::query(self::ADDRESS, [
             'where' => 'ZIP = ' . self::str($zip) . " AND ADDRESS_STATUS = 'Current' AND JURISDICTION = 'FAIRFAX COUNTY'",
             'outFields' => 'PARCEL_PIN,STREET_NUM,STREET_NUM_SUF,STREET_PREFIX,STREET_NAME,STREET_TYPE,STREET_SUFFIX,UNIT_TYPE,UNIT_NUMBER,CITY,ZIP',
             'outSR' => '4326', 'returnGeometry' => 'true', 'orderByFields' => 'OBJECTID',
         ], true, true) as $r) {
             $pin = (string) ($r['attributes']['PARCEL_PIN'] ?? '');
-            if ($pin === '' || (string) ($r['attributes']['ZIP'] ?? '') !== $zip || isset($ambiguous[$pin])) {
-                continue;
+            if ($pin !== '' && !isset($points[$pin])) {
+                $points[$pin] = self::pointRow($r);
             }
-            $point = self::pointRow($r);
-            if ($point['address'] === '') {
-                continue;
-            }
-            if (isset($points[$pin]) && Address::normalizeStreet($points[$pin]['address']) !== Address::normalizeStreet($point['address'])) {
-                unset($points[$pin]);
-                $ambiguous[$pin] = true;
-                continue;
-            }
-            $points[$pin] ??= $point;
         }
 
         $since = gmdate('Y-m-d', time() - $days * 86400);

@@ -92,8 +92,7 @@ final class MiamiDade implements CountySource
             $r = $f['attributes'];
             $date = PropertyRepo::date((string) ($r['DOS_1'] ?? ''));
             $line = trim((string) ($r['TRUE_SITE_ADDR'] ?? ''));
-            if (!preg_match('/^' . preg_quote($zip, '/') . '(?:-?[0-9]{4})?$/D', trim((string) ($r['TRUE_SITE_ZIP_CODE'] ?? '')))
-                || empty($r['FOLIO']) || $date === null || $date < $since || !preg_match('/^\d/', $line)) {
+            if ($date === null || $date < $since || !preg_match('/^\d/', $line)) {
                 continue;
             }
             $out[] = [

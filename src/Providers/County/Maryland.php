@@ -84,7 +84,7 @@ final class Maryland implements CountySource
         $since = gmdate('Ymd', time() - $days * 86400);
         $rows = ArcGis::query(self::SALES, [
             'where' => 'PREMZIP = ' . ArcGis::str($zip) . ' AND TRADATE >= ' . ArcGis::str($since) . ' AND CONVEY1 = 1 AND CONSIDR1 > 1000 AND SQFTSTRC > 0',
-            'outFields' => 'ACCTID,ADDRESS,PREMCITY,PREMZIP,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,DESCSTYL,LU,LANDAREA,LUOM',
+            'outFields' => 'ACCTID,ADDRESS,PREMCITY,PREMZIP,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,DESCSTYL,LU,LANDAREA,LUOM,NFMTTLVL',
             'outSR' => '4326', 'returnGeometry' => 'true', 'orderByFields' => 'TRADATE DESC',
         ], true, true, 'Maryland');
         $out = [];
@@ -92,8 +92,7 @@ final class Maryland implements CountySource
         foreach ($rows as $f) {
             $x = $f['attributes'];
             $acct = (string) ($x['ACCTID'] ?? '');
-            if ((string) ($x['PREMZIP'] ?? '') !== $zip || $acct === '' || isset($seen[$acct])
-                || (($x['LU'] ?? 'R') !== 'R' && ($x['LU'] ?? '') !== '')) {
+            if ($acct === '' || isset($seen[$acct]) || (($x['LU'] ?? 'R') !== 'R' && ($x['LU'] ?? '') !== '')) {
                 continue; // latest sale per parcel, residential only
             }
             $seen[$acct] = true;

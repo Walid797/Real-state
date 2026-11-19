@@ -100,19 +100,14 @@ final class Arlington implements CountySource
     {
         $since = gmdate('Y-m-d', time() - $days * 86400);
         $props = [];
-        $fields = 'realEstatePropertyCode,propertyZipCode,propertyStreetNbrNameText,propertyUnitNbr,propertyCityName,'
-            . 'propertyClassTypeDsc,propertyYearBuilt,grossFloorAreaSquareFeetQty,lotSizeQty,latitudeCrd,longitudeCrd';
-        foreach (self::get('Property', "propertyZipCode eq '" . self::esc($zip) . "' and propertyExpiredInd eq false", null, 20000, $fields) as $r) {
-            if ((string) ($r['propertyZipCode'] ?? '') === $zip && !empty($r['realEstatePropertyCode'])) {
-                $props[(string) $r['realEstatePropertyCode']] = $r;
-            }
+        foreach (self::get('Property', "propertyZipCode eq '" . self::esc($zip) . "' and propertyExpiredInd eq false", null, 20000) as $r) {
+            $props[(string) $r['realEstatePropertyCode']] = $r;
         }
         if (!$props) {
             return [];
         }
         $latest = [];
-        foreach (self::get('SalesHistory', 'saleDate ge ' . $since . ' and saleAmt gt 1000', 'saleDate desc', 20000,
-            'realEstatePropertyCode,saleDate,saleAmt,salesTypeDsc') as $s) {
+        foreach (self::get('SalesHistory', 'saleDate ge ' . $since . ' and saleAmt gt 1000', 'saleDate desc', 20000) as $s) {
             $rpc = (string) $s['realEstatePropertyCode'];
             if (isset($props[$rpc]) && !isset($latest[$rpc]) && self::fairSale(trim((string) ($s['salesTypeDsc'] ?? '')), (int) $s['saleAmt'])) {
                 $latest[$rpc] = $s;
@@ -250,12 +245,9 @@ final class Arlington implements CountySource
     /* ── transport ──────────────────────────────────────────────────── */
 
     /** @return list<array> */
-    private static function get(string $table, string $filter, ?string $orderBy = null, int $top = 50, ?string $fields = null): array
+    private static function get(string $table, string $filter, ?string $orderBy = null, int $top = 50): array
     {
         $q = '$filter=' . rawurlencode($filter) . '&$top=' . $top . ($orderBy ? '&$orderby=' . rawurlencode($orderBy) : '');
-        if ($fields !== null) {
-            $q .= '&$select=' . rawurlencode($fields);
-        }
         $res = Http::get(self::BASE . $table . '?' . $q, [], 30);
         $d = json_decode((string) $res['body'], true);
         if ($res['status'] !== 200 || !is_array($d) || isset($d['error'])) {

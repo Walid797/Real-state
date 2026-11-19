@@ -12,7 +12,7 @@ final class Backup
 {
     private const DIR = APP_ROOT . '/storage/backups';
     private const KEEP = 14;
-    private const SKIP = ['api_cache', 'login_attempts', 'zip_sales'];
+    private const SKIP = ['api_cache', 'login_attempts'];
 
     public static function run(): string
     {

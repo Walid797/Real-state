@@ -286,7 +286,6 @@ button { cursor: pointer; }
 .results-meta strong { color: var(--ink-2); font-weight: 500; }
 .results-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 16px 0 6px; }
 .results-tools .grow { flex: 1; }
-#saved-search-results { scroll-margin-top: 128px; }
 .elsewhere { font-size: 13px; color: var(--ink-3); margin-top: 10px; display: flex; gap: 4px 12px; flex-wrap: wrap; }
 
 .hrow { display: grid; grid-template-columns: 148px minmax(0, 1fr) auto; gap: 18px; align-items: baseline; padding: 15px 0; border-bottom: 1px solid var(--rule); position: relative; transition: background .15s; }

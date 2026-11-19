@@ -92,8 +92,7 @@ final class DistrictOfColumbia implements CountySource
         foreach (ArcGis::query(self::FACTS, [
             'where' => 'PROPERTY_ADDRESS LIKE ' . ArcGis::str('% ' . $zip), 'outFields' => 'SSL,PROPERTY_ADDRESS,LAND_USE_DESCRIPTION,LANDAREA',
         ], false, true, 'DC') as $r) {
-            if (str_ends_with(trim((string) ($r['PROPERTY_ADDRESS'] ?? '')), ' ' . $zip)
-                && !empty($r['SSL']) && stripos((string) ($r['LAND_USE_DESCRIPTION'] ?? ''), 'residential') !== false) {
+            if (stripos((string) ($r['LAND_USE_DESCRIPTION'] ?? ''), 'residential') !== false) {
                 $props[(string) $r['SSL']] = $r;
             }
         }

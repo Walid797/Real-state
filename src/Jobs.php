@@ -44,10 +44,6 @@ final class Jobs
                 }
             }
             if ($job === 'auto' || $job === 'score') {
-                $zipLog = Services\ZipSales::run();
-                if ($zipLog !== null) {
-                    $log[] = $zipLog;
-                }
                 // Homes never scored, or whose record changed since: oldest first, a slice per run.
                 $ids = array_column(Db::all(
                     "SELECT id FROM properties WHERE status IN ('for_sale','pending') AND (scored_at IS NULL OR scored_at < updated_at OR scored_at < ?)

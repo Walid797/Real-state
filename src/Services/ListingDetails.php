@@ -63,12 +63,10 @@ final class ListingDetails
             Db::run('UPDATE properties SET details = JSON_SET(details, \'$.zillow_error\', true) WHERE id = ?', [$id]);
             return ['status' => 'error', 'message' => (string) $r['error']];
         }
-        $item = $r['item'];
-        if (!$item || Address::hash((string) $item['address'], (string) $item['city'], (string) $item['state'], (string) $item['zip']) !== $p['addr_hash']) {
-            return ['status' => 'none', 'message' => 'Zillow did not return details for this exact address.'];
+        if (!$r['item']) {
+            return ['status' => 'none', 'message' => 'Zillow has no page for this address yet.'];
         }
-        $row = ['address' => $p['address'], 'city' => $p['city'], 'state' => $p['state'], 'zip' => $p['zip']] + $item;
-        PropertyRepo::upsert(PropertyRepo::keepLatestSale($p, $row), 'openwebninja');
+        PropertyRepo::upsert(['address' => $p['address'], 'city' => $p['city'], 'state' => $p['state'], 'zip' => $p['zip']] + $r['item'], 'openwebninja');
         $n = 0;
         foreach ($r['comps'] as $c) {
             try {
