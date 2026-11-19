@@ -3,6 +3,21 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Official ZIP records' => 'سوابق رسمی کد پستی',
+    'These results are from your saved properties. No commercial API requests were used.' => 'این نتایج از ملک‌های ذخیره‌شده‌اند. سهمیهٔ API تجاری مصرف نشد.',
+    'Open one ZIP at a time to request its official records.' => 'برای درخواست سوابق رسمی، هر کد پستی را جداگانه باز کنید.',
+    'No saved properties match this ZIP search.' => 'ملک ذخیره‌شده‌ای مطابق این جست‌وجوی کد پستی نیست.',
+    'No official sales source is connected for this ZIP.' => 'برای این کد پستی هنوز منبع رسمی فروش وصل نشده است.',
+    'The next scheduled run will start fetching official sales for this ZIP. Check again shortly.' => 'دریافت سوابق رسمی این کد پستی در صف زمان‌بند است. کمی بعد دوباره بررسی کنید.',
+    'The official source did not respond. Search this ZIP again in 30 minutes to retry.' => 'منبع رسمی پاسخ نداد. ۳۰ دقیقهٔ دیگر این کد پستی را دوباره جست‌وجو کنید.',
+    'Retrieved %s. These published residential sales cover up to the last 12 months and are kept for 48 hours. Coverage varies by source.' => 'زمان دریافت: %s. این فروش‌های مسکونیِ منتشرشده حداکثر ۱۲ ماه گذشته را پوشش می‌دهند و ۴۸ ساعت نگه داشته می‌شوند. پوشش هر منبع متفاوت است.',
+    'No verified residential sales were returned for this exact ZIP.' => 'برای همین کد پستی فروش مسکونی قابل‌تأییدی دریافت نشد.',
+    '%d recorded properties · the search filters apply to saved properties below.' => '%d ملک ثبت‌شده · فیلترهای جست‌وجو روی ملک‌های ذخیره‌شدهٔ پایین اعمال می‌شوند.',
+    'Yes' => 'بله',
+    'No' => 'خیر',
+    'Garage spaces' => 'جای پارک در گاراژ',
+    'Latitude' => 'عرض جغرافیایی',
+    'Longitude' => 'طول جغرافیایی',
     'Skip to content' => 'رفتن به محتوای اصلی',
     'Menu' => 'منو',
     'Main' => 'منوی اصلی',

@@ -168,7 +168,7 @@ final class Search
             return $out; // the caller sends address lookups to the property page
         }
 
-        if (($opt['fetch'] ?? true) !== false) {
+        if (!self::zipOnly($loc) && ($opt['fetch'] ?? true) !== false) {
             $plan = self::plan($loc, $f, $ctx);
             $out['needs'] = $plan['needs'];
             // One pull for a simple area happens on its own; several pulls wait for a "yes".
@@ -200,6 +200,11 @@ final class Search
         $out['rows'] = $res['rows'];
         $out['total'] = $res['total'];
         return $out;
+    }
+
+    public static function zipOnly(array $loc): bool
+    {
+        return array_unique(array_column(Address::areas($loc), 'type')) === ['zip'];
     }
 
     /**

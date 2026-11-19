@@ -12,6 +12,7 @@ use App\Services\Condition;
 use App\Services\ExternalSites;
 use App\Services\Search;
 use App\Services\Score;
+use App\Services\ZipSales;
 use App\View;
 
 $f = Search::fromRequest($_GET);
@@ -207,6 +208,8 @@ $res = Search::run($f, ['limit' => $per, 'offset' => ($page - 1) * $per]);
 $loc = $res['loc'];
 $mode = $f['mode'];
 $query = Search::compact($f);
+$zipOnly = $loc && Search::zipOnly($loc);
+$official = $loc && $loc['type'] === 'zip' ? ZipSales::request($loc['zip']) : null;
 
 $points = [];
 if ($loc && $res['total'] > 0) {
@@ -230,7 +233,7 @@ if ($areaLoc && $res['rows']) {
 }
 $elsewhere = $areaLoc ? ExternalSites::forArea($areaLoc) : [];
 $snap = $res['snapshot'];
-$provider = Search::provider();
+$provider = $zipOnly ? null : Search::provider();
 $needs = $res['needs'];
 $left = $provider ? Quota::left($provider) : 0;
 $activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort'])));
@@ -274,8 +277,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
     <?php else: ?>
       <header class="results-head">
         <h1 class="display"><?= e(plural($res['total'], $mode === 'sold' ? 'sale' : 'home')) ?> <span class="muted-h"><?= te('in %s', $loc['label']) ?></span></h1>
-        <p class="results-meta">
-          <?php if ($snap && $res['partial']): ?>
+      <p class="results-meta">
+          <?php if ($zipOnly): ?>
+            <?= te('These results are from your saved properties. No commercial API requests were used.') ?>
+          <?php elseif ($snap && $res['partial']): ?>
             <?= te('From saved data (last pull') ?> <?= e(ago($snap['fetched_at'])) ?><?= te('). These filters or areas weren’t all pulled, so there may be more.') ?>
           <?php elseif ($snap): ?>
             <?= te($res['fetched'] ? 'Just pulled from' : 'Pulled from') ?> <strong><?= e(Quota::PROVIDERS[$snap['provider']] ?? $snap['provider']) ?></strong>
@@ -288,6 +293,20 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           <?php if ($waiting): ?> <span class="wait-note"><?= plural($waiting, 'home') ?> <?= te('on this page still being scored — reload in a few minutes.') ?></span><?php endif; ?>
         </p>
       </header>
+
+      <?php if ($official !== null): ?>
+      <?php require __DIR__ . '/partials/zip_sales.php'; ?>
+      <?php elseif ($zipOnly): ?>
+      <section class="section">
+        <h2><?= te('Official ZIP records') ?></h2>
+        <p class="small soft"><?= te('Open one ZIP at a time to request its official records.') ?></p>
+        <div class="actions">
+          <?php foreach (Address::areas($loc) as $area): ?>
+          <a class="btn btn-sm" href="<?= e(url('/search', ['q' => $area['zip'], 'mode' => $mode])) ?>"><?= e($area['zip']) ?></a>
+          <?php endforeach; ?>
+        </div>
+      </section>
+      <?php endif; ?>
 
       <?php if ($needs && $provider && Auth::can('edit')): $n = count($needs); ?>
       <div class="cost-card">
@@ -304,12 +323,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 
       <?php
       // Listings alone give only asking prices; one request brings the area's recorded sales for real ARVs.
-      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point'], true)
+      $areaSales = !$zipOnly && $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point'], true)
           ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
-      ?>
-      <?php
-      // Where a county publishes its sales, they come from its records for free.
-      $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null;
       ?>
       <?php if ($areaSales === 0 && Auth::can('edit')): ?>
       <div class="cost-card sales-card">
@@ -319,11 +334,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         </div>
         <form method="post" action="/search/act" class="inline">
           <?= csrf_field() ?><input type="hidden" name="do" value="area_sales"><input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
-          <?php if ($ffxZip): ?>
-          <button class="btn btn-primary" type="submit"><?= icon('download', 14) ?><?= te('Pull recorded sales') ?><span class="cost"><?= te('free · county records') ?></span></button>
-          <?php else: ?>
           <button class="btn btn-primary" type="submit"<?= $provider ? '' : ' disabled' ?>><?= icon('download', 14) ?><?= te('Pull recorded sales') ?><span class="cost"><?= te('1 request') ?></span></button>
-          <?php endif; ?>
         </form>
       </div>
       <?php endif; ?>
@@ -370,6 +381,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             <h2 class="display"><?= te('Nothing matches those filters.') ?></h2>
             <p><?= plural($any, 'home') ?> <?= te($mode === 'sold' ? 'sold in %s' : 'are for sale in %s', $loc['label']) ?> <?= te('without them. Condition and investment filters only match homes whose listing text was read or analysed.') ?></p>
             <p><a class="btn" href="<?= e(url('/search', ['q' => $f['q'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear filters') ?></a></p>
+          <?php elseif ($zipOnly): ?>
+            <h2 class="display"><?= te('No saved properties match this ZIP search.') ?></h2>
           <?php elseif (!$provider && !$snap): ?>
             <h2 class="display"><?= te('Nothing on file for') ?> <?= e($loc['label']) ?> <?= te('yet.') ?></h2>
             <p><?= te('Connect RentCast (free, 50 requests a month) and this search fills in. Or add homes from any site by pasting their link.') ?></p>

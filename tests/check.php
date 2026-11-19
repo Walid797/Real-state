@@ -30,6 +30,7 @@ use App\Services\Deal;
 use App\Services\Score;
 use App\Services\ExternalSites;
 use App\Services\Search;
+use App\Services\ZipSales;
 use App\Settings;
 
 if (!str_contains((string) App\Config::get('base_url', ''), '127.0.0.1')) {
@@ -285,6 +286,35 @@ $mix = Address::parseLocation('Fairfax County; Richmond; 22030');
 $eq(array_column($mix['parts'] ?? [], 'type'), ['county', 'city', 'zip'], 'mixed areas');
 $plan = Search::plan($mix, Search::fromRequest(['q' => 'x']));
 $eq(array_column($plan['needs'], 'key'), ['state:VA', 'city:VA:richmond', 'zip:22030'], 'a county is pulled through its state; one pull per area');
+
+/* ── Official ZIP search: verified location, no commercial pull, 48-hour visibility ─ */
+$zip = '22030';
+$sale = ['zip' => $zip, 'address' => '1 Fixture Lane', 'source_id' => 'fixture:1', 'last_sale_date' => today(), 'last_sale_price' => 400000];
+$verified = ZipSales::verifiedRows($zip, [
+    ['zip' => '22031', 'source_id' => 'fixture:2'] + $sale,
+    ['last_sale_date' => '2026-02-31', 'source_id' => 'fixture:3'] + $sale,
+    ['last_sale_price' => 0, 'source_id' => 'fixture:4'] + $sale,
+    ['last_sale_date' => date('Y-m-d', strtotime('-1 day'))] + $sale,
+    $sale,
+]);
+$eq($verified, [$sale], 'exact ZIP and valid sale required; newest sale per source parcel');
+$eq(ZipSales::request('78704')['state'], 'unavailable', 'unsupported ZIP uses no substitute source');
+$zipSearch = Search::run(Search::fromRequest(['q' => '22030', 'mode' => 'sold']), ['force' => true]);
+$ok(!$zipSearch['fetched'] && $zipSearch['needs'] === [], 'ZIP does not request a commercial pull even when forced');
+$pdo = Db::pdo();
+$pdo->beginTransaction();
+try {
+    Db::run('DELETE FROM zip_sales WHERE zip = ?', [$zip]);
+    $eq(ZipSales::request($zip)['state'], 'pending', 'first search queues an official ZIP');
+    $eq(ZipSales::request($zip)['state'], 'pending', 'repeated searches share the queue item');
+    Db::run("UPDATE zip_sales SET state = 'ready', fetched_at = ?, payload = ? WHERE zip = ?", [now(), json_encode($verified), $zip]);
+    $eq(ZipSales::request($zip)['rows'], [$sale], 'ready result is confined to its ZIP');
+    Db::run('UPDATE zip_sales SET expires_at = ? WHERE zip = ?', [now(), $zip]);
+    $expired = ZipSales::request($zip);
+    $ok($expired['state'] === 'pending' && $expired['rows'] === [], 'expired results are hidden and the ZIP is queued again');
+} finally {
+    $pdo->rollBack();
+}
 $a2 = [];
 $ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 7, 'several areas search with OR');
 

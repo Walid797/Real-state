@@ -41,6 +41,11 @@ the list is editable under **Sites**.
    `php cron/run.php status` prints usage, recent provider calls and the error log.
    (or call `https://your-site/cron?key=<cron_key>` hourly).
 
+An individual ZIP search queues official residential sale records where Plat has a source. The
+existing scheduler fetches one queued ZIP per run. Each result shows its source and retrieval
+time and expires after 48 hours. ZIP searches use saved listings and official records without
+calling RentCast or OpenWeb Ninja.
+
 ## Layout
 
 ```

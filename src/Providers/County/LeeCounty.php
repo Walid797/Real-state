@@ -84,7 +84,7 @@ final class LeeCounty implements CountySource
             'outFields' => self::FIELDS, 'orderByFields' => 'S_1DATE DESC',
         ], false, true, 'Lee County') as $r) {
             $line = self::street($r);
-            if ($line === '') {
+            if ((string) ($r['SITEZIP'] ?? '') !== $zip || $line === '' || empty($r['STRAP'])) {
                 continue;
             }
             $out[] = [
