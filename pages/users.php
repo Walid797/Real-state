@@ -161,7 +161,7 @@ View::header('Team', 'users');
   <form method="post" action="/users" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="invite">
     <div class="form-grid">
-      <label class="field c4"><span><?= te('Name') ?></span><input class="input" name="name" placeholder="Ajmal Sultan" required></label>
+      <label class="field c4"><span><?= te('Name') ?></span><input class="input" name="name" placeholder="<?= te('Full name') ?>" required></label>
       <label class="field c5"><span><?= te('Email') ?></span><input class="input" type="email" name="email" required></label>
       <label class="field c3"><span><?= te('Role') ?></span>
         <select class="select" name="role">

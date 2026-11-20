@@ -100,7 +100,7 @@ Db::tx(static function () use ($streets, $agents, $zips, $types, $rand, $texts, 
 });
 
 // A partner and a viewer to test roles (password: "correct horse battery staple").
-foreach ([['partner@example.com', 'Ajmal Test', 'partner'], ['viewer@example.com', 'Vera Viewer', 'viewer']] as [$em, $nm, $role]) {
+foreach ([['partner@example.com', 'Pat Partner', 'partner'], ['viewer@example.com', 'Vera Viewer', 'viewer']] as [$em, $nm, $role]) {
     if (!Db::val('SELECT id FROM users WHERE email = ?', [$em])) {
         Db::insert('users', ['email' => $em, 'name' => $nm, 'role' => $role, 'password_hash' => App\Auth::hash('correct horse battery staple'), 'created_at' => now()]);
     }

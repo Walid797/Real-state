@@ -1389,4 +1389,5 @@ return [
     'team member' => 'عضو تیم',
     'pipeline entry' => 'مورد پایپ‌لاین',
     'search profile' => 'پروفایل جستجو',
+    'Full name' => 'نام و نام خانوادگی',
 ];
