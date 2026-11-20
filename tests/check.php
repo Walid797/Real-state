@@ -658,5 +658,27 @@ $an = App\Services\Deal::analyse(PropertyRepo::find($sub));
 $ok($an['inputs']['months'] === 6.0 && $an['months_from'] === 'flips' && $an['months_flips'] === 5, 'the deal calculator takes months held from the area’s flips');
 Db::run('DELETE FROM properties WHERE zip = ?', [$fz]);
 
+/* ── Verdict ──────────────────────────────────────────────────────── */
+$vz = '99905';
+$vd = static fn (int $daysAgo) => gmdate('Y-m-d', time() - $daysAgo * 86400);
+foreach (range(1, 8) as $i) { // recorded sales nearby: about $300/sqft
+    PropertyRepo::upsert(['address' => "$i Comp Way", 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+        'lat' => 38.80 + $i / 2000, 'lng' => -77.10, 'status' => 'off_market', 'last_sale_price' => 450000 + $i * 1000, 'last_sale_date' => $vd(40 + $i * 10)], 'county');
+}
+$good = PropertyRepo::upsert(['address' => '1 Bargain Rd', 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+    'beds' => 3, 'baths' => 1, 'year_built' => 1985, 'lat' => 38.8021, 'lng' => -77.10, 'status' => 'for_sale', 'list_price' => 250000, 'tax_annual' => 2500], 'manual')['id'];
+$bad = PropertyRepo::upsert(['address' => '2 Pricey Rd', 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+    'beds' => 3, 'baths' => 2, 'year_built' => 1985, 'lat' => 38.8022, 'lng' => -77.10, 'status' => 'for_sale', 'list_price' => 520000, 'tax_annual' => 5200], 'manual')['id'];
+$none = PropertyRepo::upsert(['address' => '3 Blank Rd', 'city' => 'Nowhere', 'state' => 'VA', 'zip' => '99906', 'status' => 'for_sale', 'list_price' => 300000], 'manual')['id'];
+$vg = App\Services\Verdict::for(PropertyRepo::find($good));
+$vb = App\Services\Verdict::for(PropertyRepo::find($bad));
+$vn = App\Services\Verdict::for(PropertyRepo::find($none));
+$ok(in_array($vg['verdict'], ['buy', 'offer'], true) && $vg['offer'] > 250000, 'a home well under its comparable sales is worth buying, with a most-to-offer above the asking price');
+$ok(in_array($vb['verdict'], ['lower', 'pass'], true) && $vb['offer'] < 520000, 'a home priced at its after-repair value is not worth buying at that price');
+$ok($vn['verdict'] === 'unknown' && $vn['confidence'] === 'low', 'without sales or size the verdict says there is not enough data');
+$ok((bool) array_filter($vg['factors'], static fn ($f) => $f['group'] === 'building' && $f['tone'] > 0 && str_contains($f['text'], 'adding a bathroom')), 'a 3-bed, 1-bath home is flagged as a value-add');
+$ok(count(array_unique(array_column($vg['factors'], 'group'))) >= 3 && $vg['checks'], 'the verdict covers several groups and lists checks before an offer');
+Db::run('DELETE FROM properties WHERE zip IN (?, ?)', [$vz, '99906']);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

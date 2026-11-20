@@ -375,6 +375,7 @@ if (count($series) >= 2) {
     <?php endif; ?>
 
     <?php include APP_ROOT . '/pages/partials/team.php'; ?>
+    <?php include APP_ROOT . '/pages/partials/verdict.php'; ?>
   </div>
 
   <aside class="rail">
