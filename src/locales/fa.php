@@ -1228,4 +1228,6 @@ return [
     'Offer up to' => 'پیشنهاد تا',
     'Check before an offer' => 'پیش از پیشنهاد بررسی کنید',
     'This weighs everything on this page — the deal, comparable sales, the assessment, the seller’s position, flips and values in the area, flood zone, neighbourhood, the building and the land. It is an analysis of the data on file, not an appraisal or an inspection.' => 'این بخش همهٔ موارد این صفحه را می‌سنجد — معامله، فروش‌های مقایسه‌ای، ارزیابی، وضعیت فروشنده، Flipها و ارزش‌های منطقه، منطقهٔ سیل، محله، ساختمان و زمین. این تحلیل داده‌های ثبت‌شده است، نه ارزیابی رسمی یا بازرسی.',
+    'Set in .env as' => 'در فایل ‎.env تنظیم شده با نام',
+    'Not set — add to .env:' => 'تنظیم نشده — به ‎.env اضافه کنید:',
 ];

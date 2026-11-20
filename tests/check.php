@@ -680,5 +680,20 @@ $ok((bool) array_filter($vg['factors'], static fn ($f) => $f['group'] === 'build
 $ok(count(array_unique(array_column($vg['factors'], 'group'))) >= 3 && $vg['checks'], 'the verdict covers several groups and lists checks before an offer');
 Db::run('DELETE FROM properties WHERE zip IN (?, ?)', [$vz, '99906']);
 
+/* ── .env ─────────────────────────────────────────────────────────── */
+$envFile = sys_get_temp_dir() . '/plat-test-' . getmypid() . '.env';
+file_put_contents($envFile, "# comment\nRENTCAST_API_KEY=rc_live_123\nSMTP_PASSWORD=\"p@ss \\\"word\\\" #1\"\nTELEGRAM_CHAT_ID='99 88' # trailing\nexport SMTP_PORT=587\nlowercase=x\n");
+putenv('REALESTATE_ENV=' . $envFile);
+App\Env::reset();
+$ok(App\Env::get('RENTCAST_API_KEY') === 'rc_live_123' && App\Env::get('SMTP_PASSWORD') === 'p@ss "word" #1' && App\Env::get('TELEGRAM_CHAT_ID') === '99 88' && App\Env::get('SMTP_PORT') === '587' && !isset(App\Env::all()['lowercase']), '.env lines are read with quotes, escapes, comments and export');
+$ok(App\Env::parse('X=' . App\Env::quote('a "b" $c #d')) === ['X' => 'a "b" $c #d'], 'a value written by the exporter reads back exactly');
+$hadRc = App\Db::val("SELECT v FROM settings WHERE k = 'rentcast_key'");
+Settings::set('rentcast_key', 'from-the-form');
+$ok(Settings::get('rentcast_key') === 'rc_live_123' && Settings::inEnv('rentcast_key') && Settings::fromEnv('smtp_host') && !Settings::fromEnv('rentcast_limit'), 'a key in .env wins, and the form cannot overwrite it; limits stay in Settings');
+$ok(Settings::get('google_client_id') === null || !Settings::inEnv('google_client_id'), 'a key missing from .env falls back to what was saved before');
+putenv('REALESTATE_ENV');
+App\Env::reset();
+@unlink($envFile);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

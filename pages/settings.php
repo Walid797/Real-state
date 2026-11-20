@@ -172,7 +172,19 @@ $lastRun = Settings::get('job_last_run');
 $cronCmd = 'php ' . APP_ROOT . '/cron/run.php';
 $cronUrl = abs_url('/cron', ['key' => (string) Config::get('cron_key', '')]);
 $s = static fn (string $k) => e((string) (Settings::get($k) ?? ''));
-$secretField = static function (string $key, string $label, string $hint = '') : string {
+/** A setting kept in .env: shows whether it is set, never its value. */
+$envField = static function (string $key, string $label, string $hint = '', string $cols = 'c6'): string {
+    $name = Settings::ENV[$key];
+    $set = Settings::inEnv($key);
+    return '<div class="field ' . $cols . '"><span>' . te($label) . '</span>'
+        . '<div class="env-status ' . ($set ? 'is-set' : 'is-missing') . '">' . icon($set ? 'check' : 'info', 14)
+        . '<span>' . ($set ? te('Set in .env as') : te('Not set — add to .env:')) . ' <code>' . e($name) . '</code></span></div>'
+        . ($hint ? '<small>' . $hint . '</small>' : '') . '</div>';
+};
+$secretField = static function (string $key, string $label, string $hint = '') use ($envField): string {
+    if (Settings::fromEnv($key)) {
+        return $envField($key, $label, $hint, 'c12');
+    }
     $has = Settings::has($key);
     return '<label class="field c8"><span>' . te($label) . '</span>'
         . '<input class="input mono" type="password" name="' . $key . '" autocomplete="off" spellcheck="false" placeholder="' . ($has ? e(Settings::masked($key)) . ' — saved; type to replace' : 'Paste it here') . '">'
@@ -274,8 +286,8 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       </ol>
       <div class="form-grid">
         <label class="check c12"><input type="checkbox" name="mail_listings_on"<?= Settings::get('mail_listings_on') === '1' ? ' checked' : '' ?>><?= te('Read listing e-mails from this mailbox') ?></label>
-        <label class="field c6"><span><?= te('Mail server (IMAP)') ?></span><input class="input" name="imap_host" value="<?= $s('imap_host') ?>"></label>
-        <label class="field c2"><span><?= te('Port') ?></span><input class="input" name="imap_port" value="<?= $s('imap_port') ?>" inputmode="numeric"></label>
+        <?= $envField('imap_host', 'Mail server (IMAP)') ?>
+        <?= $envField('imap_port', 'Port') ?>
         <label class="field c12"><span><?= te('More sender domains to trust') ?></span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com">
           <small><?= te('Already trusted:') ?> <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?><?= te('. Only mail the mail server confirms came from these domains is read; other mail is left alone.') ?></small></label>
       </div>
@@ -418,16 +430,11 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <p class="small soft mb-m"><?= te('Sent through a mailbox on your own domain, so it lands in the inbox instead of spam. Create one in hPanel → Emails if you don’t have it yet.') ?></p>
       <div class="form-grid">
         <label class="field c6"><span><?= te('Send alerts to') ?></span><input class="input" type="email" name="notify_email" value="<?= $s('notify_email') ?>" placeholder="you@gmail.com"></label>
-        <label class="field c6"><span><?= te('Mailbox that sends them') ?></span><input class="input" name="smtp_user" value="<?= $s('smtp_user') ?>" placeholder="alerts@hoshmand.net" autocomplete="off"></label>
+        <?= $envField('smtp_user', 'Mailbox that sends them') ?>
         <?= $secretField('smtp_pass', 'That mailbox’s password') ?>
-        <label class="field c6"><span><?= te('Mail server') ?></span><input class="input" name="smtp_host" value="<?= $s('smtp_host') ?>"></label>
-        <label class="field c3"><span><?= te('Port') ?></span><input class="input" name="smtp_port" value="<?= $s('smtp_port') ?>" inputmode="numeric"></label>
-        <label class="field c3"><span><?= te('Security') ?></span>
-          <select class="select" name="smtp_secure">
-            <option value="ssl"<?= selected(Settings::get('smtp_secure'), 'ssl') ?>>SSL (465)</option>
-            <option value="tls"<?= selected(Settings::get('smtp_secure'), 'tls') ?>>STARTTLS (587)</option>
-            <option value="none"<?= selected(Settings::get('smtp_secure'), 'none') ?>><?= te('None') ?></option>
-          </select></label>
+        <?= $envField('smtp_host', 'Mail server') ?>
+        <?= $envField('smtp_port', 'Port', '', 'c3') ?>
+        <?= $envField('smtp_secure', 'Security', '', 'c3') ?>
       </div>
     </div>
 
@@ -441,7 +448,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       </ol>
       <div class="form-grid">
         <?= $secretField('telegram_token', 'Bot token') ?>
-        <label class="field c6"><span><?= te('Chat ID') ?></span><input class="input mono" name="telegram_chat" value="<?= $s('telegram_chat') ?>" placeholder="123456789"></label>
+        <?= $envField('telegram_chat', 'Chat ID') ?>
       </div>
     </div>
 
@@ -499,7 +506,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
         <li><?= te('Paste the client ID and secret here. Only people on the Team page can sign in.') ?></li>
       </ol>
       <div class="form-grid">
-        <label class="field c12"><span><?= te('Client ID') ?></span><input class="input mono" name="google_client_id" value="<?= $s('google_client_id') ?>" spellcheck="false"></label>
+        <?= $envField('google_client_id', 'Client ID', '', 'c12') ?>
         <?= $secretField('google_client_secret', 'Client secret') ?>
       </div>
     </div>
