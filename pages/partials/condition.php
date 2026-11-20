@@ -6,7 +6,7 @@ $stateClass = static fn (string $s) => match ($s) { 'new', 'updated' => 'chip-go
 ?>
 <section class="section" id="condition">
   <div class="section-head"><h2><?= te('Condition & renovation') ?></h2>
-    <span class="aside"><?= $cond['source'] === 'manual' ? 'set by the team' : 'read from the listing text' ?><?= $cond['renovated_year'] ? ' · renovated ' . (int) $cond['renovated_year'] : '' ?></span></div>
+    <span class="aside"><?= te($cond['source'] === 'manual' ? 'set by the team' : 'read from the listing text') ?><?= $cond['renovated_year'] ? ' · ' . te('renovated %d', (int) $cond['renovated_year']) : '' ?></span></div>
   <div class="cond-head">
     <span class="cond-overall cond-<?= e($cond['overall']) ?>"><?= te(Condition::OVERALL[$cond['overall']]) ?></span>
     <?php if ($cond['overall'] === 'not_disclosed'): ?><span class="small muted"><?= te('The listing doesn’t say. Treat it as unknown until someone sees the house.') ?></span><?php endif; ?>

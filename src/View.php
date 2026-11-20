@@ -137,6 +137,12 @@ final class View
             'Orbit',
             'Could not load the 3D viewer.',
             'Loading the 3D viewer…',
+            'Show original',
+            'Hide original',
+            'Machine translation of the listing text.',
+            'Couldn’t translate this.',
+            'Zoom in',
+            'Zoom out',
         ];
         $labels = array_combine($messages, array_map('t', $messages));
         return ' data-ui-labels="' . e(json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) . '"';
@@ -199,8 +205,8 @@ final class View
             $used = min($limit, Quota::used($id));
             $share = $limit > 0 ? (int) round($used / $limit * 100) : 100;
             $state = $share >= 100 ? 'out' : ($share >= 80 ? 'low' : 'ok');
-            $out .= '<a class="quota quota-' . $state . '" href="/settings#usage" title="' . e($label . ': ' . $used . ' of ' . $limit . ' requests used this month. Resets in ' . plural(Quota::resetsIn(), 'day') . '.') . '">'
-                . '<span class="quota-label">' . e($label) . '</span>'
+            $out .= '<a class="quota quota-' . $state . '" href="/settings#usage" title="' . e(t($label) . ': ' . t('%1$d of %2$d requests used this month. Resets in %3$s.', $used, $limit, plural(Quota::resetsIn(), 'day'))) . '">'
+                . '<span class="quota-label">' . te($label) . '</span>'
                 . '<span class="quota-num">' . $used . '<i>/' . $limit . '</i></span>'
                 . '<svg class="quota-bar" viewBox="0 0 100 3" preserveAspectRatio="none" aria-hidden="true"><rect class="t" width="100" height="3"/><rect class="f" width="' . $share . '" height="3"/></svg>'
                 . '</a>';

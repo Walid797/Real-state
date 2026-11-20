@@ -30,7 +30,7 @@ $sales = (array) ($cr['sales'] ?? []);
   <div class="section-head"><h2><?= te('County record') ?></h2><span class="aside"><?= e($crSource ? $crSource::name() : 'Public records') ?> <?= te('· free, official') ?></span></div>
   <?php if (!$cr): ?>
     <p class="blank"><?= empty($d['county_tried_at'])
-        ? 'This home looks like it is in ' . e($crArea) . '; its record is looked up the next time the page opens.'
+        ? te('This home looks like it is in %s; its record is looked up the next time the page opens.', $crArea)
         : 'No parcel in ' . e($crArea) . ' matched this address (checked ' . e(ago($d['county_tried_at'])) . '). It may be in a neighbouring jurisdiction with separate records, or the listing spells the street differently.' ?></p>
   <?php else: ?>
     <?php if (!empty($cr['assessed_total'])): ?>
@@ -45,7 +45,7 @@ $sales = (array) ($cr['sales'] ?? []);
     </div>
     <?php endif; ?>
     <?php if ($kv): ?>
-    <dl class="kv mt-m"><?php foreach ($kv as $k => $v): ?><div><dt><?= te($k) ?></dt><dd><?= e($v) ?></dd></div><?php endforeach; ?></dl>
+    <dl class="kv mt-m"><?php foreach ($kv as $k => $v): ?><div><dt><?= te($k) ?></dt><dd><?= e(is_string($v) ? t($v) : $v) ?></dd></div><?php endforeach; ?></dl>
     <?php endif; ?>
     <?php if ($sales): ?>
     <div class="table-wrap mt-m">

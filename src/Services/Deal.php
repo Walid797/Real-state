@@ -88,7 +88,7 @@ final class Deal
      */
     public static function arv(array $p): array
     {
-        $none = ['value' => null, 'low' => null, 'high' => null, 'confidence' => 0, 'basis' => 'Not enough data', 'comps' => 0];
+        $none = ['value' => null, 'low' => null, 'high' => null, 'confidence' => 0, 'basis' => t('Not enough data'), 'comps' => 0];
         $sqft = (float) ($p['sqft'] ?? 0);
         $c = Comps::find($p, ['months' => 12, 'radius' => 1, 'limit' => 25]);
         if (!$c['comps'] || $c['stats'] === null) {
@@ -106,14 +106,14 @@ final class Deal
                 'low' => (int) round($med * $sqft, -3),
                 'high' => (int) round(percentile($ppsf, 0.9) * $sqft, -3),
                 'confidence' => max(10, min(95, $conf)),
-                'basis' => count($ppsf) . ' sales within ' . trim_num($c['radius']) . ' mi, last ' . $c['months'] . ' months',
+                'basis' => t('%1$d sales within %2$s mi, last %3$d months', count($ppsf), trim_num($c['radius']), (int) $c['months']),
                 'comps' => count($ppsf),
             ];
         }
         $avm = (int) ($p['est_value_high'] ?? 0) ?: (int) ($p['est_value'] ?? 0);
         if ($avm > 0) {
             return ['value' => $avm, 'low' => (int) ($p['est_value'] ?? $avm), 'high' => $avm, 'confidence' => 25,
-                'basis' => ($p['est_source'] === 'zestimate' ? 'Zestimate' : 'RentCast estimate') . ' (no sold comps on file)', 'comps' => 0];
+                'basis' => t('%s (no sold comps on file)', $p['est_source'] === 'zestimate' ? 'Zestimate' : t('RentCast estimate')), 'comps' => 0];
         }
         // Last resort, free: what similar homes nearby are asking. Asking is not selling, so confidence stays low.
         $ask = Comps::listings($p);
@@ -125,7 +125,7 @@ final class Deal
                 'low' => (int) round(median($askPpsf) * $sqft, -3),
                 'high' => (int) round(percentile($askPpsf, 0.85) * $sqft, -3),
                 'confidence' => max(12, min(30, 30 - (int) round(min(1.0, $spread) * 15) + min(5, count($askPpsf) - 5))),
-                'basis' => 'Asking prices of ' . count($askPpsf) . ' similar homes for sale within ' . trim_num($ask['radius']) . ' mi — no recorded sales yet',
+                'basis' => t('Asking prices of %1$d similar homes for sale within %2$s mi — no recorded sales yet', count($askPpsf), trim_num($ask['radius'])),
                 'comps' => 0, 'from' => 'asking',
             ];
         }

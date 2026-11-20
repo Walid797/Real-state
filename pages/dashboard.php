@@ -72,10 +72,10 @@ View::header('Dashboard', 'dashboard');
 </header>
 
 <div class="kpis">
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? '+' . number_format($k['new']) . ' this week' : 'none new this week' ?></small></a>
+  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? te('+%s this week', number_format($k['new'])) : te('none new this week') ?></small></a>
   <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
   <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span><?= te('Price cuts this week') ?></span><b><?= number_format($k['cuts']) ?></b><small><?= te('still for sale') ?></small></a>
-  <a class="kpi" href="/pipeline"><span><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? $k['mine'] . ' handled by you' : 'none handled by you' ?></small></a>
+  <a class="kpi" href="/pipeline"><span><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? te('%d handled by you', $k['mine']) : te('none handled by you') ?></small></a>
 </div>
 
 <div class="dash-grid">
@@ -87,7 +87,7 @@ View::header('Dashboard', 'dashboard');
       <li>
         <span class="score-badge sm score-<?= $band ?>"><?= (int) $r['score'] ?></span>
         <a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?>, <?= e($r['city']) ?>
-          <span class="sub"><?= e(money($r['list_price'])) ?> · <?= e(PropertyRepo::facts($r)) ?><?= $r['stage'] ? ' · ' . e(Pipeline::STAGES[$r['stage']]) . ($r['owner_name'] ? ' (' . e($r['owner_name']) . ')' : '') : '' ?></span></a>
+          <span class="sub"><?= e(money($r['list_price'])) ?> · <?= e(PropertyRepo::facts($r)) ?><?= $r['stage'] ? ' · ' . te(Pipeline::STAGES[$r['stage']]) . ($r['owner_name'] ? ' (' . e($r['owner_name']) . ')' : '') : '' ?></span></a>
         <span class="end"><?php if ($r['est_profit'] !== null): ?><b class="<?= (int) $r['est_profit'] < 0 ? 'up' : 'down' ?> num"><?= e(money_short(abs((int) $r['est_profit']))) ?></b><br><?= te('est. profit') ?><?php endif; ?></span>
       </li>
       <?php endforeach; ?>
@@ -123,7 +123,7 @@ View::header('Dashboard', 'dashboard');
     <?php if ($activity): ?>
     <ul class="plain-list feed">
       <?php foreach ($activity as $a): ?>
-      <li><span><strong><?= e(Activity::who($a)) ?></strong> · <?= e($a['detail']) ?>
+      <li><span><strong><?= e(Activity::who($a)) ?></strong> · <?= e(Activity::detail((string) $a['action'], (string) $a['detail'])) ?>
         <?php if ($a['address']): ?><a class="sub" href="/property/<?= (int) $a['property_id'] ?>"><?= e($a['address']) ?>, <?= e($a['city']) ?></a><?php endif; ?></span>
         <span class="end"><?= e(ago($a['created_at'])) ?></span></li>
       <?php endforeach; ?>

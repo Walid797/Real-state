@@ -28,10 +28,10 @@ use App\Services\Pipeline;
         </select></label>
     </form>
     <?php else: ?>
-    <div class="ctx-row"><span><?= te('Status') ?></span><span><?= e(Pipeline::STAGES[$p['watch_stage']] ?? $p['watch_stage']) ?></span></div>
+    <div class="ctx-row"><span><?= te('Status') ?></span><span><?= te(Pipeline::STAGES[$p['watch_stage']] ?? $p['watch_stage']) ?></span></div>
     <div class="ctx-row"><span><?= te('Handled by') ?></span><span><?= e($p['owner_name'] ?: 'No one yet') ?></span></div>
     <?php endif; ?>
-    <p class="small muted mt-s"><?= te('Changed') ?> <?= e(ago($p['stage_at'])) ?><?= $p['stage_by'] ? ' by ' . e($p['stage_by']) : '' ?>.</p>
+    <p class="small muted mt-s"><?= te('Changed') ?> <?= e(ago($p['stage_at'])) ?><?= $p['stage_by'] ? ' ' . te('by %s', $p['stage_by']) : '' ?>.</p>
     <?php if ($canEdit): ?>
     <form method="post" action="/property/<?= $id ?>/act" class="mt-s" data-confirm="<?= te('Take this home out of the team pipeline? Notes and deal numbers stay.') ?>">
       <?= csrf_field() ?><input type="hidden" name="do" value="unwatch">

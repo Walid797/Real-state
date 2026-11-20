@@ -78,6 +78,7 @@ View::header('Alerts', 'alerts');
 
   <section class="section">
     <div class="section-head"><h2><?= te('Your alerts') ?></h2><span class="aside"><?= $lastRun ? 'scheduler ran ' . e(ago($lastRun)) : '' ?></span></div>
+    <?php $bulk = ['type' => 'alerts', 'form' => 'bulk-alerts', 'back' => '/alerts', 'all' => App\Auth::can('admin') ? 'Delete all alerts' : 'Delete all my alerts', 'count' => count($alerts)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
     <div class="table-wrap">
       <table class="table">
         <thead><tr><th><?= te('On') ?></th><th><?= te('Alert') ?></th><th><?= te('Checks') ?></th><th><?= te('Sends to') ?></th><th><?= te('Last check') ?></th><th class="r"><?= te('Sent') ?></th><th></th></tr></thead>
@@ -91,7 +92,8 @@ View::header('Alerts', 'alerts');
         ?>
           <tr>
             <td>
-              <form method="post" action="/alerts/<?= (int) $a['id'] ?>/act">
+              <input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $a['id'] ?>" form="bulk-alerts" aria-label="<?= te('Select') ?> <?= e($a['name']) ?>">
+              <form method="post" action="/alerts/<?= (int) $a['id'] ?>/act" class="inline">
                 <?= csrf_field() ?><input type="hidden" name="do" value="toggle">
                 <button class="toggle" type="submit" aria-pressed="<?= $a['enabled'] ? 'true' : 'false' ?>" title="<?= te($a['enabled'] ? 'On — click to pause' : 'Paused — click to turn on') ?>"><span class="sr"><?= te($a['enabled'] ? 'Pause' : 'Turn on') ?> <?= e($a['name']) ?></span></button>
               </form>

@@ -695,5 +695,52 @@ putenv('REALESTATE_ENV');
 App\Env::reset();
 @unlink($envFile);
 
+/* ── Deleting several at once ─────────────────────────────────────── */
+$asUser = static function (?array $u): void { (new ReflectionProperty(App\Auth::class, 'user'))->setValue(null, $u); };
+$adminRow = Db::one("SELECT id, email, name, role, is_active, session_epoch, telegram_chat FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1");
+$asUser($adminRow);
+$tmpU = [];
+foreach (['bulk1@example.com', 'bulk2@example.com'] as $em) {
+    $tmpU[] = Db::insert('users', ['email' => $em, 'name' => 'Bulk', 'role' => 'viewer', 'password_hash' => '', 'created_at' => now()]);
+}
+$aid = Db::insert('alerts', ['user_id' => $tmpU[0], 'name' => 'gone', 'kind' => 'new_listing', 'location' => '22030', 'criteria' => '{}', 'channels' => 'email', 'every_hours' => 24, 'enabled' => 1, 'created_at' => now()]);
+$r = App\Services\Bulk::delete('users', [$tmpU[0], $tmpU[1], (int) $adminRow['id']], false);
+$ok($r['count'] === 2 && $r['skipped'] === 1 && !Db::val('SELECT COUNT(*) FROM users WHERE id IN (?, ?)', $tmpU) && !Db::val('SELECT COUNT(*) FROM alerts WHERE id = ?', [$aid]) && Db::val('SELECT COUNT(*) FROM users WHERE id = ?', [$adminRow['id']]), 'ticked team members are deleted with their alerts; you are kept');
+$h = [];
+foreach ([1, 2, 3] as $i) {
+    $h[] = PropertyRepo::upsert(['address' => "$i Bulk Ln", 'city' => 'Bulkton', 'state' => 'VA', 'zip' => '99907', 'status' => 'for_sale', 'list_price' => 100000], 'manual')['id'];
+}
+App\Services\Pipeline::add($h[0], null);
+App\Services\Pipeline::add($h[1], null);
+$r = App\Services\Bulk::delete('pipeline', [$h[0]], false);
+$ok($r['count'] === 1 && Db::val('SELECT COUNT(*) FROM properties WHERE id = ?', [$h[0]]) && Db::val('SELECT COUNT(*) FROM watchlist WHERE property_id = ?', [$h[1]]), 'removing from the pipeline keeps the home on file and the other entries');
+$r = App\Services\Bulk::delete('homes', [], true, [$h[1], $h[2]]);
+$ok($r['count'] === 2 && Db::val('SELECT COUNT(*) FROM properties WHERE zip = ?', ['99907']) === 1 && !Db::val('SELECT COUNT(*) FROM watchlist WHERE property_id = ?', [$h[1]]), '"all" deletes exactly the homes of the results, with their pipeline entries');
+$viewer = Db::one("SELECT id, email, name, role, is_active, session_epoch, telegram_chat FROM users WHERE role = 'viewer' LIMIT 1");
+if ($viewer) {
+    $asUser($viewer);
+    $ok(!App\Services\Bulk::allowed('homes') && !App\Services\Bulk::allowed('users') && App\Services\Bulk::allowed('alerts'), 'a viewer can delete only their own alerts and profiles');
+}
+$asUser(null);
+Db::run('DELETE FROM properties WHERE zip = ?', ['99907']);
+
+// Listing text translation: pieces fit the free API's size limit; a stored translation is used only for the same text.
+$long = str_repeat('This updated home has a new roof and a renovated kitchen. ', 30);
+$pieces = App\Services\Translate::pieces($long, 450);
+$ok(count($pieces) > 1 && max(array_map('strlen', $pieces)) <= 450 && implode(' ', $pieces) === trim(preg_replace('/\s+/', ' ', $long)), 'long listing text is cut at sentence ends into pieces the free translator accepts');
+$ok(App\Services\Translate::pieces(str_repeat('word ', 200), 100) !== [] && max(array_map('strlen', App\Services\Translate::pieces(str_repeat('word ', 200), 100))) <= 100, 'a sentence longer than a piece is cut at spaces');
+$tp = ['id' => 1, 'description' => 'Nice home.', 'details' => ['description_fa' => ['text' => 'خانه‌ی خوب.', 'source_hash' => sha1('Nice home.')]]];
+$ok(App\Services\Translate::stored($tp, 'fa') === 'خانه‌ی خوب.' && App\Services\Translate::stored(['description' => 'Changed text.'] + $tp, 'fa') === null, 'a stored translation is shown only while the listing text is unchanged');
+
+$trId = (int) Db::val('SELECT id FROM properties WHERE description IS NOT NULL AND description <> "" ORDER BY id LIMIT 1');
+if ($trId) {
+    $trP = PropertyRepo::find($trId);
+    App\Services\Translate::store($trId, 'fa', 'متن ترجمه‌شده', 'test', (string) $trP['description']);
+    $trP = PropertyRepo::find($trId);
+    $ok(App\Services\Translate::stored($trP, 'fa') === 'متن ترجمه‌شده' && $trP['details'] !== [], 'a translation is kept with the home and read back; the other details stay');
+    $d = $trP['details']; unset($d['description_fa']);
+    Db::run('UPDATE properties SET details = ? WHERE id = ?', [$d ? json_encode($d) : null, $trId]);
+}
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

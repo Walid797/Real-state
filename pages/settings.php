@@ -147,7 +147,7 @@ View::header('Settings', 'settings');
     <?= csrf_field() ?><input type="hidden" name="do" value="sources">
     <div class="card">
       <?php $rcProblem = App\Providers\RentCast::problem(); ?>
-      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= Settings::has('rentcast_key') ? 'Connected' : 'Not connected' ?></span><?php endif; ?></h3>
+      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('rentcast_key') ? 'Connected' : 'Not connected') ?></span><?php endif; ?></h3>
       <?php if ($rcProblem && Settings::has('rentcast_key')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($rcProblem['why']) ?></strong>
         <span class="small soft"><?= te('Last refused') ?> <?= e(ago($rcProblem['at'])) ?><?= te('. Refused requests are not counted against your 50.') ?></span>
@@ -163,7 +163,7 @@ View::header('Settings', 'settings');
     </div>
 
     <div class="card">
-      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= Settings::has('openwebninja_key') ? 'Connected' : 'Optional' ?></span></h3>
+      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('openwebninja_key') ? 'Connected' : 'Optional') ?></span></h3>
       <p class="small soft mb-m"><?= te('Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.') ?></p>
       <div class="form-grid">
         <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
@@ -202,13 +202,13 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="free">
     <div class="card">
-      <h3><?= te('Listing e-mails') ?> <?= $mailOn ? '<span class="tag tag-live">On</span>' : '<span class="tag">Off</span>' ?></h3>
+      <h3><?= te('Listing e-mails') ?> <?= $mailOn ? '<span class="tag tag-live">' . te('On') . '</span>' : '<span class="tag">' . te('Off') . '</span>' ?></h3>
       <p class="small soft mb-m"><?= te('New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.') ?></p>
       <?php if (Settings::get('mail_last_error')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e((string) Settings::get('mail_last_error')) ?></strong><span class="small soft"><?= te('Check the mailbox settings on the server.') ?></span></div></div>
       <?php endif; ?>
       <ol class="steps mb-m">
-        <li><?= te('The site reads the mailbox it sends alerts from:') ?> <strong class="mono"><?= $mailbox !== '' ? e($mailbox) : 'set it up under Delivery first' ?></strong>.</li>
+        <li><?= te('The site reads the mailbox it sends alerts from:') ?> <strong class="mono"><?= $mailbox !== '' ? e($mailbox) : te('set it up under Delivery first') ?></strong>.</li>
         <li><strong>Zillow:</strong> <?= te('search the area with your filters →') ?> <strong><?= te('Save search') ?></strong> <?= te('→ e-mail') ?> <strong><?= te('Instantly') ?></strong><?= te('. In Zillow’s account settings, set the e-mail address to the mailbox above (or forward Zillow’s e-mails to it from your own inbox).') ?></li>
         <li><strong>Redfin / Homes.com / Realtor.com:</strong> <?= te('the same — save the search with instant e-mail updates going to that mailbox.') ?></li>
         <li><strong><?= te('Agent with MLS access:') ?></strong> <?= te('ask them to set up an MLS auto-e-mail (“listing alert”) for your criteria to that mailbox; it carries the most complete data. Add the sender’s domain below if it isn’t listed.') ?></li>
@@ -280,7 +280,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
 
 <?php $aerialCheck = json_decode((string) Settings::get('cesium_check', ''), true) ?: null; ?>
 <section class="section" id="aerial">
-  <div class="section-head"><h2><?= te('3D view') ?></h2><span class="aside"><?= Settings::has('cesium_key') ? Quota::used('cesium') . ' of ' . Quota::limit('cesium') . ' used this month' : 'off' ?></span></div>
+  <div class="section-head"><h2><?= te('3D view') ?></h2><span class="aside"><?= Settings::has('cesium_key') ? te('%1$d of %2$d used this month', Quota::used('cesium'), Quota::limit('cesium')) : te('off') ?></span></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="aerial">
     <div class="card">
@@ -294,7 +294,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <?php if (!empty($aerialCheck['unreachable'])): ?>
       <div class="callout mb-m" role="status"><?= icon('info', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('The 3D view may well work — open a home to see. Save again later to re-check.') ?></span></div></div>
       <?php else: ?>
-      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('Checked') ?> <?= e(ago($aerialCheck['at'])) ?><?= te('. Check the 3D service’s token on the server.') ?></span></div></div>
+      <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('Checked') ?> <?= e(ago($aerialCheck['at'])) ?>. <?= te('Check the 3D service’s token on the server.') ?></span></div></div>
       <?php endif; ?>
       <?php endif; ?>
       <div class="form-grid">
@@ -314,7 +314,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <thead><tr><th><?= te('Source') ?></th><th class="r"><?= te('Used') ?></th><th class="r"><?= te('Allowance') ?></th><th class="r"><?= te('Left for you') ?></th><th class="r"><?= te('Left for alerts') ?></th></tr></thead>
       <tbody>
       <?php foreach (Quota::PROVIDERS as $pid => $label): ?>
-        <tr><td><?= te($label) ?><?= Settings::has($pid . '_key') ? '' : ' <span class="muted small">— not connected</span>' ?></td>
+        <tr><td><?= te($label) ?><?= Settings::has($pid . '_key') ? '' : ' <span class="muted small">— ' . te('not connected') . '</span>' ?></td>
           <td class="r"><?= Quota::used($pid) ?></td><td class="r"><?= Quota::limit($pid) ?></td>
           <td class="r"><?= Quota::left($pid) ?></td><td class="r"><?= Quota::left($pid, 'cron') ?></td></tr>
       <?php endforeach; ?>
@@ -375,8 +375,8 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
   <?php if ($sent): ?>
   <ul class="plain-list mt-m">
     <?php foreach ($sent as $n): ?>
-    <li><span><?= e(Notifier::CHANNELS[$n['channel']] ?? $n['channel']) ?> — <?= e($n['subject']) ?><span class="sub"><?= e($n['detail']) ?></span></span>
-      <span class="end"><?= $n['ok'] ? '<span class="tag tag-live">Sent</span>' : '<span class="tag tag-bad">Failed</span>' ?><br><?= e(ago($n['created_at'])) ?></span></li>
+    <li><span><?= te(Notifier::CHANNELS[$n['channel']] ?? $n['channel']) ?> — <?= e($n['subject']) ?><span class="sub"><?= e(t((string) $n['detail'])) ?></span></span>
+      <span class="end"><?= $n['ok'] ? '<span class="tag tag-live">' . te('Sent') . '</span>' : '<span class="tag tag-bad">' . te('Failed') . '</span>' ?><br><?= e(ago($n['created_at'])) ?></span></li>
     <?php endforeach; ?>
   </ul>
   <?php endif; ?>

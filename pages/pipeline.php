@@ -79,6 +79,8 @@ View::header('Pipeline', 'pipeline');
   </div>
 <?php endif; ?>
 
+<?php if ($rows && Auth::can('edit')): $bulk = ['type' => 'pipeline', 'form' => 'bulk-pipeline', 'back' => $_SERVER['REQUEST_URI'] ?? '/pipeline', 'all' => 'Remove all from the pipeline', 'count' => count($rows)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
+
 <?php foreach (Pipeline::STAGES as $stage => $label): if (empty($byStage[$stage])) { continue; } ?>
 <section class="section" id="st-<?= $stage ?>">
   <div class="section-head"><h2><?= te($label) ?></h2><span class="aside"><?= plural(count($byStage[$stage]), 'home') ?></span></div>
@@ -94,13 +96,13 @@ View::header('Pipeline', 'pipeline');
           $band = Score::band($r['score'] !== null ? (int) $r['score'] : null);
       ?>
         <tr>
-          <td><a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
+          <td><?php if (Auth::can('edit')): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-pipeline" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"> <?php endif; ?><a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
             <span class="sub"><?= e($r['city']) ?>, <?= e($r['state']) ?> · <?= e(PropertyRepo::facts($r) ?: 'details not on file') ?><?= (int) $r['note_count'] ? ' · ' . plural((int) $r['note_count'], 'note') : '' ?></span></td>
-          <td class="r"><?= e(money($price)) ?><?php if ($delta !== null): ?><span class="sub <?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></span><?php else: ?><span class="sub"><?= $sale ? 'asking' : ($r['status'] === 'sold' ? 'sold' : 'off market') ?></span><?php endif; ?></td>
+          <td class="r"><?= e(money($price)) ?><?php if ($delta !== null): ?><span class="sub <?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></span><?php else: ?><span class="sub"><?= te($sale ? 'asking' : ($r['status'] === 'sold' ? 'sold' : 'off market')) ?></span><?php endif; ?></td>
           <td class="r"><?= $r['est_profit'] !== null ? '<span class="' . ((int) $r['est_profit'] < 0 ? 'up' : 'down') . '">' . e(money_short(abs((int) $r['est_profit']))) . '</span>' : '—' ?></td>
           <td class="r"><span class="score-badge sm score-<?= $band ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span></td>
           <td><?= $r['owner_name'] ? e($r['owner_name']) : '<span class="muted">No one</span>' ?></td>
-          <td class="nowrap"><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? '<span class="sub">by ' . e($r['stage_by']) . '</span>' : '' ?></td>
+          <td class="nowrap"><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? '<span class="sub">' . te('by %s', $r['stage_by']) . '</span>' : '' ?></td>
           <td>
             <?php if ($canEdit): ?>
             <form method="post" action="/property/<?= (int) $r['id'] ?>/act">

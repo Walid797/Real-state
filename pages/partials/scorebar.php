@@ -12,8 +12,8 @@ $riskBand = $sc['risk'] >= 60 ? 'high' : ($sc['risk'] >= 35 ? 'mid' : 'low');
   </div>
   <div class="sb-cell">
     <span class="eyebrow"><?= te('Est. net profit') ?></span>
-    <b class="<?= $deal['ok'] && $deal['base']['profit'] < 0 ? 'up' : '' ?>"><?= $deal['ok'] ? e(money_short(abs($deal['base']['profit']))) . ($deal['base']['profit'] < 0 ? ' loss' : '') : '—' ?></b>
-    <span><?= $deal['ok'] ? 'ROI ' . number_format($deal['base']['roi'], 1) . '%' : e('Needs ' . implode(', ', $deal['missing'] ?? [])) ?></span>
+    <b class="<?= $deal['ok'] && $deal['base']['profit'] < 0 ? 'up' : '' ?>"><?= $deal['ok'] ? e(money_short(abs($deal['base']['profit']))) . ($deal['base']['profit'] < 0 ? ' ' . te('loss') : '') : '—' ?></b>
+    <span><?= $deal['ok'] ? te('ROI %s', number_format($deal['base']['roi'], 1) . '%') : te('Needs %s', implode(t(', '), array_map('t', $deal['missing'] ?? []))) ?></span>
   </div>
   <div class="sb-cell">
     <span class="eyebrow"><?= te('After-repair value') ?></span>
@@ -55,7 +55,7 @@ $canPull = App\Auth::can('edit');
 <?php endif; ?>
 <?php if ($sc['risks'] || $sc['missing']): ?>
 <p class="risk-line">
-  <?php foreach (array_slice($sc['risks'], 0, 5) as $r): ?><span class="chip chip-bad"><?= e($r) ?></span><?php endforeach; ?>
+  <?php foreach (array_slice($sc['risks'], 0, 5) as $r): ?><span class="chip chip-bad"><?= e(preg_match('/^On the market (\d+) days$/', $r, $rm) ? t('On the market %d days', (int) $rm[1]) : t($r)) ?></span><?php endforeach; ?>
   <?php if ($sc['missing']): ?><span class="chip"><?= te('Missing:') ?> <?= e(implode(', ', array_slice($sc['missing'], 0, 5))) ?></span><?php endif; ?>
 </p>
 <?php endif; ?>

@@ -124,10 +124,10 @@ if (count($series) >= 2) {
   <div>
     <div class="tags">
       <?= View::statusTag($p) ?>
-      <?php if ($p['property_type']): ?><span class="tag"><?= e($p['property_type']) ?></span><?php endif; ?>
+      <?php if ($p['property_type']): ?><span class="tag"><?= te($p['property_type']) ?></span><?php endif; ?>
       <?php if ($p['source'] === 'manual'): ?><span class="tag"><?= te('Added by hand') ?></span><?php endif; ?>
       <span class="tag tag-data-<?= e($p['data_status']) ?>" title="<?= te('How much of the listing we have') ?>"><?= te($dataLabels[$p['data_status']] ?? $p['data_status']) ?></span>
-      <?php foreach (array_filter(explode(',', (string) $p['flags'])) as $fl): ?><span class="tag tag-warn"><?= e(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
+      <?php foreach (array_filter(explode(',', (string) $p['flags'])) as $fl): ?><span class="tag tag-warn"><?= te(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
     </div>
     <h1 class="display"><?= e($p['address']) ?></h1>
     <p class="where"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
@@ -160,7 +160,7 @@ if (count($series) >= 2) {
 </header>
 
 <?php if ($p['watch_id'] && in_array($p['watch_stage'], Pipeline::ACTIVE, true) && $p['owner_id'] && (int) $p['owner_id'] !== Auth::userId()): ?>
-<p class="claim-bar"><?= icon('user-check', 16) ?><span><strong><?= e($p['owner_name']) ?></strong> <?= te('is handling this home —') ?> <?= e(Pipeline::STAGES[$p['watch_stage']]) ?> <?= te('since') ?> <?= e(fmt_date($p['stage_at'], 'M j')) ?><?= te('. Coordinate before contacting the agent.') ?></span></p>
+<p class="claim-bar"><?= icon('user-check', 16) ?><span><strong><?= e($p['owner_name']) ?></strong> <?= te('is handling this home —') ?> <?= te(Pipeline::STAGES[$p['watch_stage']]) ?> <?= te('since') ?> <?= e(fmt_date($p['stage_at'], 'M j')) ?><?= te('. Coordinate before contacting the agent.') ?></span></p>
 <?php endif; ?>
 
 <?php include APP_ROOT . '/pages/partials/scorebar.php'; ?>
@@ -188,8 +188,18 @@ if (count($series) >= 2) {
   <div>
     <?php if ($p['description']): ?>
     <section class="section">
+      <?php $descLang = App\Locale::language(); $descTr = $descLang !== 'en' ? App\Services\Translate::stored($p, $descLang) : null; ?>
       <div class="section-head"><h2><?= te('From the listing') ?></h2></div>
+      <?php if ($descLang === 'en'): ?>
       <p class="desc"><?= e($p['description']) ?></p>
+      <?php else: ?>
+      <div class="desc-tr"<?= $descTr === null ? ' data-translate="/api/translate/' . (int) $p['id'] . '" data-csrf="' . e(App\Auth::csrfToken()) . '"' : '' ?>>
+        <p class="desc desc-translated" dir="auto"><?= $descTr !== null ? e($descTr) : '<span class="muted">' . te('Translating the listing text…') . '</span>' ?></p>
+        <p class="desc desc-original" dir="ltr" lang="en"<?= $descTr !== null ? ' hidden' : '' ?>><?= e($p['description']) ?></p>
+        <p class="small muted desc-tr-foot"><span class="desc-tr-note"><?= $descTr !== null ? te('Machine translation of the listing text.') : '' ?></span>
+          <button type="button" class="desc-toggle"<?= $descTr === null ? ' hidden' : '' ?>><?= te('Show original') ?></button></p>
+      </div>
+      <?php endif; ?>
     </section>
     <?php endif; ?>
 
@@ -293,7 +303,7 @@ if (count($series) >= 2) {
           ?>
           <li>
             <span class="when"><?= e(fmt_date($ev['event_date'])) ?></span>
-            <span><?= e($eventLabel[$ev['event']] ?? $ev['event']) ?><?php if ($chg !== null): ?> <span class="<?= $chg < 0 ? 'down' : 'up' ?> num"><?= e(pct($chg)) ?></span><?php endif; ?></span>
+            <span><?= te($eventLabel[$ev['event']] ?? $ev['event']) ?><?php if ($chg !== null): ?> <span class="<?= $chg < 0 ? 'down' : 'up' ?> num"><?= e(pct($chg)) ?></span><?php endif; ?></span>
             <span class="amt"><?= e(money($ev['price'])) ?></span>
           </li>
           <?php endforeach; ?>

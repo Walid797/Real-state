@@ -50,7 +50,7 @@ View::header('Reports', 'reports');
             } elseif (is_int($v)) {
                 echo e(number_format($v));
             } else {
-                echo e((string) $v);
+                echo e(t((string) $v));
             }
           ?></td>
         <?php endforeach; ?>
