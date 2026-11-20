@@ -169,7 +169,9 @@ final class Deal
         $reno = $pick('reno_cost', self::renoEstimate($p, $condition['overall']));
         $closingPct = $pick('closing_pct', self::setting('deal_closing_pct'));
         $sellingPct = $pick('selling_pct', self::setting('deal_selling_pct'));
-        $months = $pick('holding_months', self::setting('deal_months'));
+        // Months held: how long flips in this ZIP actually took, when there are enough of them.
+        $pace = AreaPace::holdingMonths((string) ($p['zip'] ?? ''));
+        $months = $pick('holding_months', $pace['months'] ?? self::setting('deal_months'));
         // Tax from the record when there is one; otherwise a stated rate on the price.
         $taxYear = (float) ($p['tax_annual'] ?? 0);
         $taxEstimated = $taxYear <= 0 && $purchase;
@@ -185,6 +187,7 @@ final class Deal
         $out = [
             'inputs' => compact('purchase', 'arvValue', 'reno', 'closingPct', 'sellingPct', 'months', 'monthly', 'ltv', 'rate', 'points', 'contPct'),
             'source' => $src, 'arv' => $arv, 'condition' => $condition['overall'], 'ok' => false, 'tax_estimated' => $taxEstimated,
+            'months_from' => ($src['holding_months'] ?? '') === 'est' ? ($pace ? 'flips' : 'default') : 'set', 'months_flips' => $pace['count'] ?? 0,
         ];
         if (!$purchase || !$arvValue || $reno === null) {
             $out['missing'] = array_keys(array_filter(['purchase price' => !$purchase, 'ARV' => !$arvValue, 'renovation cost (needs sqft)' => $reno === null]));

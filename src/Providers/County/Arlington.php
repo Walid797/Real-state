@@ -106,16 +106,17 @@ final class Arlington implements CountySource
         if (!$props) {
             return [];
         }
-        $latest = [];
-        foreach (self::get('SalesHistory', 'saleDate ge ' . $since . ' and saleAmt gt 1000', 'saleDate desc', 20000) as $s) {
+        $hist = [];
+        foreach (self::get('SalesHistory', 'saleDate ge ' . $since . ' and saleAmt gt 1000', 'saleDate desc', 50000) as $s) {
             $rpc = (string) $s['realEstatePropertyCode'];
-            if (isset($props[$rpc]) && !isset($latest[$rpc]) && self::fairSale(trim((string) ($s['salesTypeDsc'] ?? '')), (int) $s['saleAmt'])) {
-                $latest[$rpc] = $s;
+            if (isset($props[$rpc])) {
+                $hist[$rpc][] = ['date' => substr((string) $s['saleDate'], 0, 10), 'price' => (int) $s['saleAmt'],
+                    'fair' => self::fairSale(trim((string) ($s['salesTypeDsc'] ?? '')), (int) $s['saleAmt'])];
             }
         }
         $out = [];
         $t = microtime(true);
-        foreach (array_chunk(array_keys($latest), 25) as $chunk) {
+        foreach (array_chunk(array_keys($hist), 25) as $chunk) {
             if (microtime(true) - $t > $budgetSeconds) {
                 break;
             }
@@ -136,9 +137,8 @@ final class Arlington implements CountySource
                 $out[] = [
                     'address' => self::street($prop), 'city' => Address::titleCity((string) ($prop['propertyCityName'] ?? 'Arlington')),
                     'state' => 'VA', 'zip' => $zip, 'county' => 'Arlington', 'status' => 'off_market',
-                    'last_sale_price' => (int) $latest[$rpc]['saleAmt'], 'last_sale_date' => substr((string) $latest[$rpc]['saleDate'], 0, 10),
                     'source_id' => 'arl:' . $rpc, 'data_status' => 'limited',
-                ] + $facts;
+                ] + Sales::fields($hist[$rpc]) + $facts;
             }
         }
         return $out;

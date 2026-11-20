@@ -633,5 +633,30 @@ $miss = App\Services\CountyRecords::missing(50);
 $ok(in_array('Travis', array_column($miss, 'county'), true) && !in_array('Fairfax', array_column($miss, 'county'), true), 'a county with homes but no records source is listed as missing; connected ones are not');
 Db::run('DELETE FROM properties WHERE id = ?', [$mx]);
 
+/* ── Flips and days on market ─────────────────────────────────────── */
+$sf = App\Providers\County\Sales::fields([['date' => '2024-01-10', 'price' => 300000, 'fair' => false], ['date' => '2024-08-01', 'price' => 420000, 'fair' => true], ['date' => null, 'price' => 5, 'fair' => true]]);
+$ok($sf['last_sale_price'] === 420000 && $sf['last_sale_date'] === '2024-08-01' && count($sf['events']) === 2, 'sale lists keep every sale as history and the latest fair one as the last sale');
+$fz = '99901';
+$d = static fn (int $daysAgo) => gmdate('Y-m-d', time() - $daysAgo * 86400);
+$mk = static function (string $addr, array $sales) use ($fz) {
+    $r = ['address' => $addr, 'city' => 'Flipton', 'state' => 'VA', 'zip' => $fz, 'status' => 'off_market'] + App\Providers\County\Sales::fields($sales);
+    return PropertyRepo::upsert($r, 'county')['id'];
+};
+$ids = [];
+foreach ([[300, 150, 250000, 330000], [400, 220, 200000, 280000], [500, 330, 310000, 400000], [600, 420, 180000, 260000], [700, 520, 220000, 300000]] as $i => [$buy, $sell, $bp, $sp]) {
+    $ids[] = $mk(($i + 1) . ' Flip St', [['date' => $d($buy), 'price' => $bp, 'fair' => false], ['date' => $d($sell), 'price' => $sp, 'fair' => true]]);
+}
+$ids[] = $mk('9 Hold St', [['date' => $d(1200), 'price' => 200000, 'fair' => true], ['date' => $d(100), 'price' => 260000, 'fair' => true]]); // held 3 years: not a flip
+$ids[] = $mk('8 Flat St', [['date' => $d(300), 'price' => 300000, 'fair' => true], ['date' => $d(200), 'price' => 310000, 'fair' => true]]); // +3%: not a flip
+$pace = App\Services\AreaPace::forZip($fz);
+$ok($pace['flips']['count'] === 5 && $pace['flips']['months'] !== null && abs($pace['flips']['months'] - 180 / 30.44) < 0.2 && $pace['flips']['gain_pct'] >= 29, 'five flips found (median 180 days ≈ 5.9 months), a 3-year hold and a 3% resale left out');
+$hm = App\Services\AreaPace::holdingMonths($fz);
+$ok($hm !== null && $hm['months'] === 6.0 && $hm['count'] === 5, 'five flips are enough to set the calculator’s months held (rounded to half months)');
+$sub = PropertyRepo::upsert(['address' => '10 Deal St', 'city' => 'Flipton', 'state' => 'VA', 'zip' => $fz, 'status' => 'for_sale', 'list_price' => 250000, 'sqft' => 1500], 'manual')['id'];
+$ids[] = $sub;
+$an = App\Services\Deal::analyse(PropertyRepo::find($sub));
+$ok($an['inputs']['months'] === 6.0 && $an['months_from'] === 'flips' && $an['months_flips'] === 5, 'the deal calculator takes months held from the area’s flips');
+Db::run('DELETE FROM properties WHERE zip = ?', [$fz]);
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

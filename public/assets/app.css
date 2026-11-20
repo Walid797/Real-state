@@ -860,3 +860,4 @@ html[lang="fa"] {
   [dir="rtl"] .results-map { border-inline-start: 0; }
   [dir="rtl"] .drop-wide .drop-panel { right: 16px; }
 }
+.sale-table td { white-space: nowrap; }

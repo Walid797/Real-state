@@ -195,6 +195,7 @@ if (count($series) >= 2) {
 
     <?php include APP_ROOT . '/pages/partials/listing_details.php'; ?>
     <?php include APP_ROOT . '/pages/partials/county_record.php'; ?>
+    <?php include APP_ROOT . '/pages/partials/area_pace.php'; ?>
 
     <?php include APP_ROOT . '/pages/partials/deal.php'; ?>
     <?php include APP_ROOT . '/pages/partials/condition.php'; ?>

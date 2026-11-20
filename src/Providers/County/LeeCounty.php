@@ -80,7 +80,7 @@ final class LeeCounty implements CountySource
         $since = gmdate('Y-m-d', time() - $days * 86400);
         $out = [];
         foreach (ArcGis::query(self::LAYER, [
-            'where' => 'SITEZIP = ' . ArcGis::str($zip) . " AND S_1DATE >= DATE '$since' AND S_1AMOUNT > 1000 AND S_1TC = '01' AND S_1VI = 'I' AND HEATEDAREA > 0",
+            'where' => 'SITEZIP = ' . ArcGis::str($zip) . " AND S_1DATE >= DATE '$since' AND S_1AMOUNT > 1000 AND HEATEDAREA > 0",
             'outFields' => self::FIELDS, 'orderByFields' => 'S_1DATE DESC',
         ], false, true, 'Lee County') as $r) {
             $line = self::street($r);
@@ -89,9 +89,20 @@ final class LeeCounty implements CountySource
             }
             $out[] = [
                 'address' => $line, 'city' => Address::titleCity((string) ($r['SITECITY'] ?? '')), 'state' => 'FL', 'zip' => $zip, 'county' => 'Lee',
-                'status' => 'off_market', 'last_sale_price' => (int) $r['S_1AMOUNT'], 'last_sale_date' => PropertyRepo::date((string) $r['S_1DATE']),
-                'source_id' => 'lee:' . $r['STRAP'], 'data_status' => 'limited',
-            ] + self::facts($r);
+                'status' => 'off_market', 'source_id' => 'lee:' . $r['STRAP'], 'data_status' => 'limited',
+            ] + Sales::fields(self::saleList($r)) + self::facts($r);
+        }
+        return $out;
+    }
+
+    /** @return list<array{date:?string, price:int, fair:bool}> the four sales on the record */
+    private static function saleList(array $r): array
+    {
+        $out = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $price = (int) round((float) ($r["S_{$i}AMOUNT"] ?? 0));
+            $out[] = ['date' => PropertyRepo::date((string) ($r["S_{$i}DATE"] ?? '')), 'price' => $price,
+                'fair' => ($r["S_{$i}VI"] ?? '') === 'I' && self::fairSale(trim((string) ($r["S_{$i}TC"] ?? '')), $price)];
         }
         return $out;
     }
