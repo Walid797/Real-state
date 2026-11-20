@@ -161,9 +161,9 @@ final class Fairfax implements CountySource
         }
         $out = [];
         foreach ($sales as $parid => $list) {
-            $pt = $points[$parid];
+            $pt = $points[$parid] ?? null;
             $d = $dwell[$parid] ?? null;
-            if ($pt['address'] === '' || $d === null) {
+            if ($pt === null || $pt['address'] === '' || $d === null) {
                 continue; // land, commercial or a parcel without a dwelling: not a comparable home
             }
             $out[] = [

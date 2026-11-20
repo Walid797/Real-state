@@ -76,6 +76,7 @@ final class Http
         $buffer = '';
         $bytes = 0;
         $stop = false;
+        $proto = CURLPROTO_HTTPS;
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_FOLLOWLOCATION => true,

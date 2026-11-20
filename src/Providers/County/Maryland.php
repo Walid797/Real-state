@@ -85,8 +85,9 @@ final class Maryland implements CountySource
         $rows = ArcGis::query(self::SALES, [
             'where' => 'PREMZIP = ' . ArcGis::str($zip) . ' AND TRADATE >= ' . ArcGis::str($since) . ' AND CONVEY1 = 1 AND CONSIDR1 > 1000 AND SQFTSTRC > 0',
             'outFields' => 'ACCTID,ADDRESS,PREMCITY,PREMZIP,YEARBLT,SQFTSTRC,CONSIDR1,TRADATE,DESCSTYL,LU,LANDAREA,LUOM,NFMTTLVL',
-            'outSR' => '4326', 'returnGeometry' => 'true', 'orderByFields' => 'TRADATE DESC',
-        ], true, true, 'Maryland');
+            'outSR' => '4326', 'returnGeometry' => 'true', 'resultRecordCount' => 2000,
+        ], true, false, 'Maryland'); // this MapServer layer does not page; one ZIP's sales fit in 2,000 rows
+        usort($rows, static fn ($a, $b) => strcmp((string) ($b['attributes']['TRADATE'] ?? ''), (string) ($a['attributes']['TRADATE'] ?? '')));
         $out = [];
         $seen = [];
         foreach ($rows as $f) {
