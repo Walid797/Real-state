@@ -731,7 +731,7 @@ return [
     'Backups' => 'نسخه‌های پشتیبان',
     'KB ·' => 'کیلوبایت ·',
     'The scheduler writes one every day and keeps the last 14.' => 'زمان‌بند روزانه یک نسخه می‌سازد و ۱۴ نسخهٔ آخر را نگه می‌دارد.',
-    'A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. API keys and passwords inside are encrypted with a key that lives only in the server’s config file.' => 'زمان‌بند هر روز نسخهٔ پشتیبان می‌سازد و ۱۴ نسخهٔ آخر را در فضای خصوصی سرور نگه می‌دارد. هر از گاهی نسخه‌ای دانلود و در جای دیگری نگهداری کنید. کلیدهای API و گذرواژه‌ها با کلیدی در فایل تنظیمات سرور رمزنگاری شده‌اند.',
+    'A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. It holds no API keys or passwords: those stay only on the server.' => 'زمان‌بند هر روز نسخهٔ پشتیبان می‌سازد و ۱۴ نسخهٔ آخر را در فضای خصوصی سرور نگه می‌دارد. هر از گاهی نسخه‌ای دانلود و در جای دیگری نگهداری کنید. کلیدهای API و گذرواژه‌ها در آن نیست و فقط روی سرور می‌مانند.',
     'Sites' => 'سایت‌ها',
     'The other places you check. Each one becomes a link on every home and every search, already pointed at the same address or area.' => 'سایت‌های دیگر جست‌وجوی ملک. هر سایت به‌صورت لینک همان نشانی یا منطقه در صفحات ملک و جست‌وجو ظاهر می‌شود.',
     'Your list' => 'فهرست شما',
@@ -1230,4 +1230,9 @@ return [
     'This weighs everything on this page — the deal, comparable sales, the assessment, the seller’s position, flips and values in the area, flood zone, neighbourhood, the building and the land. It is an analysis of the data on file, not an appraisal or an inspection.' => 'این بخش همهٔ موارد این صفحه را می‌سنجد — معامله، فروش‌های مقایسه‌ای، ارزیابی، وضعیت فروشنده، Flipها و ارزش‌های منطقه، منطقهٔ سیل، محله، ساختمان و زمین. این تحلیل داده‌های ثبت‌شده است، نه ارزیابی رسمی یا بازرسی.',
     'Set in .env as' => 'در فایل ‎.env تنظیم شده با نام',
     'Not set — add to .env:' => 'تنظیم نشده — به ‎.env اضافه کنید:',
+    'Alerts, county records and market data are refreshed on the server every hour.' => 'هشدارها، سوابق شهرستان و دادهٔ بازار هر ساعت روی سرور به‌روز می‌شوند.',
+    'Check the mailbox settings on the server.' => 'تنظیمات صندوق ایمیل را روی سرور بررسی کنید.',
+    'The 3D view may well work — open a home to see. Save again later to re-check.' => 'احتمالاً نمای سه‌بعدی کار می‌کند — یک خانه را باز کنید و ببینید. بعداً دوباره ذخیره کنید تا بررسی شود.',
+    'Check the 3D service’s token on the server.' => 'توکن سرویس سه‌بعدی را روی سرور بررسی کنید.',
+    'Sent through a mailbox on your own domain, so it lands in the inbox instead of spam.' => 'از یک صندوق ایمیل روی دامنهٔ خودتان فرستاده می‌شود تا به‌جای Spam به Inbox برسد.',
 ];
