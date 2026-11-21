@@ -25,6 +25,8 @@ use App\Settings;
  */
 final class Search
 {
+    public const AREA_MAX_LENGTH = 300;
+
     /** Numeric min / max filters. */
     public const NUMERIC = [
         'price_min', 'price_max', 'beds_min', 'beds_max', 'baths_min', 'baths_max', 'sqft_min', 'sqft_max',
@@ -37,7 +39,7 @@ final class Search
 
     public static function fromRequest(array $src): array
     {
-        $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, 300)];
+        $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH)];
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
@@ -171,12 +173,14 @@ final class Search
         if (($opt['fetch'] ?? true) !== false) {
             $plan = self::plan($loc, $f, $ctx);
             $out['needs'] = $plan['needs'];
-            // One pull for a simple area happens on its own; several pulls wait for a "yes".
-            $go = $plan['needs'] && (count($plan['needs']) === 1 && !$plan['recent'] || !empty($opt['confirm']) || !empty($opt['force']));
+            $confirmed = !empty($opt['confirm']);
+            $force = !empty($opt['force']);
+            // Multiple areas require confirmation even when they share one provider request.
+            $go = $plan['needs'] && ($confirmed || $force || ($loc['type'] !== 'multi' && !$plan['recent']));
             if ($go) {
                 $notices = [];
                 foreach ($plan['needs'] as $fetchLoc) {
-                    $snap = self::ensureSnapshot($fetchLoc, $f, $ctx, !empty($opt['force']));
+                    $snap = self::ensureSnapshot($fetchLoc, $f, $ctx, $force, confirmed: $confirmed);
                     $out['fetched'] = $out['fetched'] || $snap['fetched'];
                     $out['snapshot'] = $snap['snapshot'] ?? $out['snapshot'];
                     if ($snap['notice']) {
@@ -321,7 +325,7 @@ final class Search
         ), 'id'));
     }
 
-    public static function ensureSnapshot(array $loc, array $f, string $ctx = 'manual', bool $force = false, ?int $maxAgeHours = null): array
+    public static function ensureSnapshot(array $loc, array $f, string $ctx = 'manual', bool $force = false, ?int $maxAgeHours = null, bool $confirmed = false): array
     {
         $mode = ($f['mode'] ?? 'sale') === 'sold' ? 'sold' : 'sale';
         $c = self::cover($loc, $f, $maxAgeHours);
@@ -331,7 +335,7 @@ final class Search
                 return ['snapshot' => $c['hit'], 'fetched' => false, 'partial' => false, 'notice' => null];
             }
             // Pulled recently, but not these filters: by hand, show what is saved and let the user decide.
-            if ($c['recent'] && $ctx === 'manual') {
+            if ($c['recent'] && $ctx === 'manual' && !$confirmed) {
                 return ['snapshot' => $c['recent'], 'fetched' => false, 'partial' => true, 'notice' => null];
             }
         }

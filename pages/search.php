@@ -44,9 +44,10 @@ if ($f['q'] !== '') {
 $typesDefault = ['Single Family', 'Townhouse'];
 $val = static fn (string $k) => isset($f[$k]) ? e(rtrim(rtrim(number_format((float) $f[$k], 2, '.', ''), '0'), '.')) : '';
 $money = static fn (string $k) => isset($f[$k]) ? e(number_format((float) $f[$k])) : '';
+$countyExample = 'Fairfax County, Loudoun County, VA';
 
 /** The full filter form — used on the landing page and in the results drawer. */
-$filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefault, $stateName): void {
+$filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefault, $countyExample): void {
     $types = $landing && !$f['types'] ? $typesDefault : $f['types'];
     $pair = static function (string $label, string $min, string $max, string $hint = '', bool $isMoney = false) use ($val, $money): void {
         $v = $isMoney ? $money : $val;
@@ -61,8 +62,8 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
         <legend><?= te($landing ? 'Area' : 'Type') ?></legend>
         <?php if ($landing): ?>
         <label class="field"><span><?= te('Where') ?></span>
-          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($stateName) ?> · Fairfax County · Richmond · 22030, 20176" required autocomplete="off">
-          <small><?= te('The whole state, a county, a city, or several ZIPs. Separate several areas with “;”.') ?></small></label>
+          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($countyExample) ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
+          <small id="search-area-help"><?= te('Include “County” in each name and separate the names with commas. To combine a county with a city or ZIP code, use a semicolon.') ?></small></label>
         <div class="field"><span><?= te('Listings') ?></span>
           <span class="seg" role="group" aria-label="<?= te('For sale or sold') ?>">
             <label><input type="radio" name="mode" value="sale"<?= checked($f['mode'] === 'sale') ?>><span><?= te('For sale') ?></span></label>
@@ -242,7 +243,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 <form class="sbar" method="get" action="/search" role="search">
   <div class="sbar-row">
     <label class="q"><span class="sr"><?= te('Area') ?></span><?= icon('search', 16) ?>
-      <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" autocomplete="off" required></label>
+      <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($countyExample) ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" required aria-describedby="search-area-help"></label>
     <span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
@@ -261,6 +262,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </select></label>
     <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </div>
+  <p class="sbar-desc" id="search-area-help"><?= te('Separate county names with commas, as in %s.', $countyExample) ?></p>
   <?php if ($activeFilters): ?><p class="sbar-desc"><?= e(Search::describe($f)) ?></p><?php endif; ?>
 </form>
 
@@ -294,7 +296,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <div class="cost-card">
         <div>
           <strong><?= $n === 1 ? te('This area') : te('%d areas', $n) ?> <?= te('not pulled with these filters yet') ?></strong>
-          <p class="small soft"><?= e(implode(' · ', array_column($needs, 'label'))) ?> — uses <?= plural($n, 'request') ?> of the <?= $left ?> <?= te('left this month.') ?><?= in_array('state', array_column($needs, 'type'), true) ? ' A statewide pull returns up to 500 homes; tighter price and size filters make those 500 count.' : '' ?></p>
+          <p class="small soft"><?= e(implode(' · ', array_column($needs, 'label'))) ?> · <?= te('%1$s needed, %2$d left this month.', plural($n, 'request'), $left) ?>
+            <?php if (in_array('state', array_column($needs, 'type'), true)): ?><?= te('Counties in the same state share a statewide request. The provider may return only part of the listings.') ?><?php endif; ?></p>
         </div>
         <form method="post" action="/search/act" class="inline">
           <?= csrf_field() ?><input type="hidden" name="do" value="pull"><input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
@@ -312,7 +315,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       // Where a county publishes its sales, they come from its records for free.
       $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null;
       ?>
-      <?php if ($areaSales === 0 && Auth::can('edit')): ?>
+      <?php if ($areaSales === 0 && Auth::can('edit')):
+          $salesFilters = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types']]);
+          $salesRequests = $ffxZip ? 0 : count(Search::plan($loc, $salesFilters)['needs']);
+      ?>
       <div class="cost-card sales-card">
         <div>
           <strong><?= te('ARV and profit here come from asking prices.') ?></strong>
@@ -323,7 +329,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           <?php if ($ffxZip): ?>
           <button class="btn btn-primary" type="submit"><?= icon('download', 14) ?><?= te('Pull recorded sales') ?><span class="cost"><?= te('free · county records') ?></span></button>
           <?php else: ?>
-          <button class="btn btn-primary" type="submit"<?= $provider ? '' : ' disabled' ?>><?= icon('download', 14) ?><?= te('Pull recorded sales') ?><span class="cost"><?= te('1 request') ?></span></button>
+          <button class="btn btn-primary" type="submit"<?= $provider && $salesRequests ? '' : ' disabled' ?>><?= icon('download', 14) ?><?= te('Pull recorded sales') ?><span class="cost"><?= e(plural($salesRequests, 'request')) ?></span></button>
           <?php endif; ?>
         </form>
       </div>
@@ -403,7 +409,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
               <?php if ($pp): ?><small>$<?= number_format($pp) ?><?= te('/sqft') ?></small><?php endif; ?></div>
             <div class="body">
               <a dir="auto" class="addr" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
-              <span class="where"><?= e($r['city']) ?>, <?= e($r['state']) ?> <?= e($r['zip']) ?></span>
+              <span class="where"><bdi><?= e($r['city']) ?>, <?= e($r['state']) ?> <?= e($r['zip']) ?></bdi><?php if ($loc['type'] === 'multi' && $r['county']): ?> · <bdi><?= e($r['county']) ?></bdi><?php endif; ?></span>
               <div class="facts"><?= (PropertyRepo::facts($r) !== '' ? e(PropertyRepo::facts($r)) : te('Details not on file')) ?><?= $r['property_type'] ? ' · ' . te($r['property_type']) : '' ?></div>
               <div class="chips">
                 <?php if ($mode === 'sale' && $r['est_profit'] !== null): ?>

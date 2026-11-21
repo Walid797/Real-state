@@ -266,8 +266,8 @@ final class PropertyRepo
                 array_push($a, $loc['state'], $loc['city']);
                 return '(p.state = ? AND p.city = ?)';
             case 'county':
-                array_push($a, $loc['state'], $loc['county'], $loc['county'] . ' County', $loc['county'] . ' city');
-                return '(p.state = ? AND p.county IN (?, ?, ?))';
+                array_push($a, $loc['state'], $loc['county'], $loc['county'] . ' County', $loc['county'] . ' Parish', $loc['county'] . ' Borough');
+                return '(p.state = ? AND p.county IN (?, ?, ?, ?))';
             case 'state':
                 $a[] = $loc['state'];
                 return 'p.state = ?';

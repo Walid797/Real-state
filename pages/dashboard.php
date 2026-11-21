@@ -64,7 +64,7 @@ View::header('Dashboard', 'dashboard');
     <p><?= $k['good'] ? te($k['good'] === 1 ? 'One strong opportunity on file.' : '%d strong opportunities on file.', $k['good']) : te('No strong opportunities on file yet.') ?> <?= $k['mine'] ? te('%d awaiting your review.', $k['mine']) : '' ?></p>
     <form class="quick-search" method="get" action="/search" role="search">
       <label class="sr" for="dq"><?= te('Search an area') ?></label>
-      <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= e($stateName) ?><?= te(', a county, a city or ZIPs') ?>" required>
+      <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= te('County names, city, or ZIPs') ?>" maxlength="<?= App\Services\Search::AREA_MAX_LENGTH ?>" required>
       <input type="hidden" name="types[]" value="Single Family"><input type="hidden" name="types[]" value="Townhouse">
       <input type="hidden" name="sort" value="score">
       <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>

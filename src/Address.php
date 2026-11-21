@@ -94,6 +94,8 @@ final class Address
      *   "22030, 20176 22102"          several ZIPs
      *   "Virginia", "VA", "all of VA" the whole state
      *   "Fairfax County, VA"          a county (state optional: home state assumed)
+     *   "Fairfax County, Loudoun County, VA"   several counties in one state
+     *   "Fairfax County, VA, Montgomery County, MD"   counties in different states
      *   "Austin, TX", "Richmond"      a city (state optional: home state assumed)
      *   "Fairfax County; Richmond"    several areas, separated by ";"
      *   "5500 Grand Lake Dr, San Antonio, TX 78244"   one street address
@@ -103,6 +105,7 @@ final class Address
      */
     public static function parseLocation(string $q): ?array
     {
+        $q = strtr($q, ['،' => ',', '؛' => ';']);
         $q = trim(preg_replace('/\s+/', ' ', $q) ?? '');
         if ($q === '') {
             return null;
@@ -113,16 +116,48 @@ final class Address
             return self::multi(array_map(static fn ($z) => self::parseOne($z), array_slice($zips, 0, 40)));
         }
         if (str_contains($q, ';')) {
-            $parts = array_values(array_filter(array_map(static fn ($x) => self::parseOne(trim($x)), explode(';', $q))));
-            $parts = array_values(array_filter($parts, static fn ($x) => $x['type'] !== 'address'));
-            return $parts ? (count($parts) === 1 ? $parts[0] : self::multi(array_slice($parts, 0, 40))) : null;
+            $parts = [];
+            foreach (explode(';', $q) as $chunk) {
+                $chunk = trim($chunk);
+                $areas = self::countyList($chunk) ?: [self::parseOne($chunk)];
+                foreach ($areas as $area) {
+                    if ($area && $area['type'] !== 'address') {
+                        $parts[] = $area;
+                    }
+                }
+            }
+            return self::multi($parts);
         }
-        return self::parseOne($q);
+        $counties = self::countyList($q);
+        return $counties ? self::multi($counties) : self::parseOne($q);
+    }
+
+    /** A comma before a county name separates areas; a comma before a state stays with its county. */
+    private static function countyList(string $q): array
+    {
+        $suffix = '(?:county|parish|borough)';
+        $names = preg_split('/,\s*(?=[^,]+?\s+' . $suffix . '\b)/i', $q) ?: [];
+        if (count($names) < 2) {
+            return [];
+        }
+        $parts = array_map(self::parseOne(...), $names);
+        if (count(array_filter($parts, static fn ($part) => ($part['type'] ?? '') === 'county')) !== count($names)) {
+            return [];
+        }
+        $unqualified = array_filter($names, static fn ($name) => preg_match('/\s' . $suffix . '$/i', trim($name)));
+        $last = count($names) - 1;
+        // A single state written at the very end applies to the whole comma-separated list.
+        if (count($unqualified) === $last && !isset($unqualified[$last])) {
+            foreach ($unqualified as $i => $name) {
+                $parts[$i] = self::parseOne($name . ', ' . $parts[$last]['state']);
+            }
+        }
+        return $parts;
     }
 
     private static function multi(array $parts): ?array
     {
-        $parts = array_values(array_filter($parts));
+        $parts = array_slice(array_values(array_column(array_filter($parts), null, 'key')), 0, 40);
         if (!$parts) {
             return null;
         }

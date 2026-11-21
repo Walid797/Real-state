@@ -286,7 +286,35 @@ $eq(array_column($mix['parts'] ?? [], 'type'), ['county', 'city', 'zip'], 'mixed
 $plan = Search::plan($mix, Search::fromRequest(['q' => 'x']));
 $eq(array_column($plan['needs'], 'key'), ['state:VA', 'city:VA:richmond', 'zip:22030'], 'a county is pulled through its state; one pull per area');
 $a2 = [];
-$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 7, 'several areas search with OR');
+$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 8, 'several areas search with OR');
+$counties = Address::parseLocation('Fairfax County, Loudoun County, VA');
+$eq(array_column(Address::areas($counties), 'key'), ['county:VA:fairfax', 'county:VA:loudoun'], 'county list shares a trailing state');
+$eq(array_column(Address::areas(Address::parseLocation('Fairfax County, VA, Montgomery County, MD')), 'key'), ['county:VA:fairfax', 'county:MD:montgomery'], 'commas preserve each explicit county state');
+$eq(Address::parseLocation('Loudoun County؛ Fairfax County؛ Fairfax County')['key'], $counties['key'], 'reordered and repeated counties share the same search key');
+$otherStates = Address::parseLocation('Travis County، Hays County، TX؛ Montgomery County, Maryland');
+$eq(array_column(Address::areas($otherStates), 'key'), ['county:TX:travis', 'county:TX:hays', 'county:MD:montgomery'], 'mixed county lists keep their correct states');
+$eq(array_column(Search::plan($otherStates, Search::fromRequest([]))['needs'], 'key'), ['state:TX', 'state:MD'], 'one provider pull per state');
+$areaSearch = Search::run(Search::fromRequest(['q' => 'Fairfax County, Loudoun County, VA']));
+$ok($areaSearch['partial'] && !$areaSearch['fetched'] && count($areaSearch['needs']) === 1, 'county list waits for confirmation even when only one pull is needed');
+$eq(Address::parseLocation('123 Main Street, Fairfax, VA 22030')['type'], 'address', 'street address commas retain their meaning');
+$checkCounties = [
+    ['Fairfax', 'VA', '22030'], ['Loudoun County', 'VA', '20176'], ['Fairfax city', 'VA', '22032'], ['Fairfax', 'TX', '78711'], ['Arlington', 'VA', '22213'],
+];
+$countyCheckIds = [];
+try {
+    foreach ($checkCounties as $i => [$county, $state, $zip]) {
+        $countyCheckIds[] = PropertyRepo::upsert([
+            'address' => (900 + $i) . ' County Search Fixture Rd', 'city' => 'Fixture', 'county' => $county,
+            'state' => $state, 'zip' => $zip, 'status' => 'for_sale', 'list_price' => 300000 + $i,
+        ], 'manual')['id'];
+    }
+    $foundIds = array_column(PropertyRepo::search(['loc' => $counties, 'sort' => 'price_asc', 'limit' => 2000])['rows'], 'id');
+    $eq(array_values(array_map('intval', array_intersect($foundIds, $countyCheckIds))), array_slice($countyCheckIds, 0, 2), 'county search includes both selected counties and excludes the independent city, other states and other counties');
+} finally {
+    foreach ($countyCheckIds as $id) {
+        Db::run('DELETE FROM properties WHERE id = ?', [$id]);
+    }
+}
 
 /* ── Condition from listing text ─────────────────────────────────────── */
 $d = Condition::detect('Investor special, sold as-is. Original kitchen and dated bathrooms. Cash only.');
