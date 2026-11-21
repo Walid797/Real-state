@@ -139,10 +139,14 @@ final class Fairfax implements CountySource
             }
             $in = implode(',', array_map([self::class, 'str'], $chunk));
             foreach (self::query(self::SALES, [
-                'where' => "PARID IN ($in) AND SALEDT >= DATE '$since' AND PRICE > 1000 AND " . self::ARMS_LENGTH,
+                'where' => "PARID IN ($in) AND SALEDT >= DATE '$since' AND PRICE > 1000",
                 'outFields' => 'PARID,SALEDT,PRICE,SALEVAL_DESC', 'orderByFields' => 'SALEDT DESC',
             ], false, true) as $s) {
-                $sales[$s['PARID']] ??= $s; // latest sale per parcel
+                // every sale: the latest fair one prices comparables, the others show flips
+                $sales[$s['PARID']][] = [
+                    'date' => gmdate('Y-m-d', (int) ($s['SALEDT'] / 1000)), 'price' => (int) $s['PRICE'],
+                    'fair' => self::fairSale((string) ($s['SALEVAL_DESC'] ?? ''), (int) $s['PRICE']),
+                ];
             }
         }
         if (!$sales) {
@@ -156,18 +160,17 @@ final class Fairfax implements CountySource
             }
         }
         $out = [];
-        foreach ($sales as $parid => $s) {
-            $pt = $points[$parid];
+        foreach ($sales as $parid => $list) {
+            $pt = $points[$parid] ?? null;
             $d = $dwell[$parid] ?? null;
-            if ($pt['address'] === '' || $d === null) {
+            if ($pt === null || $pt['address'] === '' || $d === null) {
                 continue; // land, commercial or a parcel without a dwelling: not a comparable home
             }
             $out[] = [
                 'address' => $pt['address'], 'city' => $pt['city'], 'state' => 'VA', 'zip' => $pt['zip'], 'county' => 'Fairfax',
                 'lat' => $pt['lat'], 'lng' => $pt['lng'], 'status' => 'off_market',
-                'last_sale_price' => (int) $s['PRICE'], 'last_sale_date' => gmdate('Y-m-d', (int) ($s['SALEDT'] / 1000)),
                 'source_id' => 'ffx:' . $parid, 'data_status' => 'limited',
-            ] + self::dwellingFacts($d);
+            ] + County\Sales::fields($list) + self::dwellingFacts($d);
         }
         return $out;
     }

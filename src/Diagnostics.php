@@ -83,6 +83,12 @@ final class Diagnostics
         }
         $out[] = '  Counties without a source (homes for sale): ' . (implode(', ', array_map(static fn ($m) => $m['state'] . ' ' . ($m['county'] ?: '(no county)') . ' ' . $m['homes'] . ' [' . $m['zips'] . ']',
             Services\CountyRecords::missing(15))) ?: 'none');
+        $flipLines = [];
+        foreach (Db::all("SELECT zip, COUNT(*) n FROM properties WHERE status IN ('for_sale','pending') AND zip <> '' GROUP BY zip ORDER BY n DESC LIMIT 8") as $z) {
+            $f = Services\AreaPace::forZip((string) $z['zip'])['flips'];
+            $flipLines[] = $z['zip'] . ': ' . $f['count'] . ' flips' . ($f['count'] ? ' (' . $f['months'] . ' mo, +' . $f['gain_pct'] . '%)' : '');
+        }
+        $out[] = '  Flips in the busiest ZIPs: ' . implode(', ', $flipLines);
         $out[] = '  Homes for sale by state and county: ' . implode(', ', array_map(static fn ($r) => ($r['county'] ?? '(none)') . ' ' . $r['n'],
             Db::all("SELECT CONCAT(state, ' ', COALESCE(county, '')) county, COUNT(*) n FROM properties WHERE status IN ('for_sale','pending') GROUP BY state, county ORDER BY n DESC LIMIT 15")));
         $saved = json_decode((string) Settings::get('cesium_check', ''), true);

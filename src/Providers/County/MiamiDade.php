@@ -85,7 +85,7 @@ final class MiamiDade implements CountySource
         $out = [];
         // DOS_1 is text "YYYYMMDD", so the date compares as text.
         foreach (ArcGis::query(self::LAYER, [
-            'where' => 'TRUE_SITE_ZIP_CODE LIKE ' . ArcGis::str($zip . '%') . " AND PRICE_1 > 1000 AND QU_FLG_1 = 'Q' AND BUILDING_HEATED_AREA > 0"
+            'where' => 'TRUE_SITE_ZIP_CODE LIKE ' . ArcGis::str($zip . '%') . " AND PRICE_1 > 1000 AND BUILDING_HEATED_AREA > 0"
                 . ' AND DOS_1 >= ' . ArcGis::str(str_replace('-', '', $since)),
             'outFields' => self::FIELDS, 'outSR' => '4326', 'returnGeometry' => 'true',
         ], true, true, 'Miami-Dade') as $f) {
@@ -95,11 +95,15 @@ final class MiamiDade implements CountySource
             if ($date === null || $date < $since || !preg_match('/^\d/', $line)) {
                 continue;
             }
+            $list = [];
+            for ($i = 1; $i <= 3; $i++) {
+                $price = (int) round((float) ($r["PRICE_$i"] ?? 0));
+                $list[] = ['date' => PropertyRepo::date((string) ($r["DOS_$i"] ?? '')), 'price' => $price, 'fair' => self::fairSale((string) ($r["QU_FLG_$i"] ?? ''), $price)];
+            }
             $out[] = [
                 'address' => ucwords(strtolower($line)), 'city' => Address::titleCity((string) ($r['TRUE_SITE_CITY'] ?? '')), 'state' => 'FL', 'zip' => $zip,
-                'county' => 'Miami-Dade', 'status' => 'off_market', 'last_sale_price' => (int) round((float) $r['PRICE_1']), 'last_sale_date' => $date,
-                'source_id' => 'mdc:' . $r['FOLIO'], 'data_status' => 'limited',
-            ] + self::facts($r, $f['geometry'] ?? []);
+                'county' => 'Miami-Dade', 'status' => 'off_market', 'source_id' => 'mdc:' . $r['FOLIO'], 'data_status' => 'limited',
+            ] + Sales::fields($list) + self::facts($r, $f['geometry'] ?? []);
         }
         return $out;
     }

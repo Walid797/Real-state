@@ -633,5 +633,114 @@ $miss = App\Services\CountyRecords::missing(50);
 $ok(in_array('Travis', array_column($miss, 'county'), true) && !in_array('Fairfax', array_column($miss, 'county'), true), 'a county with homes but no records source is listed as missing; connected ones are not');
 Db::run('DELETE FROM properties WHERE id = ?', [$mx]);
 
+/* ── Flips and days on market ─────────────────────────────────────── */
+$sf = App\Providers\County\Sales::fields([['date' => '2024-01-10', 'price' => 300000, 'fair' => false], ['date' => '2024-08-01', 'price' => 420000, 'fair' => true], ['date' => null, 'price' => 5, 'fair' => true]]);
+$ok($sf['last_sale_price'] === 420000 && $sf['last_sale_date'] === '2024-08-01' && count($sf['events']) === 2, 'sale lists keep every sale as history and the latest fair one as the last sale');
+$fz = '99901';
+$d = static fn (int $daysAgo) => gmdate('Y-m-d', time() - $daysAgo * 86400);
+$mk = static function (string $addr, array $sales) use ($fz) {
+    $r = ['address' => $addr, 'city' => 'Flipton', 'state' => 'VA', 'zip' => $fz, 'status' => 'off_market'] + App\Providers\County\Sales::fields($sales);
+    return PropertyRepo::upsert($r, 'county')['id'];
+};
+$ids = [];
+foreach ([[300, 150, 250000, 330000], [400, 220, 200000, 280000], [500, 330, 310000, 400000], [600, 420, 180000, 260000], [700, 520, 220000, 300000]] as $i => [$buy, $sell, $bp, $sp]) {
+    $ids[] = $mk(($i + 1) . ' Flip St', [['date' => $d($buy), 'price' => $bp, 'fair' => false], ['date' => $d($sell), 'price' => $sp, 'fair' => true]]);
+}
+$ids[] = $mk('9 Hold St', [['date' => $d(1200), 'price' => 200000, 'fair' => true], ['date' => $d(100), 'price' => 260000, 'fair' => true]]); // held 3 years: not a flip
+$ids[] = $mk('8 Flat St', [['date' => $d(300), 'price' => 300000, 'fair' => true], ['date' => $d(200), 'price' => 310000, 'fair' => true]]); // +3%: not a flip
+$pace = App\Services\AreaPace::forZip($fz);
+$ok($pace['flips']['count'] === 5 && $pace['flips']['months'] !== null && abs($pace['flips']['months'] - 180 / 30.44) < 0.2 && $pace['flips']['gain_pct'] >= 29, 'five flips found (median 180 days ≈ 5.9 months), a 3-year hold and a 3% resale left out');
+$hm = App\Services\AreaPace::holdingMonths($fz);
+$ok($hm !== null && $hm['months'] === 6.0 && $hm['count'] === 5, 'five flips are enough to set the calculator’s months held (rounded to half months)');
+$sub = PropertyRepo::upsert(['address' => '10 Deal St', 'city' => 'Flipton', 'state' => 'VA', 'zip' => $fz, 'status' => 'for_sale', 'list_price' => 250000, 'sqft' => 1500], 'manual')['id'];
+$ids[] = $sub;
+$an = App\Services\Deal::analyse(PropertyRepo::find($sub));
+$ok($an['inputs']['months'] === 6.0 && $an['months_from'] === 'flips' && $an['months_flips'] === 5, 'the deal calculator takes months held from the area’s flips');
+Db::run('DELETE FROM properties WHERE zip = ?', [$fz]);
+
+/* ── Verdict ──────────────────────────────────────────────────────── */
+$vz = '99905';
+$vd = static fn (int $daysAgo) => gmdate('Y-m-d', time() - $daysAgo * 86400);
+foreach (range(1, 8) as $i) { // recorded sales nearby: about $300/sqft
+    PropertyRepo::upsert(['address' => "$i Comp Way", 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+        'lat' => 38.80 + $i / 2000, 'lng' => -77.10, 'status' => 'off_market', 'last_sale_price' => 450000 + $i * 1000, 'last_sale_date' => $vd(40 + $i * 10)], 'county');
+}
+$good = PropertyRepo::upsert(['address' => '1 Bargain Rd', 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+    'beds' => 3, 'baths' => 1, 'year_built' => 1985, 'lat' => 38.8021, 'lng' => -77.10, 'status' => 'for_sale', 'list_price' => 250000, 'tax_annual' => 2500], 'manual')['id'];
+$bad = PropertyRepo::upsert(['address' => '2 Pricey Rd', 'city' => 'Verdictville', 'state' => 'VA', 'zip' => $vz, 'property_type' => 'Single Family', 'sqft' => 1500, 'lot_sqft' => 6000,
+    'beds' => 3, 'baths' => 2, 'year_built' => 1985, 'lat' => 38.8022, 'lng' => -77.10, 'status' => 'for_sale', 'list_price' => 520000, 'tax_annual' => 5200], 'manual')['id'];
+$none = PropertyRepo::upsert(['address' => '3 Blank Rd', 'city' => 'Nowhere', 'state' => 'VA', 'zip' => '99906', 'status' => 'for_sale', 'list_price' => 300000], 'manual')['id'];
+$vg = App\Services\Verdict::for(PropertyRepo::find($good));
+$vb = App\Services\Verdict::for(PropertyRepo::find($bad));
+$vn = App\Services\Verdict::for(PropertyRepo::find($none));
+$ok(in_array($vg['verdict'], ['buy', 'offer'], true) && $vg['offer'] > 250000, 'a home well under its comparable sales is worth buying, with a most-to-offer above the asking price');
+$ok(in_array($vb['verdict'], ['lower', 'pass'], true) && $vb['offer'] < 520000, 'a home priced at its after-repair value is not worth buying at that price');
+$ok($vn['verdict'] === 'unknown' && $vn['confidence'] === 'low', 'without sales or size the verdict says there is not enough data');
+$ok((bool) array_filter($vg['factors'], static fn ($f) => $f['group'] === 'building' && $f['tone'] > 0 && str_contains($f['text'], 'adding a bathroom')), 'a 3-bed, 1-bath home is flagged as a value-add');
+$ok(count(array_unique(array_column($vg['factors'], 'group'))) >= 3 && $vg['checks'], 'the verdict covers several groups and lists checks before an offer');
+Db::run('DELETE FROM properties WHERE zip IN (?, ?)', [$vz, '99906']);
+
+/* ── .env ─────────────────────────────────────────────────────────── */
+$envFile = sys_get_temp_dir() . '/plat-test-' . getmypid() . '.env';
+file_put_contents($envFile, "# comment\nRENTCAST_API_KEY=rc_live_123\nSMTP_PASSWORD=\"p@ss \\\"word\\\" #1\"\nTELEGRAM_CHAT_ID='99 88' # trailing\nexport SMTP_PORT=587\nlowercase=x\n");
+putenv('REALESTATE_ENV=' . $envFile);
+App\Env::reset();
+$ok(App\Env::get('RENTCAST_API_KEY') === 'rc_live_123' && App\Env::get('SMTP_PASSWORD') === 'p@ss "word" #1' && App\Env::get('TELEGRAM_CHAT_ID') === '99 88' && App\Env::get('SMTP_PORT') === '587' && !isset(App\Env::all()['lowercase']), '.env lines are read with quotes, escapes, comments and export');
+$ok(App\Env::parse('X=' . App\Env::quote('a "b" $c #d')) === ['X' => 'a "b" $c #d'], 'a value written by the exporter reads back exactly');
+$hadRc = App\Db::val("SELECT v FROM settings WHERE k = 'rentcast_key'");
+Settings::set('rentcast_key', 'from-the-form');
+$ok(Settings::get('rentcast_key') === 'rc_live_123' && Settings::inEnv('rentcast_key') && Settings::fromEnv('smtp_host') && !Settings::fromEnv('rentcast_limit'), 'a key in .env wins, and the form cannot overwrite it; limits stay in Settings');
+$ok(Settings::get('google_client_id') === null || !Settings::inEnv('google_client_id'), 'a key missing from .env falls back to what was saved before');
+putenv('REALESTATE_ENV');
+App\Env::reset();
+@unlink($envFile);
+
+/* ── Deleting several at once ─────────────────────────────────────── */
+$asUser = static function (?array $u): void { (new ReflectionProperty(App\Auth::class, 'user'))->setValue(null, $u); };
+$adminRow = Db::one("SELECT id, email, name, role, is_active, session_epoch, telegram_chat FROM users WHERE role = 'admin' AND is_active = 1 ORDER BY id LIMIT 1");
+$asUser($adminRow);
+$tmpU = [];
+foreach (['bulk1@example.com', 'bulk2@example.com'] as $em) {
+    $tmpU[] = Db::insert('users', ['email' => $em, 'name' => 'Bulk', 'role' => 'viewer', 'password_hash' => '', 'created_at' => now()]);
+}
+$aid = Db::insert('alerts', ['user_id' => $tmpU[0], 'name' => 'gone', 'kind' => 'new_listing', 'location' => '22030', 'criteria' => '{}', 'channels' => 'email', 'every_hours' => 24, 'enabled' => 1, 'created_at' => now()]);
+$r = App\Services\Bulk::delete('users', [$tmpU[0], $tmpU[1], (int) $adminRow['id']], false);
+$ok($r['count'] === 2 && $r['skipped'] === 1 && !Db::val('SELECT COUNT(*) FROM users WHERE id IN (?, ?)', $tmpU) && !Db::val('SELECT COUNT(*) FROM alerts WHERE id = ?', [$aid]) && Db::val('SELECT COUNT(*) FROM users WHERE id = ?', [$adminRow['id']]), 'ticked team members are deleted with their alerts; you are kept');
+$h = [];
+foreach ([1, 2, 3] as $i) {
+    $h[] = PropertyRepo::upsert(['address' => "$i Bulk Ln", 'city' => 'Bulkton', 'state' => 'VA', 'zip' => '99907', 'status' => 'for_sale', 'list_price' => 100000], 'manual')['id'];
+}
+App\Services\Pipeline::add($h[0], null);
+App\Services\Pipeline::add($h[1], null);
+$r = App\Services\Bulk::delete('pipeline', [$h[0]], false);
+$ok($r['count'] === 1 && Db::val('SELECT COUNT(*) FROM properties WHERE id = ?', [$h[0]]) && Db::val('SELECT COUNT(*) FROM watchlist WHERE property_id = ?', [$h[1]]), 'removing from the pipeline keeps the home on file and the other entries');
+$r = App\Services\Bulk::delete('homes', [], true, [$h[1], $h[2]]);
+$ok($r['count'] === 2 && Db::val('SELECT COUNT(*) FROM properties WHERE zip = ?', ['99907']) === 1 && !Db::val('SELECT COUNT(*) FROM watchlist WHERE property_id = ?', [$h[1]]), '"all" deletes exactly the homes of the results, with their pipeline entries');
+$viewer = Db::one("SELECT id, email, name, role, is_active, session_epoch, telegram_chat FROM users WHERE role = 'viewer' LIMIT 1");
+if ($viewer) {
+    $asUser($viewer);
+    $ok(!App\Services\Bulk::allowed('homes') && !App\Services\Bulk::allowed('users') && App\Services\Bulk::allowed('alerts'), 'a viewer can delete only their own alerts and profiles');
+}
+$asUser(null);
+Db::run('DELETE FROM properties WHERE zip = ?', ['99907']);
+
+// Listing text translation: pieces fit the free API's size limit; a stored translation is used only for the same text.
+$long = str_repeat('This updated home has a new roof and a renovated kitchen. ', 30);
+$pieces = App\Services\Translate::pieces($long, 450);
+$ok(count($pieces) > 1 && max(array_map('strlen', $pieces)) <= 450 && implode(' ', $pieces) === trim(preg_replace('/\s+/', ' ', $long)), 'long listing text is cut at sentence ends into pieces the free translator accepts');
+$ok(App\Services\Translate::pieces(str_repeat('word ', 200), 100) !== [] && max(array_map('strlen', App\Services\Translate::pieces(str_repeat('word ', 200), 100))) <= 100, 'a sentence longer than a piece is cut at spaces');
+$tp = ['id' => 1, 'description' => 'Nice home.', 'details' => ['description_fa' => ['text' => 'خانه‌ی خوب.', 'source_hash' => sha1('Nice home.')]]];
+$ok(App\Services\Translate::stored($tp, 'fa') === 'خانه‌ی خوب.' && App\Services\Translate::stored(['description' => 'Changed text.'] + $tp, 'fa') === null, 'a stored translation is shown only while the listing text is unchanged');
+
+$trId = (int) Db::val('SELECT id FROM properties WHERE description IS NOT NULL AND description <> "" ORDER BY id LIMIT 1');
+if ($trId) {
+    $trP = PropertyRepo::find($trId);
+    App\Services\Translate::store($trId, 'fa', 'متن ترجمه‌شده', 'test', (string) $trP['description']);
+    $trP = PropertyRepo::find($trId);
+    $ok(App\Services\Translate::stored($trP, 'fa') === 'متن ترجمه‌شده' && $trP['details'] !== [], 'a translation is kept with the home and read back; the other details stay');
+    $d = $trP['details']; unset($d['description_fa']);
+    Db::run('UPDATE properties SET details = ? WHERE id = ?', [$d ? json_encode($d) : null, $trId]);
+}
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

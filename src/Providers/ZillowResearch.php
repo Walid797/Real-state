@@ -120,7 +120,7 @@ final class ZillowResearch
 
         $error = null;
         if ($header === null || !isset($header['RegionName'])) {
-            $error = "Zillow file for “$metric” could not be read (HTTP {$res['status']}" . ($res['error'] ? ', ' . $res['error'] : '') . ').';
+            $error = "Zillow file for “{$metric}” could not be read (HTTP {$res['status']}" . ($res['error'] ? ', ' . $res['error'] : '') . ').';
         }
         return ['points' => $points, 'error' => $error];
     }

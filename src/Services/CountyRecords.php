@@ -28,6 +28,8 @@ final class CountyRecords
     private const AUTHORITATIVE = ['assessed_value', 'tax_annual', 'last_sale_price', 'last_sale_date'];
 
     private const RETRY_DAYS = 30;
+    /** Three years of sales: the latest fair ones price comparables, buy-and-resell pairs show flips. */
+    public const SALES_DAYS = 1095;
     private const AREA_DAYS = 14;
 
     /** @var list<class-string<CountySource>> most specific first: a city before the state that contains it */
@@ -164,7 +166,7 @@ final class CountyRecords
             return ['ok' => false, 'sales' => 0, 'message' => 'No public records source covers ' . $zip . ' yet.'];
         }
         try {
-            $rows = $src::salesInZip($zip, 365, $budgetSeconds);
+            $rows = $src::salesInZip($zip, self::SALES_DAYS, $budgetSeconds);
         } catch (\RuntimeException $e) {
             error_log('[county] sales ' . $zip . ': ' . $e->getMessage());
             return ['ok' => false, 'sales' => 0, 'message' => $e->getMessage()];
@@ -182,7 +184,7 @@ final class CountyRecords
         if ($ids) {
             Db::run('UPDATE properties SET scored_at = NULL WHERE id IN (' . implode(',', $ids) . ')');
         }
-        return ['ok' => true, 'sales' => $n, 'message' => plural($n, 'recorded sale') . ' from the last 12 months in ' . $zip . ' (' . $src::name() . ').'];
+        return ['ok' => true, 'sales' => $n, 'message' => plural($n, 'home') . ' with recorded sales in the last 3 years in ' . $zip . ' (' . $src::name() . ').'];
     }
 
     /** The source for a ZIP, judged by a home on file there (or the ZIP alone). @return class-string<CountySource>|null */

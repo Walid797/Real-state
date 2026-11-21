@@ -79,6 +79,8 @@ View::header('Pipeline', 'pipeline');
   </div>
 <?php endif; ?>
 
+<?php if ($rows && Auth::can('edit')): $bulk = ['type' => 'pipeline', 'form' => 'bulk-pipeline', 'back' => $_SERVER['REQUEST_URI'] ?? '/pipeline', 'all' => 'Remove all from the pipeline', 'count' => count($rows)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
+
 <div class="deal-board">
 <?php foreach (Pipeline::STAGES as $stage => $label):
     if (empty($byStage[$stage]) && $show !== 'all') { continue; } ?>
@@ -92,7 +94,9 @@ View::header('Pipeline', 'pipeline');
       $band = Score::band($r['score'] !== null ? (int) $r['score'] : null);
   ?>
   <article class="board-home">
-    <div class="board-title"><a class="addr" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
+    <div class="board-title">
+      <?php if ($canEdit): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-pipeline" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"><?php endif; ?>
+      <a class="addr" dir="auto" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
       <span class="score-badge sm score-<?= $band ?>" title="<?= te('Opportunity score') ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span></div>
     <p class="small muted"><?= e($r['city']) ?>, <?= e($r['state']) ?> · <?= e(PropertyRepo::facts($r) ?: t('Details not on file')) ?></p>
     <dl class="board-facts">
@@ -100,7 +104,7 @@ View::header('Pipeline', 'pipeline');
         <?php if ($delta !== null): ?><small class="<?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></small><?php endif; ?></dd></div>
       <div><dt><?= te('Est. profit') ?></dt><dd class="<?= ($r['est_profit'] ?? 0) < 0 ? 'up' : 'down' ?>"><?= $r['est_profit'] !== null ? (($r['est_profit'] < 0 ? '−' : '') . e(money_short(abs((int) $r['est_profit'])))) : '—' ?></dd></div>
       <div><dt><?= te('Handled by') ?></dt><dd><?= e($r['owner_name'] ?: t('No one yet')) ?></dd></div>
-      <div><dt><?= te('Updated') ?></dt><dd><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? ' · ' . e($r['stage_by']) : '' ?></dd></div>
+      <div><dt><?= te('Updated') ?></dt><dd><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? ' · ' . te('by %s', $r['stage_by']) : '' ?></dd></div>
     </dl>
     <?php if ((int) $r['note_count']): ?><p class="small muted"><?= e(plural((int) $r['note_count'], 'note')) ?></p><?php endif; ?>
     <?php if ($canEdit): ?>

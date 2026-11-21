@@ -96,7 +96,7 @@ View::header('My account', 'account');
 </section>
 
 <section class="section" id="whatsapp">
-  <div class="section-head"><h2><?= te('WhatsApp') ?></h2><span class="aside"><?= $ready['whatsapp'] ? 'on for your alerts' : 'not set' ?></span></div>
+  <div class="section-head"><h2><?= te('WhatsApp') ?></h2><span class="aside"><?= te($ready['whatsapp'] ? 'on for your alerts' : 'not set') ?></span></div>
   <p class="small soft mt-s"><?= te('Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.') ?></p>
   <ol class="steps mt-s mb-m">
     <li><?= te('Open') ?> <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer"><?= te('CallMeBot’s WhatsApp page') ?></a> <?= te('and save the bot’s number shown there in your phone’s contacts.') ?></li>

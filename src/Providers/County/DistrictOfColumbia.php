@@ -97,20 +97,21 @@ final class DistrictOfColumbia implements CountySource
             }
         }
         $since = gmdate('Y-m-d', time() - $days * 86400);
-        $latest = [];
+        $hist = [];
         foreach (array_chunk(array_keys($props), 200) as $chunk) {
             if (microtime(true) - $t > $budgetSeconds * 0.6) {
                 break;
             }
             foreach (ArcGis::query(self::SALES, [
-                'where' => 'SSL IN ' . ArcGis::in($chunk) . " AND SALE_DATE >= DATE '$since' AND QUALIFIED = 'Q' AND SALE_PRICE > 1000",
-                'outFields' => 'SSL,SALE_DATE,SALE_PRICE', 'orderByFields' => 'SALE_DATE DESC',
+                'where' => 'SSL IN ' . ArcGis::in($chunk) . " AND SALE_DATE >= DATE '$since' AND SALE_PRICE > 1000",
+                'outFields' => 'SSL,SALE_DATE,SALE_PRICE,QUALIFIED', 'orderByFields' => 'SALE_DATE DESC',
             ], false, true, 'DC') as $s) {
-                $latest[(string) $s['SSL']] ??= $s;
+                $hist[(string) $s['SSL']][] = ['date' => gmdate('Y-m-d', (int) ($s['SALE_DATE'] / 1000)), 'price' => (int) round((float) $s['SALE_PRICE']),
+                    'fair' => self::fairSale((string) ($s['QUALIFIED'] ?? ''), (int) round((float) $s['SALE_PRICE']))];
             }
         }
         $out = [];
-        foreach (array_chunk(array_keys($latest), 150) as $chunk) {
+        foreach (array_chunk(array_keys($hist), 150) as $chunk) {
             if (microtime(true) - $t > $budgetSeconds) {
                 break;
             }
@@ -131,10 +132,8 @@ final class DistrictOfColumbia implements CountySource
                 }
                 $out[] = [
                     'address' => ucwords(strtolower($line)), 'city' => 'Washington', 'state' => 'DC', 'zip' => $zip, 'county' => 'District of Columbia',
-                    'status' => 'off_market', 'last_sale_price' => (int) $latest[$ssl]['SALE_PRICE'],
-                    'last_sale_date' => gmdate('Y-m-d', (int) ($latest[$ssl]['SALE_DATE'] / 1000)),
-                    'source_id' => 'dc:' . preg_replace('/\s+/', ' ', $ssl), 'data_status' => 'limited',
-                ] + self::facts($res[$ssl], $pts[$ssl] ?? null, (int) ($props[$ssl]['LANDAREA'] ?? 0));
+                    'status' => 'off_market', 'source_id' => 'dc:' . preg_replace('/\s+/', ' ', $ssl), 'data_status' => 'limited',
+                ] + Sales::fields($hist[$ssl]) + self::facts($res[$ssl], $pts[$ssl] ?? null, (int) ($props[$ssl]['LANDAREA'] ?? 0));
             }
         }
         return $out;

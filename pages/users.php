@@ -119,13 +119,14 @@ View::header('Team', 'users');
 
 <section class="section">
   <div class="section-head"><h2><?= te('Members') ?></h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
+  <?php $bulk = ['type' => 'users', 'form' => 'bulk-users', 'back' => '/users', 'all' => 'Delete everyone but you', 'count' => max(0, count($users) - 1)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th><?= te('Person') ?></th><th><?= te('Role') ?></th><th><?= te('Sign-in') ?></th><th><?= te('Last seen') ?></th><th class="r"><?= te('Actions taken') ?></th><th></th></tr></thead>
       <tbody>
       <?php foreach ($users as $u): $pending = $u['password_hash'] === '' && !$u['google_sub']; ?>
         <tr<?= $u['is_active'] ? '' : ' class="muted"' ?>>
-          <td><strong><?= e($u['name'] ?: '—') ?></strong><?= (int) $u['id'] === $me ? ' <span class="tag">You</span>' : '' ?><span class="sub"><?= e($u['email']) ?></span></td>
+          <td><?php if ((int) $u['id'] !== $me): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $u['id'] ?>" form="bulk-users" aria-label="<?= te('Select') ?> <?= e($u['email']) ?>"> <?php endif; ?><strong><?= e($u['name'] ?: '—') ?></strong><?= (int) $u['id'] === $me ? ' <span class="tag">' . te('You') . '</span>' : '' ?><span class="sub"><?= e($u['email']) ?></span></td>
           <td>
             <form method="post" action="/users"><?= csrf_field() ?><input type="hidden" name="do" value="role"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
               <label class="sr" for="r<?= (int) $u['id'] ?>"><?= te('Role') ?></label>
@@ -134,7 +135,7 @@ View::header('Team', 'users');
               </select></form></td>
           <td><?= $pending ? '<span class="tag tag-warn">' . te('Invite not accepted') . '</span>' : te($u['google_sub'] ? 'Password · Google' : 'Password') ?>
             <?= $u['is_active'] ? '' : '<span class="tag tag-bad">Disabled</span>' ?></td>
-          <td class="nowrap"><?= $u['last_login_at'] ? e(ago($u['last_login_at'])) : '<span class="muted">Never</span>' ?></td>
+          <td class="nowrap"><?= $u['last_login_at'] ? e(ago($u['last_login_at'])) : '<span class="muted">' . te('Never') . '</span>' ?></td>
           <td class="r"><?= (int) $u['actions'] ?></td>
           <td class="r nowrap">
             <?php if ($pending || (int) $u['id'] !== $me): ?>
@@ -144,7 +145,7 @@ View::header('Team', 'users');
             <?php if ((int) $u['id'] !== $me): ?>
             · <form method="post" action="/users" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="signout"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
               <button class="linkbtn" type="submit"><?= te('Sign out everywhere') ?></button></form>
-            · <form method="post" action="/users" class="inline" data-confirm="<?= $u['is_active'] ? 'Disable this account? They are signed out at once.' : 'Enable this account again?' ?>"><?= csrf_field() ?><input type="hidden" name="do" value="toggle"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
+            · <form method="post" action="/users" class="inline" data-confirm="<?= te($u['is_active'] ? 'Disable this account? They are signed out at once.' : 'Enable this account again?') ?>"><?= csrf_field() ?><input type="hidden" name="do" value="toggle"><input type="hidden" name="id" value="<?= (int) $u['id'] ?>">
               <button class="linkbtn<?= $u['is_active'] ? ' danger' : '' ?>" type="submit"><?= te($u['is_active'] ? 'Disable' : 'Enable') ?></button></form>
             <?php endif; ?>
           </td>
@@ -160,7 +161,7 @@ View::header('Team', 'users');
   <form method="post" action="/users" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="invite">
     <div class="form-grid">
-      <label class="field c4"><span><?= te('Name') ?></span><input class="input" name="name" placeholder="Ajmal Sultan" required></label>
+      <label class="field c4"><span><?= te('Name') ?></span><input class="input" name="name" placeholder="<?= te('Full name') ?>" required></label>
       <label class="field c5"><span><?= te('Email') ?></span><input class="input" type="email" name="email" required></label>
       <label class="field c3"><span><?= te('Role') ?></span>
         <select class="select" name="role">

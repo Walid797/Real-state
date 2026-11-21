@@ -88,7 +88,7 @@ final class Deal
      */
     public static function arv(array $p): array
     {
-        $none = ['value' => null, 'low' => null, 'high' => null, 'confidence' => 0, 'basis' => 'Not enough data', 'comps' => 0];
+        $none = ['value' => null, 'low' => null, 'high' => null, 'confidence' => 0, 'basis' => t('Not enough data'), 'comps' => 0];
         $sqft = (float) ($p['sqft'] ?? 0);
         $c = Comps::find($p, ['months' => 12, 'radius' => 1, 'limit' => 25]);
         if (!$c['comps'] || $c['stats'] === null) {
@@ -106,14 +106,14 @@ final class Deal
                 'low' => (int) round($med * $sqft, -3),
                 'high' => (int) round(percentile($ppsf, 0.9) * $sqft, -3),
                 'confidence' => max(10, min(95, $conf)),
-                'basis' => count($ppsf) . ' sales within ' . trim_num($c['radius']) . ' mi, last ' . $c['months'] . ' months',
+                'basis' => t('%1$d sales within %2$s mi, last %3$d months', count($ppsf), trim_num($c['radius']), (int) $c['months']),
                 'comps' => count($ppsf),
             ];
         }
         $avm = (int) ($p['est_value_high'] ?? 0) ?: (int) ($p['est_value'] ?? 0);
         if ($avm > 0) {
             return ['value' => $avm, 'low' => (int) ($p['est_value'] ?? $avm), 'high' => $avm, 'confidence' => 25,
-                'basis' => ($p['est_source'] === 'zestimate' ? 'Zestimate' : 'RentCast estimate') . ' (no sold comps on file)', 'comps' => 0];
+                'basis' => t('%s (no sold comps on file)', $p['est_source'] === 'zestimate' ? 'Zestimate' : t('RentCast estimate')), 'comps' => 0];
         }
         // Last resort, free: what similar homes nearby are asking. Asking is not selling, so confidence stays low.
         $ask = Comps::listings($p);
@@ -125,7 +125,7 @@ final class Deal
                 'low' => (int) round(median($askPpsf) * $sqft, -3),
                 'high' => (int) round(percentile($askPpsf, 0.85) * $sqft, -3),
                 'confidence' => max(12, min(30, 30 - (int) round(min(1.0, $spread) * 15) + min(5, count($askPpsf) - 5))),
-                'basis' => 'Asking prices of ' . count($askPpsf) . ' similar homes for sale within ' . trim_num($ask['radius']) . ' mi — no recorded sales yet',
+                'basis' => t('Asking prices of %1$d similar homes for sale within %2$s mi — no recorded sales yet', count($askPpsf), trim_num($ask['radius'])),
                 'comps' => 0, 'from' => 'asking',
             ];
         }
@@ -169,7 +169,9 @@ final class Deal
         $reno = $pick('reno_cost', self::renoEstimate($p, $condition['overall']));
         $closingPct = $pick('closing_pct', self::setting('deal_closing_pct'));
         $sellingPct = $pick('selling_pct', self::setting('deal_selling_pct'));
-        $months = $pick('holding_months', self::setting('deal_months'));
+        // Months held: how long flips in this ZIP actually took, when there are enough of them.
+        $pace = AreaPace::holdingMonths((string) ($p['zip'] ?? ''));
+        $months = $pick('holding_months', $pace['months'] ?? self::setting('deal_months'));
         // Tax from the record when there is one; otherwise a stated rate on the price.
         $taxYear = (float) ($p['tax_annual'] ?? 0);
         $taxEstimated = $taxYear <= 0 && $purchase;
@@ -185,6 +187,7 @@ final class Deal
         $out = [
             'inputs' => compact('purchase', 'arvValue', 'reno', 'closingPct', 'sellingPct', 'months', 'monthly', 'ltv', 'rate', 'points', 'contPct'),
             'source' => $src, 'arv' => $arv, 'condition' => $condition['overall'], 'ok' => false, 'tax_estimated' => $taxEstimated,
+            'months_from' => ($src['holding_months'] ?? '') === 'est' ? ($pace ? 'flips' : 'default') : 'set', 'months_flips' => $pace['count'] ?? 0,
         ];
         if (!$purchase || !$arvValue || $reno === null) {
             $out['missing'] = array_keys(array_filter(['purchase price' => !$purchase, 'ARV' => !$arvValue, 'renovation cost (needs sqft)' => $reno === null]));

@@ -106,7 +106,7 @@ $history = $alert ? Db::all(
 ) : [];
 $v = static fn (string $k) => isset($crit[$k]) ? e(is_float($crit[$k]) && $crit[$k] >= 1000 ? number_format($crit[$k]) : (string) $crit[$k]) : '';
 
-View::header($alert ? $alert['name'] : 'New alert', 'alerts');
+View::header($alert ? $alert['name'] : t('New alert'), 'alerts');
 ?>
 <nav class="crumbs"><a href="/alerts"><?= icon('arrow-left', 14) ?><?= te('Alerts') ?></a></nav>
 <div class="narrow">

@@ -15,6 +15,28 @@ final class Settings
         'rentcast_key', 'openwebninja_key', 'smtp_pass', 'telegram_token', 'callmebot_key', 'census_key', 'google_client_secret', 'cesium_key',
     ];
 
+    /**
+     * Settings kept in the private .env file instead of the database: keys, passwords and
+     * connection details. They are read from there and not shown or editable in Settings.
+     */
+    public const ENV = [
+        'rentcast_key' => 'RENTCAST_API_KEY',
+        'openwebninja_key' => 'OPENWEBNINJA_API_KEY',
+        'census_key' => 'CENSUS_API_KEY',
+        'cesium_key' => 'CESIUM_ION_TOKEN',
+        'smtp_host' => 'SMTP_HOST',
+        'smtp_port' => 'SMTP_PORT',
+        'smtp_secure' => 'SMTP_SECURE',
+        'smtp_user' => 'SMTP_USER',
+        'smtp_pass' => 'SMTP_PASSWORD',
+        'imap_host' => 'IMAP_HOST',
+        'imap_port' => 'IMAP_PORT',
+        'telegram_token' => 'TELEGRAM_BOT_TOKEN',
+        'telegram_chat' => 'TELEGRAM_CHAT_ID',
+        'google_client_id' => 'GOOGLE_CLIENT_ID',
+        'google_client_secret' => 'GOOGLE_CLIENT_SECRET',
+    ];
+
     public const DEFAULTS = [
         'site_name' => 'Plat',
         'default_state' => 'VA',
@@ -51,6 +73,12 @@ final class Settings
 
     public static function get(string $key, ?string $default = null): ?string
     {
+        if (isset(self::ENV[$key])) {
+            $env = Env::get(self::ENV[$key]);
+            if ($env !== null) {
+                return $env;
+            }
+        }
         $row = self::loadAll()[$key] ?? null;
         if ($row === null || $row['v'] === null || $row['v'] === '') {
             return $default ?? (self::DEFAULTS[$key] ?? null);
@@ -73,8 +101,23 @@ final class Settings
         return $v !== null && $v !== '';
     }
 
+    /** Is this setting kept in .env (so the Settings page neither shows nor saves it)? */
+    public static function fromEnv(string $key): bool
+    {
+        return isset(self::ENV[$key]);
+    }
+
+    /** Is it actually set in .env? */
+    public static function inEnv(string $key): bool
+    {
+        return isset(self::ENV[$key]) && Env::get(self::ENV[$key]) !== null;
+    }
+
     public static function set(string $key, ?string $value): void
     {
+        if (isset(self::ENV[$key]) && self::inEnv($key)) {
+            return; // .env is the source; a form cannot overwrite it
+        }
         $secret = in_array($key, self::SECRETS, true);
         $stored = ($value === null || $value === '') ? null : ($secret ? self::encrypt($value) : $value);
         Db::run(

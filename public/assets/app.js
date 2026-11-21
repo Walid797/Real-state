@@ -167,6 +167,27 @@
     if (msg && !window.confirm(msg)) e.preventDefault();
   });
 
+  /* Delete bars: count the ticked rows, "select all", and a disabled "delete selected" until one is ticked. */
+  document.querySelectorAll('form[data-bulk]').forEach(function (bar) {
+    var id = bar.id;
+    var picks = function () { return document.querySelectorAll('input.bulk-pick[form="' + id + '"]'); };
+    var all = bar.querySelector('[data-bulk-all]');
+    var btn = bar.querySelector('[data-bulk-selected]');
+    var out = bar.querySelector('[data-bulk-count]');
+    var update = function () {
+      var list = picks(), n = 0;
+      list.forEach(function (c) { if (c.checked) n++; });
+      out.textContent = String(n);
+      btn.disabled = n === 0;
+      all.checked = n > 0 && n === list.length;
+      all.indeterminate = n > 0 && n < list.length;
+    };
+    all.addEventListener('change', function () { picks().forEach(function (c) { c.checked = all.checked; }); update(); });
+    document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('input.bulk-pick[form="' + id + '"]')) update(); });
+    if (!picks().length) bar.hidden = true;
+    update();
+  });
+
   /* Selects that submit their form on change (sort order, comp radius, stage). */
   document.addEventListener('change', function (e) {
     if (e.target.matches('[data-autosubmit]') && e.target.form) e.target.form.submit();
@@ -204,9 +225,13 @@
   var mapEl = document.getElementById('map');
   var mapData = readJson('map-data');
   if (mapEl && mapData && window.L && mapData.points && mapData.points.length) {
-    var map = L.map(mapEl, { scrollWheelZoom: !!mapData.wheel, zoomControl: true, attributionControl: true });
+    var map = L.map(mapEl, { scrollWheelZoom: !!mapData.wheel, zoomControl: false, attributionControl: true });
+    L.control.zoom({ zoomInTitle: ui('Zoom in'), zoomOutTitle: ui('Zoom out') }).addTo(map);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      // OpenStreetMap refuses tiles without a Referer (its tile usage policy); the site sends
+      // none cross-origin, so the tiles send just the site's address.
+      referrerPolicy: 'strict-origin-when-cross-origin',
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" rel="noopener">OpenStreetMap</a>'
     }).addTo(map);
 
@@ -391,6 +416,33 @@
         autoMsg.textContent = d.message || ui('No further details from the listing.');
       }
     }).catch(function () { if (autoMsg) autoMsg.textContent = ui('Couldn’t fetch the listing details. Reload to try again.'); });
+  }
+
+  /* ── Listing text in the site's language: translated once on the server, then kept ── */
+  var tr = $('.desc-tr');
+  if (tr) {
+    var trOut = $('.desc-translated', tr), trOrig = $('.desc-original', tr), trNote = $('.desc-tr-note', tr), trBtn = $('.desc-toggle', tr);
+    var showOrig = function (on) {
+      trOrig.hidden = !on;
+      trBtn.textContent = ui(on ? 'Hide original' : 'Show original');
+    };
+    trBtn.addEventListener('click', function () { showOrig(trOrig.hidden); });
+    if (tr.hasAttribute('data-translate')) {
+      fetch(tr.getAttribute('data-translate'), {
+        method: 'POST', credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'X-CSRF-Token': tr.getAttribute('data-csrf') || '' }
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d.ok && d.text) {
+          trOut.textContent = d.text;
+          trNote.textContent = ui('Machine translation of the listing text.');
+          trBtn.hidden = false;
+          showOrig(false);
+        } else {
+          trOut.hidden = true;
+          trNote.textContent = d.error || ui('Couldn’t translate this.');
+        }
+      }).catch(function () { trOut.hidden = true; trNote.textContent = ui('Couldn’t translate this.'); });
+    }
   }
 
   /* ── Flood zone + neighbourhood (free lookups, loaded after the page) ── */

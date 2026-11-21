@@ -490,16 +490,16 @@ final class PropertyRepo
     {
         $bits = [];
         if ($p['beds'] !== null && $p['beds'] !== '') {
-            $bits[] = ((float) $p['beds'] == 0.0 ? 'Studio' : trim_num($p['beds']) . ' bd');
+            $bits[] = ((float) $p['beds'] == 0.0 ? t('Studio') : t('%s bd', trim_num($p['beds'])));
         }
         if ($p['baths'] !== null && $p['baths'] !== '') {
-            $bits[] = trim_num($p['baths']) . ' ba';
+            $bits[] = t('%s ba', trim_num($p['baths']));
         }
         if (!empty($p['sqft'])) {
-            $bits[] = number_format((int) $p['sqft']) . ' sqft';
+            $bits[] = t('%s sqft', number_format((int) $p['sqft']));
         }
         if (!empty($p['year_built'])) {
-            $bits[] = 'built ' . (int) $p['year_built'];
+            $bits[] = t('built %d', (int) $p['year_built']);
         }
         return implode(' · ', $bits);
     }
@@ -510,6 +510,6 @@ final class PropertyRepo
         if ($n <= 0) {
             return '—';
         }
-        return $n >= 21780 ? rtrim(rtrim(number_format($n / 43560, 2), '0'), '.') . ' acres' : number_format($n) . ' sqft';
+        return $n >= 21780 ? t('%s acres', rtrim(rtrim(number_format($n / 43560, 2), '0'), '.')) : t('%s sqft', number_format($n));
     }
 }

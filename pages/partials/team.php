@@ -6,7 +6,7 @@ use App\Services\Activity;
 // What people did. Market events (listings, cuts, sales) are in Price history above.
 $timeline = [];
 foreach ($history as $h) {
-    $timeline[] = ['t' => $h['created_at'], 'who' => Activity::who($h), 'what' => (Activity::LABELS[$h['action']] ?? ucfirst($h['action'])) . ': ' . $h['detail']];
+    $timeline[] = ['t' => $h['created_at'], 'who' => Activity::who($h), 'what' => Activity::line($h)];
 }
 usort($timeline, static fn ($a, $b) => strcmp($b['t'], $a['t']));
 ?>

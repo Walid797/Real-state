@@ -75,7 +75,8 @@ $field = static function (string $name, string $label, mixed $estimate, string $
         $field('loan_points_pct', 'Lender points', $in['points'], '%');
         ?>
       </div>
-      <p class="hint"><?= te('Renovation estimate:') ?> <?= e(App\Services\Condition::OVERALL[$deal['condition']] ?? '') ?> × <?= $p['sqft'] ? number_format((int) $p['sqft']) . ' sqft' : 'unknown size' ?> <?= te('(rates under Settings). Holding = insurance & utilities + property tax + HOA.') ?></p>
+      <p class="hint"><?= te('Renovation estimate:') ?> <?= te(App\Services\Condition::OVERALL[$deal['condition']] ?? '') ?> × <?= $p['sqft'] ? te('%s sqft', number_format((int) $p['sqft'])) : te('unknown size') ?> <?= te('(rates under Settings). Holding = insurance & utilities + property tax + HOA.') ?>
+        <?php if (($deal['months_from'] ?? '') === 'flips'): ?> <?= te('Months held: the median of %1$d flips in %2$s (county records), purchase to resale.', (int) $deal['months_flips'], (string) $p['zip']) ?><?php elseif (($deal['months_from'] ?? '') === 'default'): ?> <?= te('Months held: the default under Settings — too few flips on file in %s to use theirs.', (string) $p['zip']) ?><?php endif; ?></p>
       <?php if (in_array($p['watch_stage'] ?? '', ['purchased', 'sold'], true)): ?>
       <h4 class="eyebrow mt-l"><?= te('Actual results') ?></h4>
       <div class="deal-grid">

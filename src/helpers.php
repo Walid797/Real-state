@@ -182,11 +182,26 @@ function fmt_date(?string $v, string $format = 'M j, Y', string $dash = '—'): 
         if ($hasTime) {
             $d = $d->setTimezone(new DateTimeZone(date_default_timezone_get()));
         }
-        return $d->format($format);
+        if (App\Locale::language() !== 'fa' || !preg_match('/[DlMF]/', $format)) {
+            return $d->format($format);
+        }
+        // Persian: day before month, Persian month and weekday names (Gregorian calendar kept).
+        $format = strtr($format, ['l, F j' => 'l j F', 'M j, Y' => 'j M Y', 'F j, Y' => 'j F Y', 'M j' => 'j M', 'F j' => 'j F']);
+        return strtr($d->format($format), FA_DATE_NAMES);
     } catch (Throwable) {
         return $dash;
     }
 }
+
+const FA_DATE_NAMES = [
+    'January' => 'ژانویه', 'February' => 'فوریه', 'March' => 'مارس', 'April' => 'آوریل', 'May' => 'مه', 'June' => 'ژوئن',
+    'July' => 'ژوئیه', 'August' => 'اوت', 'September' => 'سپتامبر', 'October' => 'اکتبر', 'November' => 'نوامبر', 'December' => 'دسامبر',
+    'Jan' => 'ژانویه', 'Feb' => 'فوریه', 'Mar' => 'مارس', 'Apr' => 'آوریل', 'Jun' => 'ژوئن', 'Jul' => 'ژوئیه', 'Aug' => 'اوت',
+    'Sep' => 'سپتامبر', 'Oct' => 'اکتبر', 'Nov' => 'نوامبر', 'Dec' => 'دسامبر',
+    'Saturday' => 'شنبه', 'Sunday' => 'یکشنبه', 'Monday' => 'دوشنبه', 'Tuesday' => 'سه‌شنبه', 'Wednesday' => 'چهارشنبه',
+    'Thursday' => 'پنجشنبه', 'Friday' => 'جمعه', 'Sat' => 'شنبه', 'Sun' => 'یکشنبه', 'Mon' => 'دوشنبه', 'Tue' => 'سه‌شنبه',
+    'Wed' => 'چهارشنبه', 'Thu' => 'پنجشنبه', 'Fri' => 'جمعه',
+];
 
 /** "3h ago", "yesterday", "12 days ago" */
 function ago(?string $utc): string

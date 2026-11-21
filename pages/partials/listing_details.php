@@ -35,7 +35,7 @@ $autoNow = ListingDetails::wanted($p);
   <?php elseif (!empty($d['zillow'])): ?>
   <p class="blank"><?= te('The listing on Zillow lists no further details.') ?></p>
   <?php elseif (!App\Providers\OpenWebNinja::enabled()): ?>
-  <p class="blank"><?= te('Full listing details (taxes, HOA, features, photos) come from Zillow data.') ?> <?= App\Auth::can('admin') ? '<a href="/settings#sources">Add the free OpenWeb Ninja key</a> and they are fetched by themselves when a home is opened.' : 'An admin can turn this on under Settings.' ?></p>
+  <p class="blank"><?= te('Full listing details (taxes, HOA, features, photos) come from Zillow data.') ?> <?= App\Auth::can('admin') ? '<a href="/settings#sources">' . te('Add the free OpenWeb Ninja key') . '</a> ' . te('and they are fetched by themselves when a home is opened.') : te('An admin can turn this on under Settings.') ?></p>
   <?php else: ?>
   <p class="blank"><?= match (true) {
       !empty($d['zillow_error']) => 'The last try to fetch the listing didn’t get through (' . e(ago($d['zillow_tried_at'])) . '). The site tries again tomorrow, or use “Read the listing” now.',

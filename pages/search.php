@@ -177,10 +177,11 @@ if ($f['q'] === '') {
 
     <section class="section">
       <div class="section-head"><h2><?= te('My search profiles') ?></h2><span class="aside"><?= te('each can have its own alert') ?></span></div>
-      <?php if ($saved): ?>
+      <?php if ($saved): $bulk = ['type' => 'profiles', 'form' => 'bulk-profiles', 'back' => '/search', 'all' => 'Delete all my profiles', 'count' => count($saved)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
       <ul class="plain-list">
         <?php foreach ($saved as $s): $p = json_decode($s['params'], true) ?: []; ?>
         <li>
+          <input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $s['id'] ?>" form="bulk-profiles" aria-label="<?= te('Select') ?> <?= e($s['name']) ?>">
           <a class="main" href="<?= e(url('/search', $p)) ?>"><?= e($s['name']) ?><span class="sub"><?= e(Search::describe($p)) ?></span></a>
           <span class="end nowrap">
             <a class="linkbtn" href="<?= e(url('/alerts/new', $p + ['kind' => ($p['mode'] ?? '') === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= te('Alert me') ?></a> ·
@@ -361,6 +362,9 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         <?php endif; ?>
       </div>
 
+      <?php if ($res['rows'] && Auth::can('edit')): $bulk = ['type' => 'homes', 'form' => 'bulk-homes', 'back' => $_SERVER['REQUEST_URI'] ?? '/search',
+          'all' => 'Delete all homes in these results', 'params' => json_encode($query), 'count' => (int) $res['total']]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
+
       <?php if (!$res['rows']): ?>
         <div class="empty">
           <?= View::sketch('search-none') ?>
@@ -395,19 +399,19 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             <?php if (str_starts_with((string) $r['photo_url'], 'https://')): ?>
             <img class="listing-thumb" src="<?= e($r['photo_url']) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
             <?php endif; ?>
-            <div class="price"><?= e(money($price)) ?>
+            <div class="price"><?php if (Auth::can('edit')): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-homes" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"> <?php endif; ?><?= e(money($price)) ?>
               <?php if ($pp): ?><small>$<?= number_format($pp) ?><?= te('/sqft') ?></small><?php endif; ?></div>
             <div class="body">
               <a dir="auto" class="addr" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
               <span class="where"><?= e($r['city']) ?>, <?= e($r['state']) ?> <?= e($r['zip']) ?></span>
-              <div class="facts"><?= e(PropertyRepo::facts($r) ?: 'Details not on file') ?><?= $r['property_type'] ? ' · ' . e($r['property_type']) : '' ?></div>
+              <div class="facts"><?= (PropertyRepo::facts($r) !== '' ? e(PropertyRepo::facts($r)) : te('Details not on file')) ?><?= $r['property_type'] ? ' · ' . te($r['property_type']) : '' ?></div>
               <div class="chips">
                 <?php if ($mode === 'sale' && $r['est_profit'] !== null): ?>
-                  <span class="chip <?= (int) $r['est_profit'] > 0 ? 'chip-good' : 'chip-bad' ?>"><?= te('Profit') ?> <?= e(money_short(abs((int) $r['est_profit']))) ?><?= (int) $r['est_profit'] < 0 ? ' loss' : '' ?></span>
+                  <span class="chip <?= (int) $r['est_profit'] > 0 ? 'chip-good' : 'chip-bad' ?>"><?= te('Profit') ?> <?= e(money_short(abs((int) $r['est_profit']))) ?><?= (int) $r['est_profit'] < 0 ? ' ' . te('loss') : '' ?></span>
                   <?php if ($r['est_arv']): ?><span class="chip"><?= te('ARV') ?> <?= e(money_short($r['est_arv'])) ?></span><?php endif; ?>
                 <?php endif; ?>
-                <?php if ($r['cond_overall'] && $r['cond_overall'] !== 'not_disclosed'): ?><span class="chip chip-cond"><?= e(Condition::OVERALL[$r['cond_overall']]) ?></span><?php endif; ?>
-                <?php foreach ($flags as $fl): ?><span class="chip chip-warn"><?= e(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
+                <?php if ($r['cond_overall'] && $r['cond_overall'] !== 'not_disclosed'): ?><span class="chip chip-cond"><?= te(Condition::OVERALL[$r['cond_overall']]) ?></span><?php endif; ?>
+                <?php foreach ($flags as $fl): ?><span class="chip chip-warn"><?= te(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
                 <?php if ($r['has_basement']): ?><span class="chip"><?= te('Basement') ?></span><?php endif; ?>
                 <?php if ($r['watch_stage']): ?><span class="chip chip-stage"><?= te(App\Services\Pipeline::STAGES[$r['watch_stage']] ?? $r['watch_stage']) ?><?= $r['owner_name'] ? ' · ' . e($r['owner_name']) : '' ?></span><?php endif; ?>
               </div>
