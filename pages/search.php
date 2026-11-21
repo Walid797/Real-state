@@ -396,10 +396,13 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             $flags = array_filter(explode(',', (string) $r['flags']));
         ?>
           <article class="hrow hrow-x" data-pid="<?= (int) $r['id'] ?>">
+            <?php if (str_starts_with((string) $r['photo_url'], 'https://')): ?>
+            <img class="listing-thumb" src="<?= e($r['photo_url']) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+            <?php endif; ?>
             <div class="price"><?php if (Auth::can('edit')): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-homes" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"> <?php endif; ?><?= e(money($price)) ?>
               <?php if ($pp): ?><small>$<?= number_format($pp) ?><?= te('/sqft') ?></small><?php endif; ?></div>
             <div class="body">
-              <a class="addr" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
+              <a dir="auto" class="addr" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
               <span class="where"><?= e($r['city']) ?>, <?= e($r['state']) ?> <?= e($r['zip']) ?></span>
               <div class="facts"><?= (PropertyRepo::facts($r) !== '' ? e(PropertyRepo::facts($r)) : te('Details not on file')) ?><?= $r['property_type'] ? ' · ' . te($r['property_type']) : '' ?></div>
               <div class="chips">

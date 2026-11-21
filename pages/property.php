@@ -35,6 +35,12 @@ if (App\Services\CountyRecords::wanted($p) && App\Services\CountyRecords::enrich
 }
 $id = (int) $p['id'];
 $d = $p['details'];
+$photos = array_values(array_filter((array) ($d['photos'] ?? []), static fn ($src) =>
+    is_string($src) && str_starts_with($src, 'https://')
+));
+if (!$photos && str_starts_with((string) $p['photo_url'], 'https://')) {
+    $photos = [$p['photo_url']];
+}
 $events = PropertyRepo::events($id);
 $hasGeo = Geo::valid($p['lat'], $p['lng']);
 $forSale = in_array($p['status'], ['for_sale', 'pending'], true) && (int) $p['list_price'] > 0;
@@ -129,8 +135,8 @@ if (count($series) >= 2) {
       <span class="tag tag-data-<?= e($p['data_status']) ?>" title="<?= te('How much of the listing we have') ?>"><?= te($dataLabels[$p['data_status']] ?? $p['data_status']) ?></span>
       <?php foreach (array_filter(explode(',', (string) $p['flags'])) as $fl): ?><span class="tag tag-warn"><?= te(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
     </div>
-    <h1 class="display"><?= e($p['address']) ?></h1>
-    <p class="where"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
+    <h1 class="display" dir="auto"><?= e($p['address']) ?></h1>
+    <p class="where" dir="auto"><?= e(trim($p['city'] . ', ' . $p['state'] . ' ' . $p['zip'], ', ')) ?><?= $p['county'] ? ' · ' . e($p['county']) . ' County' : '' ?></p>
   </div>
   <div class="p-price">
     <?php if ($headline): ?>
@@ -146,6 +152,7 @@ if (count($series) >= 2) {
       <p class="sub"><?= te('No price on file yet.') ?></p>
     <?php endif; ?>
     <div class="actions head-actions">
+      <button class="btn btn-sm no-print" type="button" data-print><?= icon('printer', 15) ?><?= te('PDF / print') ?></button>
       <?php if ($original): ?>
       <a class="btn btn-sm" href="<?= e($original) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?><?= te('View original listing') ?></a>
       <?php endif; ?>
@@ -158,6 +165,14 @@ if (count($series) >= 2) {
     </div>
   </div>
 </header>
+
+<?php if ($photos): ?>
+<div class="photos" aria-label="<?= te('Listing photos') ?>">
+  <?php foreach (array_slice($photos, 0, 24) as $i => $src): ?>
+  <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
 
 <?php if ($p['watch_id'] && in_array($p['watch_stage'], Pipeline::ACTIVE, true) && $p['owner_id'] && (int) $p['owner_id'] !== Auth::userId()): ?>
 <p class="claim-bar"><?= icon('user-check', 16) ?><span><strong><?= e($p['owner_name']) ?></strong> <?= te('is handling this home —') ?> <?= te(Pipeline::STAGES[$p['watch_stage']]) ?> <?= te('since') ?> <?= e(fmt_date($p['stage_at'], 'M j')) ?><?= te('. Coordinate before contacting the agent.') ?></span></p>
@@ -174,13 +189,7 @@ if (count($series) >= 2) {
   <div><b><?= $p['hoa_fee'] !== null ? ((float) $p['hoa_fee'] > 0 ? '$' . number_format((float) $p['hoa_fee']) : 'None') : '—' ?></b><span><?= te('HOA per month') ?></span></div>
 </div>
 
-<?php if (!empty($d['photos'])): ?>
-<div class="photos" aria-label="<?= te('Listing photos') ?>">
-  <?php foreach (array_slice($d['photos'], 0, 24) as $i => $src): ?>
-  <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
+
 
 <?php include APP_ROOT . '/pages/partials/aerial.php'; ?>
 

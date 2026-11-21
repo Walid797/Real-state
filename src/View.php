@@ -54,6 +54,7 @@ final class View
 <link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css">
 <?php endif; ?>
 <link rel="stylesheet" href="<?= e(self::asset('/assets/app.css')) ?>">
+<link rel="stylesheet" href="<?= e(self::asset('/assets/glass.css')) ?>" media="screen">
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 </head>
 <body class="<?= $bare ? 'bare' : '' ?><?= !empty($opt['wide']) ? ' wide' : '' ?><?= !empty($opt['body']) ? ' ' . e($opt['body']) : '' ?>">

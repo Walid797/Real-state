@@ -894,3 +894,14 @@ html[lang="fa"] {
 .desc-tr .desc-original { color: var(--ink-3); border-inline-start: 3px solid var(--line); padding-inline-start: 12px; }
 .desc-tr-foot { margin-top: 8px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 .desc-toggle { background: none; border: 0; padding: 0; color: var(--teal); text-decoration: underline; cursor: pointer; font: inherit; min-height: 24px; }
+
+
+@media print {
+  .hero-pipeline { display: none; }
+  .board-home { break-inside: avoid; border-top: 1px solid #ccc; padding-block: 6px; }
+  .board-facts > div { display: flex; gap: 10px; }
+  .page:has(.p-head) .p-cols { display: block; }
+  .page:has(.p-head) .rail { position: static; }
+  .photos { display: flex; flex-wrap: wrap; overflow: visible; }
+  .photos img { width: 30%; height: 95px; }
+}

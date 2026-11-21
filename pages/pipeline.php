@@ -54,7 +54,7 @@ View::header('Pipeline', 'pipeline');
 
 <div class="stage-strip" role="list">
   <?php foreach (Pipeline::STAGES as $k => $l): ?>
-  <a role="listitem" class="stage-pill stage-<?= $k ?>" href="#st-<?= $k ?>"><span><?= te($l) ?></span><b><?= (int) ($counts[$k] ?? 0) ?></b></a>
+  <a role="listitem" class="stage-pill stage-<?= $k ?>" href="<?= e(url('/pipeline', ['who' => $who, 'show' => empty($byStage[$k]) ? 'all' : $show])) ?>#st-<?= $k ?>"><span><?= te($l) ?></span><b><?= (int) ($counts[$k] ?? 0) ?></b></a>
   <?php endforeach; ?>
 </div>
 
@@ -81,45 +81,45 @@ View::header('Pipeline', 'pipeline');
 
 <?php if ($rows && Auth::can('edit')): $bulk = ['type' => 'pipeline', 'form' => 'bulk-pipeline', 'back' => $_SERVER['REQUEST_URI'] ?? '/pipeline', 'all' => 'Remove all from the pipeline', 'count' => count($rows)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
 
-<?php foreach (Pipeline::STAGES as $stage => $label): if (empty($byStage[$stage])) { continue; } ?>
-<section class="section" id="st-<?= $stage ?>">
-  <div class="section-head"><h2><?= te($label) ?></h2><span class="aside"><?= plural(count($byStage[$stage]), 'home') ?></span></div>
-  <div class="table-wrap">
-    <table class="table">
-      <thead><tr><th><?= te('Home') ?></th><th class="r"><?= te('Price') ?></th><th class="r"><?= te('Est. profit') ?></th><th class="r"><?= te('Score') ?></th><th><?= te('Handled by') ?></th><th><?= te('Updated') ?></th><th><?= te('Status') ?></th></tr></thead>
-      <tbody>
-      <?php foreach ($byStage[$stage] as $r):
-          $sale = in_array($r['status'], ['for_sale', 'pending'], true);
-          $price = $sale ? (int) $r['list_price'] : (int) $r['last_sale_price'];
-          $first = (int) ($r['first_price'] ?? 0);
-          $delta = ($sale && $first > 0 && $price > 0 && $first !== $price) ? ($price - $first) / $first * 100 : null;
-          $band = Score::band($r['score'] !== null ? (int) $r['score'] : null);
-      ?>
-        <tr>
-          <td><?php if (Auth::can('edit')): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-pipeline" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"> <?php endif; ?><a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
-            <span class="sub"><?= e($r['city']) ?>, <?= e($r['state']) ?> · <?= e(PropertyRepo::facts($r) ?: 'details not on file') ?><?= (int) $r['note_count'] ? ' · ' . plural((int) $r['note_count'], 'note') : '' ?></span></td>
-          <td class="r"><?= e(money($price)) ?><?php if ($delta !== null): ?><span class="sub <?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></span><?php else: ?><span class="sub"><?= te($sale ? 'asking' : ($r['status'] === 'sold' ? 'sold' : 'off market')) ?></span><?php endif; ?></td>
-          <td class="r"><?= $r['est_profit'] !== null ? '<span class="' . ((int) $r['est_profit'] < 0 ? 'up' : 'down') . '">' . e(money_short(abs((int) $r['est_profit']))) . '</span>' : '—' ?></td>
-          <td class="r"><span class="score-badge sm score-<?= $band ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span></td>
-          <td><?= $r['owner_name'] ? e($r['owner_name']) : '<span class="muted">No one</span>' ?></td>
-          <td class="nowrap"><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? '<span class="sub">' . te('by %s', $r['stage_by']) . '</span>' : '' ?></td>
-          <td>
-            <?php if ($canEdit): ?>
-            <form method="post" action="/property/<?= (int) $r['id'] ?>/act">
-              <?= csrf_field() ?><input type="hidden" name="do" value="stage"><input type="hidden" name="back" value="/pipeline">
-              <label class="sr" for="st<?= (int) $r['id'] ?>"><?= te('Status') ?></label>
-              <select class="select stage" id="st<?= (int) $r['id'] ?>" name="stage" data-autosubmit>
-                <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($r['stage'], $k) ?>><?= te($l) ?></option><?php endforeach; ?>
-              </select>
-            </form>
-            <?php else: ?><?= te($label) ?><?php endif; ?>
-          </td>
-        </tr>
-      <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+<div class="deal-board">
+<?php foreach (Pipeline::STAGES as $stage => $label):
+    if (empty($byStage[$stage]) && $show !== 'all') { continue; } ?>
+<section class="section board-lane" id="st-<?= $stage ?>">
+  <div class="section-head"><h2><?= te($label) ?></h2><span class="lane-count"><?= count($byStage[$stage] ?? []) ?></span></div>
+  <?php foreach ($byStage[$stage] ?? [] as $r):
+      $sale = in_array($r['status'], ['for_sale', 'pending'], true);
+      $price = $sale ? $r['list_price'] : $r['last_sale_price'];
+      $first = (int) ($r['first_price'] ?? 0);
+      $delta = $sale && $first && $price && $first !== (int) $price ? ($price - $first) / $first * 100 : null;
+      $band = Score::band($r['score'] !== null ? (int) $r['score'] : null);
+  ?>
+  <article class="board-home">
+    <div class="board-title">
+      <?php if ($canEdit): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-pipeline" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"><?php endif; ?>
+      <a class="addr" dir="auto" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?></a>
+      <span class="score-badge sm score-<?= $band ?>" title="<?= te('Opportunity score') ?>"><?= $r['score'] !== null ? (int) $r['score'] : '—' ?></span></div>
+    <p class="small muted"><?= e($r['city']) ?>, <?= e($r['state']) ?> · <?= e(PropertyRepo::facts($r) ?: t('Details not on file')) ?></p>
+    <dl class="board-facts">
+      <div><dt><?= te($sale ? 'Asking price' : ($r['status'] === 'sold' ? 'Last sold' : 'Price')) ?></dt><dd><?= e(money($price)) ?>
+        <?php if ($delta !== null): ?><small class="<?= $delta < 0 ? 'down' : 'up' ?>"><?= e(pct($delta)) ?> <?= te('since listed') ?></small><?php endif; ?></dd></div>
+      <div><dt><?= te('Est. profit') ?></dt><dd class="<?= ($r['est_profit'] ?? 0) < 0 ? 'up' : 'down' ?>"><?= $r['est_profit'] !== null ? (($r['est_profit'] < 0 ? '−' : '') . e(money_short(abs((int) $r['est_profit'])))) : '—' ?></dd></div>
+      <div><dt><?= te('Handled by') ?></dt><dd><?= e($r['owner_name'] ?: t('No one yet')) ?></dd></div>
+      <div><dt><?= te('Updated') ?></dt><dd><?= e(ago($r['stage_at'])) ?><?= $r['stage_by'] ? ' · ' . te('by %s', $r['stage_by']) : '' ?></dd></div>
+    </dl>
+    <?php if ((int) $r['note_count']): ?><p class="small muted"><?= e(plural((int) $r['note_count'], 'note')) ?></p><?php endif; ?>
+    <?php if ($canEdit): ?>
+    <form method="post" action="/property/<?= (int) $r['id'] ?>/act">
+      <?= csrf_field() ?><input type="hidden" name="do" value="stage"><input type="hidden" name="back" value="<?= e(url('/pipeline', ['who' => $who, 'show' => $show])) ?>">
+      <label class="sr" for="st<?= (int) $r['id'] ?>"><?= te('Status') ?></label>
+      <select class="select stage" id="st<?= (int) $r['id'] ?>" name="stage" data-autosubmit>
+        <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($r['stage'], $k) ?>><?= te($l) ?></option><?php endforeach; ?>
+      </select>
+    </form>
+    <?php endif; ?>
+  </article>
+  <?php endforeach; ?>
 </section>
 <?php endforeach; ?>
+</div>
 <?php
 View::footer();
