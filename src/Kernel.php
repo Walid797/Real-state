@@ -149,7 +149,7 @@ final class Kernel
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
         echo '<!doctype html><html lang="' . Locale::language() . '" dir="' . Locale::direction() . '"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-            . '<meta name="robots" content="noindex"><title>' . te($title) . '</title><link rel="stylesheet" href="/assets/app.css">'
+            . '<meta name="robots" content="noindex"><title>' . te($title) . '</title><link rel="stylesheet" href="/assets/app.css"><link rel="stylesheet" href="/assets/glass.css" media="screen">'
             . '<body class="bare"><main class="bare-box"><h1 class="display">' . te($title) . '</h1><p>' . te($message) . '</p></main></body></html>';
         exit;
     }

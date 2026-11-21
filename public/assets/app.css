@@ -860,3 +860,13 @@ html[lang="fa"] {
   [dir="rtl"] .results-map { border-inline-start: 0; }
   [dir="rtl"] .drop-wide .drop-panel { right: 16px; }
 }
+
+@media print {
+  .hero-pipeline { display: none; }
+  .board-home { break-inside: avoid; border-top: 1px solid #ccc; padding-block: 6px; }
+  .board-facts > div { display: flex; gap: 10px; }
+  .page:has(.p-head) .p-cols { display: block; }
+  .page:has(.p-head) .rail { position: static; }
+  .photos { display: flex; flex-wrap: wrap; overflow: visible; }
+  .photos img { width: 30%; height: 95px; }
+}

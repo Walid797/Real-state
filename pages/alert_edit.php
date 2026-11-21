@@ -112,7 +112,7 @@ View::header($alert ? $alert['name'] : 'New alert', 'alerts');
 <div class="narrow">
   <header class="page-head">
     <div>
-      <h1 class="display"><?= $alert ? e($alert['name']) : 'New alert' ?></h1>
+      <h1 class="display"><?= $alert ? e($alert['name']) : te('New alert') ?></h1>
       <?php if ($alert): ?><p><?= te('Created') ?> <?= e(fmt_date($alert['created_at'])) ?> · <?= $alert['last_checked_at'] ? 'last checked ' . e(ago($alert['last_checked_at'])) : 'not checked yet' ?></p><?php endif; ?>
     </div>
   </header>

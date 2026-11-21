@@ -42,6 +42,7 @@ $cuts = Db::all(
     [gmdate('Y-m-d', time() - 21 * 86400)]
 );
 $stages = array_column(Db::all('SELECT stage, COUNT(*) AS n FROM watchlist GROUP BY stage'), 'n', 'stage');
+$largestStage = max($stages ?: [1]);
 $activity = Activity::recent(10);
 $alertsOn = (int) Db::val('SELECT COUNT(*) FROM alerts WHERE enabled = 1 AND user_id = ?', [Auth::userId()]);
 $lastRun = Settings::get('job_last_run');
@@ -56,26 +57,31 @@ View::header('Dashboard', 'dashboard');
   <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?><?= te('Open the RentCast API dashboard') ?></a>
 </div></div>
 <?php endif; ?>
-<header class="page-head">
-  <div>
-    <p class="eyebrow"><?= e(fmt_date(now(), 'l, F j')) ?></p>
+<header class="page-head dashboard-hero">
+  <div class="dashboard-intro">
+    <p class="eyebrow"><?= te('Dashboard') ?><span aria-hidden="true"> / </span><time datetime="<?= e(today()) ?>"><?= e(fmt_date(now(), 'Y-m-d')) ?></time></p>
     <h1 class="display"><?= $hello ? te('Hello, %s.', $hello) : te('Dashboard') ?></h1>
-    <p><?= $k['good'] ? plural($k['good'], 'strong opportunity', 'strong opportunities') . ' on file' : 'No strong opportunities on file yet' ?><?= $k['mine'] ? ', ' . plural($k['mine'], 'home') . ' waiting on you' : '' ?>.</p>
+    <p><?= $k['good'] ? te($k['good'] === 1 ? 'One strong opportunity on file.' : '%d strong opportunities on file.', $k['good']) : te('No strong opportunities on file yet.') ?> <?= $k['mine'] ? te('%d awaiting your review.', $k['mine']) : '' ?></p>
+    <form class="quick-search" method="get" action="/search" role="search">
+      <label class="sr" for="dq"><?= te('Search an area') ?></label>
+      <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= e($stateName) ?><?= te(', a county, a city or ZIPs') ?>" required>
+      <input type="hidden" name="types[]" value="Single Family"><input type="hidden" name="types[]" value="Townhouse">
+      <input type="hidden" name="sort" value="score">
+      <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
+    </form>
   </div>
-  <form class="quick-search" method="get" action="/search" role="search">
-    <label class="sr" for="dq"><?= te('Search an area') ?></label>
-    <?= icon('search', 16) ?><input class="input" id="dq" type="search" name="q" placeholder="<?= e($stateName) ?><?= te(', a county, a city or ZIPs') ?>" required>
-    <input type="hidden" name="types[]" value="Single Family"><input type="hidden" name="types[]" value="Townhouse">
-    <input type="hidden" name="sort" value="score">
-    <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
-  </form>
+  <a class="hero-pipeline" href="/pipeline">
+    <span><?= icon('kanban', 18) ?><?= te('Pipeline') ?><?= icon('arrow-up-right', 15) ?></span>
+    <strong><?= number_format(array_sum($stages)) ?></strong>
+    <small><?= te('Saved homes') ?></small>
+  </a>
 </header>
 
-<div class="kpis">
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? '+' . number_format($k['new']) . ' this week' : 'none new this week' ?></small></a>
-  <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span><?= te('Price cuts this week') ?></span><b><?= number_format($k['cuts']) ?></b><small><?= te('still for sale') ?></small></a>
-  <a class="kpi" href="/pipeline"><span><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? $k['mine'] . ' handled by you' : 'none handled by you' ?></small></a>
+<div class="kpis dashboard-kpis">
+  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= icon('house', 17) ?><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? te('+%d this week', $k['new']) : te('none new this week') ?></small></a>
+  <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span><?= icon('trending-up', 17) ?><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
+  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span><?= icon('trending-down', 17) ?><?= te('Price cuts this week') ?></span><b><?= number_format($k['cuts']) ?></b><small><?= te('still for sale') ?></small></a>
+  <a class="kpi" href="/pipeline"><span><?= icon('users', 17) ?><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? te('%d handled by you', $k['mine']) : te('none handled by you') ?></small></a>
 </div>
 
 <div class="dash-grid">
@@ -86,7 +92,7 @@ View::header('Dashboard', 'dashboard');
       <?php foreach ($top as $r): $band = Score::band((int) $r['score']); ?>
       <li>
         <span class="score-badge sm score-<?= $band ?>"><?= (int) $r['score'] ?></span>
-        <a class="main" href="/property/<?= (int) $r['id'] ?>"><?= e($r['address']) ?>, <?= e($r['city']) ?>
+        <a class="main" href="/property/<?= (int) $r['id'] ?>"><bdi><?= e($r['address']) ?>, <?= e($r['city']) ?></bdi>
           <span class="sub"><?= e(money($r['list_price'])) ?> · <?= e(PropertyRepo::facts($r)) ?><?= $r['stage'] ? ' · ' . e(Pipeline::STAGES[$r['stage']]) . ($r['owner_name'] ? ' (' . e($r['owner_name']) . ')' : '') : '' ?></span></a>
         <span class="end"><?php if ($r['est_profit'] !== null): ?><b class="<?= (int) $r['est_profit'] < 0 ? 'up' : 'down' ?> num"><?= e(money_short(abs((int) $r['est_profit']))) ?></b><br><?= te('est. profit') ?><?php endif; ?></span>
       </li>
@@ -98,11 +104,18 @@ View::header('Dashboard', 'dashboard');
   </section>
 
   <section class="section">
-    <div class="section-head"><h2><?= te('Recent price cuts') ?></h2></div>
+    <div class="section-head"><h2><?= te('Pipeline') ?></h2><a class="aside" href="/pipeline"><?= te('Open') ?></a></div>
+    <div class="stage-mini">
+      <?php foreach (Pipeline::STAGES as $key => $label): ?>
+      <a href="/pipeline?show=all#st-<?= $key ?>"><span><?= te($label) ?></span><progress aria-hidden="true" max="<?= (int) $largestStage ?>" value="<?= (int) ($stages[$key] ?? 0) ?>"></progress><b><?= (int) ($stages[$key] ?? 0) ?></b></a>
+      <?php endforeach; ?>
+    </div>
+
+    <div class="section-head mt-l"><h2><?= te('Recent price cuts') ?></h2></div>
     <?php if ($cuts): ?>
     <ul class="plain-list">
       <?php foreach ($cuts as $c): $d = ($c['price'] - $c['before_price']) / $c['before_price'] * 100; ?>
-      <li><a class="main" href="/property/<?= (int) $c['id'] ?>"><?= e($c['address']) ?><span class="sub"><?= e($c['city']) ?> · <?= e(fmt_date($c['event_date'], 'M j')) ?></span></a>
+      <li><a class="main" href="/property/<?= (int) $c['id'] ?>"><bdi><?= e($c['address']) ?></bdi><span class="sub"><?= e($c['city']) ?> · <?= e(fmt_date($c['event_date'], 'M j')) ?></span></a>
         <span class="end"><span class="num"><?= e(money_short($c['before_price'])) ?> → <b><?= e(money_short($c['price'])) ?></b></span><br><span class="down"><?= e(pct($d)) ?></span></span></li>
       <?php endforeach; ?>
     </ul>
@@ -110,12 +123,6 @@ View::header('Dashboard', 'dashboard');
     <p class="blank"><?= te('Price cuts show up here when an area is pulled again and an asking price has dropped.') ?></p>
     <?php endif; ?>
 
-    <div class="section-head mt-l"><h2><?= te('Pipeline') ?></h2><a class="aside" href="/pipeline"><?= te('Open') ?></a></div>
-    <div class="stage-mini">
-      <?php foreach (Pipeline::STAGES as $key => $label): ?>
-      <a href="/pipeline#st-<?= $key ?>"><span><?= te($label) ?></span><b><?= (int) ($stages[$key] ?? 0) ?></b></a>
-      <?php endforeach; ?>
-    </div>
   </section>
 
   <section class="section">
@@ -123,8 +130,8 @@ View::header('Dashboard', 'dashboard');
     <?php if ($activity): ?>
     <ul class="plain-list feed">
       <?php foreach ($activity as $a): ?>
-      <li><span><strong><?= e(Activity::who($a)) ?></strong> · <?= e($a['detail']) ?>
-        <?php if ($a['address']): ?><a class="sub" href="/property/<?= (int) $a['property_id'] ?>"><?= e($a['address']) ?>, <?= e($a['city']) ?></a><?php endif; ?></span>
+      <li><span><strong><?= e(Activity::who($a)) ?></strong> · <bdi><?= e($a['detail']) ?></bdi>
+        <?php if ($a['address']): ?><a class="sub" href="/property/<?= (int) $a['property_id'] ?>"><bdi><?= e($a['address']) ?>, <?= e($a['city']) ?></bdi></a><?php endif; ?></span>
         <span class="end"><?= e(ago($a['created_at'])) ?></span></li>
       <?php endforeach; ?>
     </ul>
@@ -145,7 +152,7 @@ View::header('Dashboard', 'dashboard');
     <p class="small muted mt-m">
       <?php foreach (Quota::PROVIDERS as $pid => $label): if (!Settings::has($pid . '_key')) { continue; } ?>
         <?= te($label) ?>: <?= Quota::left($pid) ?> <?= te('requests left this month.') ?> <?php endforeach; ?>
-      <?= te('Scheduler') ?> <?= $lastRun ? 'ran ' . e(ago($lastRun)) : 'hasn’t run yet' ?>.
+      <?= $lastRun ? te('Scheduler ran %s.', ago($lastRun)) : te('The scheduler hasn’t run yet.') ?>
     </p>
     <?php endif; ?>
   </section>
