@@ -11,9 +11,11 @@ use App\Providers\Fema;
 use App\Providers\DevelopmentEvidence;
 use App\Providers\LocationEvidence;
 use App\Providers\RegionalData;
+use App\Providers\SchoolEvidence;
 
 final class InvestmentEvidence
 {
+    public const VERSION = 2;
     public const WEIGHTS = ['profitability' => 40, 'housing' => 20, 'economic' => 15, 'social' => 10, 'infrastructure' => 10, 'risk_safety' => 5];
 
     public static function collect(array $p, bool $fetch = true): array
@@ -80,6 +82,8 @@ final class InvestmentEvidence
         foreach ($location['places'] ?? [] as $kind => $place) {
             $add('location', 'Road access to ' . $kind, $place, $propertyScope, 'OpenStreetMap / OSRM', $location['observed_at'] ?? null);
         }
+        $schools = SchoolEvidence::forProperty($p, $location);
+        $add('location', 'Nearby schools and source ratings', $schools, $propertyScope, 'Zillow school data / OpenStreetMap', $p['details']['schools_checked_at'] ?? $location['observed_at'] ?? null);
         $add('development', 'Mapped construction awaiting official verification', $location['construction'] ?? null, 'Within 3 miles', 'OpenStreetMap', $location['observed_at'] ?? null);
         $development = $geo && $fetch ? DevelopmentEvidence::nearby((float) $p['lat'], (float) $p['lng'], $p['state']) : [];
         $add('development', 'Nearby VDOT approved-program projects', $development['projects'] ?? null, 'Within 3 miles', 'VDOT SYIP', $development['collected_at'] ?? null);
@@ -96,16 +100,19 @@ final class InvestmentEvidence
                 $missing[] = $section;
             }
         }
-        $missing = array_merge($missing, ['Verified local crime rate', 'School quality and attendance boundaries',
+        $missing = array_merge($missing, ['Verified local crime rate', 'School attendance eligibility and current boundaries',
             'Approved development and completion dates', 'Property insurance quote', 'Utility and maintenance quotes', 'Major employers and business growth', 'New housing permits and completions']);
         if (!isset($region['groups']['population']['metrics']['Population change across survey periods'])) {
             $missing[] = 'Five-year population and household growth when history is unavailable';
+        }
+        if (!array_filter($schools, static fn ($school) => $school['rating'] !== null)) {
+            $missing[] = 'Verified school ratings';
         }
         if (!$tractData) {
             $missing[] = 'Census tract statistics';
         }
         return [
-            'version' => 1, 'collected_at' => now(),
+            'version' => self::VERSION, 'collected_at' => now(),
             'property' => array_intersect_key($p, array_flip(['id','address','city','county','state','zip','lat','lng','property_type','list_price','sqft','beds','baths','year_built','updated_at'])),
             'scores' => $scores, 'property_score' => $existingScore['score'],
             'financial_verdict' => Verdict::for($p, $deal)['verdict'],

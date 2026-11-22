@@ -37,12 +37,12 @@ final class ListingDetails
     public static function wanted(array $p): bool
     {
         $d = (array) ($p['details'] ?? []);
-        if (!empty($d['zillow']) || !OpenWebNinja::enabled() || self::autoLimit() === 0) {
+        if ((!empty($d['zillow']) && array_key_exists('schools', $d)) || !OpenWebNinja::enabled() || self::autoLimit() === 0) {
             return false;
         }
         // Nothing on Zillow: ask again in a month. A failed request (network, limit): ask again the next day.
         $wait = !empty($d['zillow_error']) ? 86400 : self::RETRY_DAYS * 86400;
-        if (!empty($d['zillow_tried_at']) && strtotime($d['zillow_tried_at'] . ' UTC') > time() - $wait) {
+        if ((empty($d['zillow']) || !empty($d['zillow_error'])) && !empty($d['zillow_tried_at']) && strtotime($d['zillow_tried_at'] . ' UTC') > time() - $wait) {
             return false;
         }
         return self::autoUsed() < self::autoLimit() && Quota::can(OpenWebNinja::ID, 'manual');

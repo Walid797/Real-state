@@ -943,3 +943,8 @@ html[lang="fa"] {
 .analysis-citations { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 @media(max-width: 600px) { .analysis-facts > div { grid-template-columns: minmax(0,1fr); gap: 4px; } }
 @media print { .analysis-sections article { break-inside: avoid; } }
+
+.analysis-schools { display: grid; gap: 10px; }
+.analysis-school { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+.school-rating { display: inline-flex; align-items: center; gap: 4px; color: var(--teal-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.school-rating > span { color: #9b6600; }

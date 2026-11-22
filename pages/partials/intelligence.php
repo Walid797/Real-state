@@ -52,7 +52,27 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
       <dl class="analysis-facts">
         <?php foreach ($facts as $fact): ?>
         <div id="analysis-<?= e($fact['id']) ?>"><dt><?= te($fact['label']) ?></dt><dd>
-          <?php if ($fact['section'] === 'location' && is_array($fact['value'])): $place = $fact['value']; ?>
+          <?php if ($fact['label'] === 'Nearby schools and source ratings'): ?>
+          <div class="analysis-schools">
+            <?php foreach ($fact['value'] as $school): ?>
+            <article class="analysis-school">
+              <strong><bdi><?= e($school['name']) ?></bdi></strong>
+              <?php if (!empty($school['level'])): ?><span class="small"><?= te($school['level']) ?></span><?php endif; ?>
+              <p>
+                <?php if ($school['rating'] !== null): ?>
+                  <span class="school-rating" aria-label="<?= te('School source rating %s of 10', trim_num($school['rating'])) ?>"><span aria-hidden="true">★</span> <bdi><?= e(trim_num($school['rating'])) ?>/10</bdi></span>
+                  <?php if ($school['rating'] >= 8): ?><span class="tag tag-live"><?= te('Highly rated by this source') ?></span><?php endif; ?>
+                  <small><?= te($school['rating_source']) ?></small>
+                <?php else: ?><span class="small muted"><?= te('School rating unavailable') ?></span><?php endif; ?>
+              </p>
+              <?php if ($school['distance_miles'] !== null): ?><p class="small"><?= te('%s miles away', trim_num($school['distance_miles'])) ?> · <?= te($school['distance_method'] ?? 'Unknown') ?></p><?php else: ?><p class="small muted"><?= te('Distance unverified') ?></p><?php endif; ?>
+              <?php if (isset($school['road_miles'])): ?><p class="small"><?= te('%1$s road miles, approximately %2$s minutes driving', trim_num($school['road_miles']), trim_num($school['driving_minutes'])) ?></p><?php endif; ?>
+              <p class="small"><?= te($school['assigned'] === true ? 'Assigned according to the listing source; verify with the district' : 'Attendance eligibility needs district verification') ?></p>
+              <?php if (!empty($school['source_url'])): ?><a class="small" href="<?= e($school['source_url']) ?>" target="_blank" rel="noopener noreferrer"><?= te('School data source') ?></a><?php endif; ?>
+            </article>
+            <?php endforeach; ?>
+          </div>
+          <?php elseif ($fact['section'] === 'location' && is_array($fact['value'])): $place = $fact['value']; ?>
             <bdi><?= e($place['name']) ?></bdi>
             <p><?= isset($place['road_miles']) ? te('%1$s road miles, approximately %2$s minutes driving', trim_num($place['road_miles']), trim_num($place['driving_minutes'])) : te('Road routing unavailable') ?></p>
             <small><?= te('%s miles in a straight line', trim_num($place['straight_miles'])) ?></small>

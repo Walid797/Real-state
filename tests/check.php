@@ -522,6 +522,8 @@ $ld = PropertyRepo::upsert(['address' => '9 Auto Ln', 'city' => 'Autoville', 'st
 $ldp = PropertyRepo::find($ld);
 $ok(App\Services\ListingDetails::wanted($ldp), 'a home without its listing is fetched when first opened');
 $ldp['details']['zillow'] = true;
+$ok(App\Services\ListingDetails::wanted($ldp), 'an older full listing can acquire its newly supported school data within the automatic cap');
+$ldp['details']['schools'] = [];
 $ok(!App\Services\ListingDetails::wanted($ldp), 'a home already fetched is not fetched again');
 $ldp['details'] = ['zillow_tried_at' => now()];
 $ok(!App\Services\ListingDetails::wanted($ldp), 'a home Zillow had nothing for is left alone for a month');
@@ -891,6 +893,37 @@ try {
 } finally {
     Db::run('DELETE FROM properties WHERE id=?',[$analysisId]);
 }
+
+/* School ratings retain their source scale and remain specific to the opened home. */
+$schoolData = App\Providers\SchoolEvidence::normalize([
+    ['name'=>'Demo Primary School','rating'=>8.5,'distance'=>0.7,'level'=>'Primary','isAssigned'=>false,'link'=>'https://www.greatschools.org/virginia/example/'],
+    ['name'=>'Demo Unrated School','rating'=>null,'distance'=>1.1],
+    ['name'=>'Demo Invalid School','rating'=>99,'distance'=>-5,'link'=>'javascript:alert(1)'],
+    ['name'=>'Demo Distant School','rating'=>10,'distance'=>20],
+]);
+$eq([$schoolData[0]['rating'],$schoolData[0]['rating_scale'],$schoolData[0]['rating_source'],$schoolData[0]['assigned']],
+    [8.5,10,'GreatSchools via Zillow',false], 'school ratings preserve original ten-point scale, attribution and assignment flag');
+$eq([$schoolData[2]['rating'],$schoolData[2]['distance_miles'],$schoolData[2]['source_url']], [null,null,null], 'invalid ratings, negative distances and unsafe source URLs are rejected');
+$schoolSubject = ['address'=>'Test House', 'city'=>'Test', 'state'=>'VA','zip'=>'22030','details'=>['schools'=>$schoolData]];
+$nearSchools = App\Providers\SchoolEvidence::forProperty($schoolSubject,[]);
+$eq(count($nearSchools),3,'a distant highly rated school is excluded from the nearby list');
+$eq(App\Providers\SchoolEvidence::forProperty(['address'=>'Another House','city'=>'Test','state'=>'VA','zip'=>'22030','details'=>[]],[]),
+    [],'school ratings for one home never become ratings for another home');
+$facilities = App\Providers\LocationEvidence::parse([
+    ['type'=>'node','id'=>11,'lat'=>38.85,'lon'=>-77.3,'tags'=>['amenity'=>'clinic','name'=>'Demo clinic']],
+    ['type'=>'node','id'=>12,'lat'=>38.851,'lon'=>-77.3,'tags'=>['amenity'=>'hospital','name'=>'Demo hospital']],
+    ['type'=>'node','id'=>13,'lat'=>38.852,'lon'=>-77.3,'tags'=>['amenity'=>'pharmacy','name'=>'Demo pharmacy']],
+    ['type'=>'node','id'=>14,'lat'=>38.853,'lon'=>-77.3,'tags'=>['amenity'=>'school','name'=>'Demo school one']],
+    ['type'=>'node','id'=>15,'lat'=>38.854,'lon'=>-77.3,'tags'=>['amenity'=>'school','name'=>'Demo school two']],
+],38.85,-77.3);
+$ok(isset($facilities['places']['clinic'],$facilities['places']['hospital'],$facilities['places']['pharmacy']) && count($facilities['schools'])===2,
+    'clinics, hospitals and pharmacies are distinguished and multiple nearby schools are collected');
+$mappedOnly = App\Providers\SchoolEvidence::forProperty($schoolSubject,$facilities);
+$ok(count(array_filter($mappedOnly,static fn($s)=>$s['rating']===null))>=3,'map-only schools remain unrated');
+$mapDetails = new ReflectionMethod(App\Providers\OpenWebNinja::class,'mapDetails');
+$schoolMapped = $mapDetails->invoke(null, ['zpid'=>12345,'address'=>['streetAddress'=>'1 Demo St','city'=>'Test','state'=>'VA','zipcode'=>'22030'],
+    'homeStatus'=>'FOR_SALE','schools'=>[['name'=>'Demo Source School','rating'=>9,'distance'=>0.8]]]);
+$eq($schoolMapped['details']['schools'][0]['rating'],9.0,'school ratings survive normal listing import');
 
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

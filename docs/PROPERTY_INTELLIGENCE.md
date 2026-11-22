@@ -45,3 +45,13 @@ Profitability averages profit as a fraction of the configured target and ROI as 
 Age, education and family composition are descriptive only and excluded from scoring. County statistics retain county scope. Property-local sales and road routes are specific to the subject's coordinates. Census tract figures retain the verified tract identifier.
 
 AI receives the server's evidence packet and financial verdict. It returns bilingual prose and citations to evidence IDs. It cannot supply numeric scores. The response validator rejects a different property ID, unknown evidence IDs, incomplete sections, numerical claims, HTML and links. Numbers are displayed from the stored calculation packet. AI interpretation still requires human review before a purchase.
+
+## Schools and health care
+
+The opened property's listing import now retains available school names, levels, ratings, provider distances and assignment flags. School ratings keep Zillow's original ten-point scale, with GreatSchools attribution where the supplied source link identifies it. A star is a visual marker beside the original score. The interface highlights a score of at least 8/10. Missing ratings stay unknown. A nearby school does not establish attendance eligibility.
+
+Older full listings without the school field can be updated once within the existing automatic Zillow-data quota. Cached raw responses are reused where available. This uses the existing OpenWeb Ninja connection and its configured limits. No new paid ratings provider is introduced.
+
+The location collector includes up to five nearby mapped schools and distinguishes clinics, hospitals, pharmacies, dentists, childcare and libraries, alongside groceries, parks, transit, highway access and mapped workplaces. OpenStreetMap candidates are limited to three miles. A bounded routing budget requests actual OSRM routes. A route failure leaves road distance unknown, with straight-line or listing-provider distance explicitly labelled.
+
+School and facility facts are supplied to the individual AI report with sources and timestamps. Ratings describe that source's assessment and remain outside demographic scoring. Proximity alone does not establish clinical quality or guarantee a resale premium.

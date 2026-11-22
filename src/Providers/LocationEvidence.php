@@ -11,37 +11,51 @@ final class LocationEvidence
 {
     public static function at(float $lat, float $lng): array
     {
-        $result = Cache::remember('location', 'routes-v1', ['lat' => round($lat, 5), 'lng' => round($lng, 5)], 86400 * 30,
+        $result = Cache::remember('location', 'routes-v2', ['lat' => round($lat, 5), 'lng' => round($lng, 5)], 86400 * 30,
             static function () use ($lat, $lng): array {
                 $around = sprintf('(around:4828,%.6f,%.6f)', $lat, $lng);
                 $query = '[out:json][timeout:8];('
-                    . 'nwr' . $around . '[amenity~"^(school|hospital|clinic|doctors)$"];'
+                    . 'nwr' . $around . '[amenity~"^(school|hospital|clinic|doctors|pharmacy|dentist|kindergarten|library)$"];'
                     . 'nwr' . $around . '[shop=supermarket];node' . $around . '[highway~"^(bus_stop|motorway_junction)$"];'
                     . 'nwr' . $around . '[railway=station];nwr' . $around . '[leisure=park];'
                     . 'nwr' . $around . '[office];nwr' . $around . '[construction];);out center qt 500;';
-                $r = Http::postForm(Overpass::URLS[0], ['data' => $query], 12);
+                $r = Http::postForm(Overpass::URLS[0], ['data' => $query], 8);
                 $data = json_decode($r['body'], true);
+                if ($r['status'] !== 200 || !is_array($data['elements'] ?? null)) {
+                    foreach (array_slice(Overpass::URLS, 1) as $server) {
+                        $r = Http::get($server . '?' . http_build_query(['data' => $query]), [], 6);
+                        $data = json_decode($r['body'], true);
+                        if ($r['status'] === 200 && is_array($data['elements'] ?? null)) {
+                            break;
+                        }
+                    }
+                }
                 if ($r['status'] !== 200 || !is_array($data['elements'] ?? null)) {
                     return ['places' => [], 'construction' => [], 'unavailable' => true, 'observed_at' => now()];
                 }
                 $out = self::parse($data['elements'], $lat, $lng);
-                foreach ($out['places'] as &$place) {
-                    $route = self::route($lat, $lng, $place['lat'], $place['lng']);
-                    $place['road_miles'] = $route['miles'] ?? null;
-                    $place['driving_minutes'] = $route['minutes'] ?? null;
-                }
-                unset($place);
+                $routingStarted = microtime(true);
+                $routes = [];
+                $withRoute = static function (array $place) use ($lat, $lng, $routingStarted, &$routes): array {
+                    $key = $place['lat'] . ',' . $place['lng'];
+                    if (!array_key_exists($key, $routes)) {
+                        $routes[$key] = microtime(true) - $routingStarted < 24 ? self::route($lat, $lng, $place['lat'], $place['lng']) : null;
+                    }
+                    return $place + ['road_miles' => $routes[$key]['miles'] ?? null, 'driving_minutes' => $routes[$key]['minutes'] ?? null];
+                };
+                $out['places'] = array_map($withRoute, $out['places']);
+                $out['schools'] = array_map($withRoute, $out['schools']);
                 return $out + ['unavailable' => false, 'observed_at' => now()];
             });
         if (!empty($result['unavailable'])) {
-            Cache::put(Cache::key('location', 'routes-v1', ['lat' => round($lat, 5), 'lng' => round($lng, 5)]), 'location', $result, 900);
+            Cache::put(Cache::key('location', 'routes-v2', ['lat' => round($lat, 5), 'lng' => round($lng, 5)]), 'location', $result, 900);
         }
         return $result;
     }
 
     public static function parse(array $elements, float $lat, float $lng): array
     {
-        $places = $construction = [];
+        $places = $construction = $schools = [];
         foreach ($elements as $el) {
             $y = $el['lat'] ?? $el['center']['lat'] ?? null;
             $x = $el['lon'] ?? $el['center']['lon'] ?? null;
@@ -55,7 +69,12 @@ final class LocationEvidence
             $tags = $el['tags'] ?? [];
             $kind = match (true) {
                 ($tags['amenity'] ?? '') === 'school' => 'school',
-                in_array($tags['amenity'] ?? '', ['hospital','clinic','doctors'], true) => 'health',
+                ($tags['amenity'] ?? '') === 'hospital' => 'hospital',
+                in_array($tags['amenity'] ?? '', ['clinic','doctors'], true) => 'clinic',
+                ($tags['amenity'] ?? '') === 'pharmacy' => 'pharmacy',
+                ($tags['amenity'] ?? '') === 'dentist' => 'dentist',
+                ($tags['amenity'] ?? '') === 'kindergarten' => 'childcare',
+                ($tags['amenity'] ?? '') === 'library' => 'library',
                 ($tags['shop'] ?? '') === 'supermarket' => 'grocery',
                 ($tags['highway'] ?? '') === 'motorway_junction' => 'highway',
                 ($tags['highway'] ?? '') === 'bus_stop', ($tags['railway'] ?? '') === 'station' => 'transit',
@@ -67,7 +86,12 @@ final class LocationEvidence
                 'name' => mb_substr(strip_tags((string) ($tags['name'] ?? $tags['operator'] ?? 'Mapped place')), 0, 120),
                 'lat' => (float) $y, 'lng' => (float) $x, 'straight_miles' => round($miles, 2),
                 'osm_id' => (int) ($el['id'] ?? 0),
+                'osm_type' => in_array($el['type'] ?? '', ['node','way','relation'], true) ? $el['type'] : 'node',
+                'level' => mb_substr(strip_tags((string) ($tags['school:level'] ?? $tags['isced:level'] ?? '')), 0, 60),
             ];
+            if ($kind === 'school') {
+                $schools[$row['osm_type'] . ':' . $row['osm_id']] = $row;
+            }
             if ($kind !== null && (!isset($places[$kind]) || $miles < $places[$kind]['straight_miles'])) {
                 $places[$kind] = $row;
             }
@@ -75,7 +99,8 @@ final class LocationEvidence
                 $construction[] = $row + ['type' => mb_substr((string) $tags['construction'], 0, 80), 'approval' => null, 'completion_date' => null];
             }
         }
-        return ['places' => $places, 'construction' => $construction];
+        usort($schools, static fn ($a, $b) => $a['straight_miles'] <=> $b['straight_miles']);
+        return ['places' => $places, 'construction' => $construction, 'schools' => array_slice($schools, 0, 5)];
     }
 
     private static function route(float $lat, float $lng, float $destLat, float $destLng): ?array

@@ -157,7 +157,7 @@ final class PropertyAnalysis
     {
         $fields = array_intersect_key($p, array_flip(['id','address','city','state','zip','county','lat','lng','property_type',
             'list_price','status','sqft','beds','baths','year_built','lot_sqft','hoa_fee','tax_annual','description','details','last_sale_price','last_sale_date']));
-        return hash('sha256', json_encode([$fields, Deal::saved((int) $p['id']), Condition::get((int) $p['id'])], JSON_INVALID_UTF8_SUBSTITUTE));
+        return hash('sha256', json_encode([InvestmentEvidence::VERSION, $fields, Deal::saved((int) $p['id']), Condition::get((int) $p['id'])], JSON_INVALID_UTF8_SUBSTITUTE));
     }
 
     private static function due(?int $propertyId): ?array

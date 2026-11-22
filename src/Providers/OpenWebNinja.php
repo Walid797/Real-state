@@ -294,6 +294,8 @@ final class OpenWebNinja
             'events' => $events,
             'details' => array_filter([
                 'zillow' => true,
+                'schools' => SchoolEvidence::normalize((array) ($d['schools'] ?? [])),
+                'schools_checked_at' => now(),
                 'photos' => array_slice($photos, 0, 40) ?: null,
                 'zillow_taxes' => $taxes ?: null,
                 'parcel_id' => $d['parcelId'] ?? null,
