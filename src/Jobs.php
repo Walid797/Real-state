@@ -21,6 +21,11 @@ final class Jobs
             if (Migrator::pending()) {
                 $log[] = 'Database updated: ' . implode(', ', Migrator::run()) . '.';
             }
+            if (in_array($job, ['auto', 'score', 'intelligence'], true)) {
+                foreach (Services\PropertyAnalysis::run() as $line) {
+                    $log[] = $line;
+                }
+            }
             if ($job === 'auto' || $job === 'alerts') {
                 $r = Alerts::runDue($ctx);
                 $log[] = 'Alerts: ' . $r['checked'] . ' checked, ' . $r['hits'] . ' new.';

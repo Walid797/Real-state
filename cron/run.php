@@ -31,8 +31,8 @@ if ($job === 'status') {
     echo "OpenStreetMap servers:\n  " . implode("\n  ", App\Providers\Overpass::probe()) . "\n";
     exit(0);
 }
-if (!in_array($job, ['auto', 'alerts', 'market', 'prune', 'score', 'backup', 'mail', 'county'], true)) {
-    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune | score | backup | mail | county | status\n");
+if (!in_array($job, ['auto', 'alerts', 'market', 'prune', 'score', 'backup', 'mail', 'county', 'intelligence'], true)) {
+    fwrite(STDERR, "Unknown job. Use: auto | alerts | market | prune | score | backup | mail | county | intelligence | status\n");
     exit(1);
 }
 

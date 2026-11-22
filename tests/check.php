@@ -834,5 +834,54 @@ try {
     }
 }
 
+/* Individual AI reports validate model output and isolate location evidence. */
+$analysisPacket = ['property' => ['id' => 123], 'facts' => [['id' => 'f1'], ['id' => 'f2']]];
+$modelAnswer = ['property_id' => 123];
+foreach (['fa', 'en'] as $language) {
+    $modelAnswer[$language] = ['summary' => 'Evidence needs careful review.', 'sections' => []];
+    foreach (['social','economic','housing','location','development','risk'] as $section) {
+        $modelAnswer[$language]['sections'][] = ['key' => $section, 'text' => 'Review the stored evidence before an offer.', 'evidence_ids' => ['f1']];
+    }
+}
+$ok(App\Providers\OpenRouter::validate($modelAnswer, $analysisPacket) !== null, 'AI narrative accepts complete bilingual prose with valid evidence citations');
+$bad = $modelAnswer; $bad['property_id'] = 124;
+$eq(App\Providers\OpenRouter::validate($bad, $analysisPacket), null, 'AI report for another property is rejected');
+$bad = $modelAnswer; $bad['fa']['summary'] = 'Income is 999999.';
+$eq(App\Providers\OpenRouter::validate($bad, $analysisPacket), null, 'AI numerical claims cannot replace calculated evidence');
+$bad = $modelAnswer; $bad['en']['sections'][0]['evidence_ids'] = ['invented'];
+$eq(App\Providers\OpenRouter::validate($bad, $analysisPacket), null, 'unknown AI evidence citations are rejected');
+$bad = $modelAnswer; $bad['fa']['sections'][0]['evidence_ids'] = [['nested']];
+$eq(App\Providers\OpenRouter::validate($bad, $analysisPacket), null, 'malformed model citations fail validation cleanly');
+$bad = $modelAnswer; $bad['en']['sections'][0]['key'] = 'risk';
+$eq(App\Providers\OpenRouter::validate($bad, $analysisPacket), null, 'duplicated AI sections are rejected');
+$placeRows = [
+    ['id'=>1, 'lat'=>38.85, 'lon'=>-77.30, 'tags'=>['amenity'=>'school','name'=>'Nearby school']],
+    ['id'=>2, 'lat'=>39.50, 'lon'=>-77.30, 'tags'=>['amenity'=>'school','name'=>'Distant school']],
+    ['id'=>3, 'lat'=>38.85, 'lon'=>-77.30, 'tags'=>['construction'=>'office','name'=>'Mapped site']],
+];
+$locationParsed = App\Providers\LocationEvidence::parse($placeRows, 38.85, -77.30);
+$ok($locationParsed['places']['school']['osm_id'] === 1 && $locationParsed['construction'][0]['approval'] === null,
+    'property-local places exclude distant sites and mapped construction has no assumed approval');
+$analysisId = PropertyRepo::upsert(['address'=>'71 Intelligence Check Ct','city'=>'Fixture','state'=>'VA','zip'=>'20997',
+    'status'=>'for_sale','list_price'=>250000,'sqft'=>1500,'property_type'=>'Single Family'], 'manual')['id'];
+try {
+    App\Services\PropertyAnalysis::enqueue($analysisId);
+    App\Services\PropertyAnalysis::enqueue($analysisId);
+    $eq((int) Db::val('SELECT COUNT(*) FROM property_analyses WHERE property_id=?',[$analysisId]), 1, 'multiple visits deduplicate the individual analysis queue');
+    $packet = App\Services\InvestmentEvidence::collect(PropertyRepo::find($analysisId), false);
+    $ok($packet['property']['id'] === $analysisId && $packet['scores']['final_score'] === null
+        && $packet['scores']['infrastructure'] === null && count($packet['missing_data']) > 0,
+        'missing evidence produces null scores in the subject-specific packet');
+    $eq(array_sum($packet['scores']['weights']), 100, 'individual investment weights total 100');
+    $filter = Search::fromRequest(['q'=>'20997']);
+    App\Services\PropertyAnalysis::enqueueSearch($filter);
+    $sig = hash('sha256', json_encode(['q'=>'20997'], JSON_UNESCAPED_UNICODE));
+    $cursorRows = PropertyRepo::search($filter + ['loc'=>Address::parseLocation('20997'),'analysis_after'=>0,'analysis_max'=>$analysisId]);
+    $ok(in_array($analysisId, array_map('intval', array_column($cursorRows['rows'],'id')), true), 'background search traversal matches the original search filters');
+    Db::run('DELETE FROM analysis_searches WHERE signature=?',[$sig]);
+} finally {
+    Db::run('DELETE FROM properties WHERE id=?',[$analysisId]);
+}
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

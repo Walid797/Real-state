@@ -28,6 +28,22 @@ final class RegionalData
         return ['acs' => $acs, 'employment' => $employment, 'history' => $history];
     }
 
+    public static function tract(array $tract, bool $fetch = false): array
+    {
+        $geoid = '14000US' . ($tract['state'] ?? '') . ($tract['county'] ?? '') . ($tract['tract'] ?? '');
+        if (!preg_match('/^14000US\d{11}$/D', $geoid)) {
+            return [];
+        }
+        return self::cached('tract-acs', ['geoid' => $geoid], 30, $fetch, static function () use ($geoid) {
+            $query = http_build_query([
+                'table_ids' => 'B01003,B11001,B19013,B25064,B25077,B25001,B07003,B01002,B11003,B15003',
+                'geo_ids' => $geoid,
+            ]);
+            $r = Http::get(self::ACS_SOURCE . '?' . $query, [], 7);
+            return $r['status'] === 200 ? self::decodeAcs(json_decode($r['body'], true), $geoid) : null;
+        });
+    }
+
     public static function mortgage(bool $fetch = false): array
     {
         return self::cached('mortgage', [], 3, $fetch, static function (): ?array {
@@ -93,6 +109,17 @@ final class RegionalData
             'year' => (int) $release[1],
             'name' => (string) ($data['geography'][$geoid]['name'] ?? ''),
             'population' => $read('B01003001'),
+            'median_age' => isset($tables['B01002']['estimate']['B01002001'])
+                && is_numeric($tables['B01002']['estimate']['B01002001'])
+                && $tables['B01002']['estimate']['B01002001'] >= 0
+                && $tables['B01002']['estimate']['B01002001'] < 130
+                    ? (float) $tables['B01002']['estimate']['B01002001'] : null,
+            'families_with_children' => in_array(null, [$read('B11003003'), $read('B11003010'), $read('B11003016')], true)
+                ? null : $read('B11003003') + $read('B11003010') + $read('B11003016'),
+            'families' => $read('B11003001'),
+            'college_graduates' => in_array(null, [$read('B15003022'), $read('B15003023'), $read('B15003024'), $read('B15003025')], true)
+                ? null : $read('B15003022') + $read('B15003023') + $read('B15003024') + $read('B15003025'),
+            'adults_25_plus' => $read('B15003001'),
             'households' => $read('B11001001'),
             'housing_units' => $read('B25001001'),
             'income' => $read('B19013001'),

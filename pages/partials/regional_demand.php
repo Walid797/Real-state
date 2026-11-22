@@ -4,12 +4,7 @@ $regional = App\Services\RegionalDemand::for($p);
 ?>
 <div class="regional-demand mt-l" id="regional-demand">
   <div class="section-head"><h2><?= te('Regional demand and resale outlook') ?></h2>
-    <?php if (App\Auth::can('edit')): ?>
-    <form method="post" action="/property/<?= (int) $p['id'] ?>/act" class="no-print">
-      <?= csrf_field() ?><input type="hidden" name="do" value="regional">
-      <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?><?= te('Load public regional data') ?></button>
-    </form>
-    <?php endif; ?>
+
   </div>
   <p class="small soft"><?= te('Review the region alongside the purchase price, renovation budget and comparable sales.') ?></p>
   <?php if ($regional['county']): ?><p class="small mt-s"><bdi><?= e($regional['county']) ?></bdi> · <?= te('ACS survey period %s', $regional['acs_period']) ?></p><?php endif; ?>

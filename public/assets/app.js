@@ -487,3 +487,26 @@
       });
   }
 })();
+
+/* Refresh the individual report while its background job is running. */
+(function () {
+  var host = document.querySelector('[data-intelligence-url]');
+  if (!host) return;
+  var polls = 0;
+  function poll() {
+    if (document.hidden || polls >= 20) return;
+    polls += 1;
+    fetch(host.getAttribute('data-intelligence-url'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { if (!r.ok) throw new Error('Report status unavailable'); return r.json(); })
+      .then(function (data) {
+        var current = host.querySelector('[data-analysis-status]');
+        if (!current || current.getAttribute('data-analysis-status') !== data.status) {
+          host.innerHTML = data.html;
+        }
+        if (['ready', 'awaiting_key', 'failed'].indexOf(data.status) < 0) setTimeout(poll, 15000);
+      })
+      .catch(function () { setTimeout(poll, 30000); });
+  }
+  setTimeout(poll, 15000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+})();

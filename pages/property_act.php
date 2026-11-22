@@ -25,6 +25,12 @@ $home = '/property/' . $id;
 $full = Address::full($p);
 
 switch ($do) {
+    case 'analysis_refresh':
+        App\Services\PropertyAnalysis::enqueue($id, true);
+        flash('A fresh individual property report has been queued.');
+        $home .= '#property-intelligence';
+        break;
+
     case 'regional':
         @set_time_limit(75);
         $regional = App\Services\RegionalDemand::for($p, true);

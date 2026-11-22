@@ -92,6 +92,7 @@ if ($p['scored_at'] === null || $p['scored_at'] < $p['updated_at'] || strtotime(
 $deal = $an['deal'];
 $cond = $an['condition'];
 $sc = $an['score'];
+App\Services\PropertyAnalysis::enqueue($id);
 $canEdit = Auth::can('edit');
 $team = Db::all("SELECT id, COALESCE(NULLIF(name, ''), email) AS name FROM users WHERE is_active = 1 AND role <> 'viewer' ORDER BY name");
 $notes = Db::all('SELECT n.*, COALESCE(NULLIF(u.name, \'\'), u.email) AS author FROM notes n LEFT JOIN users u ON u.id = n.user_id WHERE n.property_id = ? ORDER BY n.id DESC', [$id]);
@@ -126,7 +127,12 @@ if (count($series) >= 2) {
   <?php if ($p['watch_id']): ?><span>·</span><a href="/pipeline"><?= te('Pipeline') ?></a><?php endif; ?>
 </nav>
 
-<header class="p-head">
+<nav class="setting-nav no-print" aria-label="<?= te('Property sections') ?>">
+  <a href="#property-facts"><?= te('Property Details') ?></a>
+  <a href="#deal"><?= te('Financial') ?></a>
+  <a href="#property-intelligence"><?= te('AI Analysis') ?></a>
+</nav>
+<header class="p-head" id="property-facts">
   <div>
     <div class="tags">
       <?= View::statusTag($p) ?>
