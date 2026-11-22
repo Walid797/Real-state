@@ -13,13 +13,17 @@ Plain PHP 8.1+ and MySQL (or MariaDB). No framework, no build step, no Composer.
 | --- | --- | --- |
 | [RentCast](https://developers.rentcast.io) | Listings for sale, county sale records, value and rent estimates | Free plan: 50 requests / month |
 | [OpenWeb Ninja – Zillow data](https://www.openwebninja.com/api/real-time-zillow-data) (optional) | Photos, description, price and tax history, Zestimate, sold comparables | Free plan: 100 requests / month |
+| Homes.com public search pages | Additional first-page sale listings, prices, photos and listing previews | No API key; public-site access and partial coverage |
 | U.S. Census geocoder | Map position, county, census tract | Free, no key |
 | U.S. Census ACS | Neighbourhood income / home value / rent | Free key |
 | FEMA flood hazard layer | Flood zone | Free |
 | Zillow Research files | Monthly home values and market trends by ZIP / city | Free |
 | OpenStreetMap | Map tiles | Free |
 
-Nothing is scraped. Every metered request is stored in MySQL, so repeating a search,
+Homes.com public collection pages supplement the API results, with one-hour caching,
+strict area/address checks and a source link on each home. This is partial public-page
+coverage; unavailable or changed pages are skipped without bypassing challenges.
+Every metered request is stored in MySQL, so repeating a search,
 opening a home again, computing comps or checking an alert against saved data costs
 nothing. A monthly counter refuses to go past the free allowance, and keeps a share
 of it back from alerts so manual searches always have some left.
@@ -30,6 +34,7 @@ the list is editable under **Sites**.
 ## Install
 
 1. Point the (sub)domain's document root at the `public/` folder.
+   Enable PHP's DOM/XML extension for the optional Homes.com public-page reader.
 2. Create a MySQL database and user.
 3. Copy `config.sample.php` to `config.php` in the project root (it is git-ignored and
    blocked from the web) and fill it in. Generate the keys with

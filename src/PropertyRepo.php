@@ -125,8 +125,8 @@ final class PropertyRepo
                 $merged = array_replace(is_array($prev) ? $prev : [], $p['details']); // newer block replaces the older one, key by key
                 $data['details'] = json_encode($merged, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
             }
-            // A hand-entered record keeps its "manual" origin unless a provider now knows the house too.
-            if ($source !== 'manual' && $existing['source'] === 'manual') {
+            // API enrichment takes primary ownership over manual records and public-page previews.
+            if ($source !== 'manual' && ($existing['source'] === 'manual' || ($existing['source'] === 'homes' && $source !== 'homes'))) {
                 $data['source'] = $source;
             }
             $data['last_seen_at'] = $now;
@@ -477,6 +477,7 @@ final class PropertyRepo
                     p.days_on_market, p.listing_type, p.last_sale_price, p.last_sale_date, p.est_value, p.source,
                     COALESCE(NULLIF(p.photo_url, ''), CASE WHEN JSON_VALID(p.details)
                         THEN JSON_UNQUOTE(JSON_EXTRACT(p.details, '$.photos[0]')) END) AS photo_url,
+                    JSON_EXTRACT(p.details, '$.homes') AS homes_quote,
                     p.source_url, p.data_status, p.first_seen_at, p.county, p.score, p.risk, p.confidence, p.est_arv, p.est_reno,
                     p.est_profit, p.est_roi, c.overall AS cond_overall, w.id AS watch_id, w.stage AS watch_stage,
                     w.owner_id, ou.name AS owner_name

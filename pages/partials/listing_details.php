@@ -28,6 +28,14 @@ $autoNow = ListingDetails::wanted($p);
 ?>
 <section class="section" id="listing-details"<?= $autoNow ? ' data-auto-details="/api/details/' . (int) $id . '" data-csrf="' . e(App\Auth::csrfToken()) . '"' : '' ?>>
   <div class="section-head"><h2><?= te('Property details') ?></h2><?php if (!empty($d['zillow'])): ?><span class="aside"><?= te('from the listing, via Zillow data') ?></span><?php endif; ?></div>
+  <?php $homesQuote = $d['homes'] ?? null; $homesLink = App\Providers\HomesCom::propertyUrl($homesQuote['url'] ?? null); if ($homesLink): ?>
+  <aside class="homes-property-source note mb-m">
+    <strong>Homes.com</strong>
+    <span><?= te('Source asking price') ?>: <bdi><?= e(money($homesQuote['price'])) ?></bdi></span>
+    <small><?= te('Source checked') ?> <bdi><?= e($homesQuote['observed_at']) ?> UTC</bdi> · <?= te('Public listing preview; some details may be missing.') ?></small>
+    <a href="<?= e($homesLink) ?>" target="_blank" rel="noopener noreferrer"><?= te('View this home on Homes.com') ?></a>
+  </aside>
+  <?php endif; ?>
   <?php if ($kv): ?>
   <dl class="kv"><?php foreach ($kv as $k => $v): ?><div><dt><?= te($k) ?></dt><dd><?= e($v) ?></dd></div><?php endforeach; ?></dl>
   <?php elseif ($autoNow): ?>

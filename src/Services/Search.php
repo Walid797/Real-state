@@ -179,7 +179,7 @@ final class Search
     {
         $ctx = $opt['ctx'] ?? 'manual';
         $out = ['loc' => null, 'rows' => [], 'total' => 0, 'snapshot' => null, 'fetched' => false, 'partial' => false,
-            'notice' => null, 'error' => null, 'needs' => []];
+            'notice' => null, 'error' => null, 'needs' => [], 'homes' => null];
         $loc = self::location($f);
         if ($loc === null) {
             $out['error'] = ($f['search_kind'] ?? '') === 'building'
@@ -225,6 +225,12 @@ final class Search
             $out['snapshot'] = self::latestSnapshot($loc, $f['mode'] ?? 'sale');
         }
 
+        if (($opt['fetch'] ?? true) !== false && ($f['mode'] ?? 'sale') === 'sale') {
+            $out['homes'] = HomesSearch::run($loc, $ctx);
+            if (!empty($out['homes']['available']) && !RentCast::enabled() && !OpenWebNinja::enabled()) {
+                $out['notice'] = 'Results include public Homes.com listings. RentCast and Zillow data are not connected.';
+            }
+        }
         $res = PropertyRepo::search($f + ['loc' => $loc, 'limit' => $opt['limit'] ?? 60, 'offset' => $opt['offset'] ?? 0]);
         $out['rows'] = $res['rows'];
         $out['total'] = $res['total'];

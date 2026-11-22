@@ -48,6 +48,7 @@ final class Settings
         'cesium_limit' => '900',
         'cesium_reserve' => '0',
         'search_provider' => 'auto',
+        'homes_on' => '1',
         'snapshot_hours' => '24',
         'smtp_host' => 'smtp.hostinger.com',
         'smtp_port' => '465',

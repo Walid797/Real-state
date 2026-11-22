@@ -953,3 +953,6 @@ html[lang="fa"] {
 .results-building .results-map{display:none}
 .building-match{display:grid;gap:.45rem;padding:1rem 0;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
 .building-match:last-child{border-bottom:0}
+.homes-search-status,.homes-property-source{display:flex;flex-wrap:wrap;gap:.4rem .7rem;align-items:baseline}
+.homes-search-status small,.homes-property-source small{flex-basis:100%;font-size:.8rem}
+.homes-source-link{color:var(--teal)}

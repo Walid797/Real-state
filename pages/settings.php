@@ -18,6 +18,7 @@ if (is_post()) {
     $anchor = '';
     switch ($do) {
         case 'sources':
+            Settings::set('homes_on', isset($_POST['homes_on']) ? '1' : '0');
             Settings::set('rentcast_limit', $int('rentcast_limit', 0, 100000, 50));
             Settings::set('rentcast_reserve', $int('rentcast_reserve', 0, 100000, 15));
             Settings::set('openwebninja_limit', $int('openwebninja_limit', 0, 1000000, 100));
@@ -171,6 +172,12 @@ View::header('Settings', 'settings');
         <label class="field c4"><span><?= te('Fetched by themselves, per month') ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
           <small><?= te('The first time a home is opened or added to the pipeline, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?></small></label>
       </div>
+    </div>
+
+    <div class="card">
+      <h3>Homes.com</h3>
+      <label class="check"><input type="checkbox" name="homes_on" value="1"<?= checked(App\Providers\HomesCom::enabled()) ?>><?= te('Add public Homes.com listings alongside RentCast') ?></label>
+      <p class="small soft mt-s"><?= te('Reads the first public search page for up to three areas within a short time limit. Pages are cached for one hour. No RentCast request is used for this source. Access and coverage depend on Homes.com.') ?></p>
     </div>
 
     <div class="card">
@@ -328,7 +335,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <thead><tr><th><?= te('When') ?></th><th><?= te('Source') ?></th><th><?= te('What') ?></th><th><?= te('By') ?></th><th class="r"><?= te('Result') ?></th><th class="r"><?= te('Time') ?></th></tr></thead>
       <tbody>
       <?php foreach ($log as $l): ?>
-        <tr><td class="nowrap"><?= e(ago($l['created_at'])) ?></td><td><?= e(Quota::PROVIDERS[$l['provider']] ?? $l['provider']) ?></td>
+        <tr><td class="nowrap"><?= e(ago($l['created_at'])) ?></td><td><?= e($l['provider'] === 'homes' ? 'Homes.com' : (Quota::PROVIDERS[$l['provider']] ?? $l['provider'])) ?></td>
           <td class="mono"><?= e($l['endpoint']) ?><?php if ($l['note']): ?><span class="sub"><?= e($l['note']) ?></span><?php endif; ?></td>
           <td><?= te($l['context'] === 'cron' ? 'alert' : 'you') ?></td>
           <td class="r"><?= in_array((int) $l['status'], [200, 404], true) ? '<span class="tag tag-live">' . (int) $l['status'] . '</span>' : '<span class="tag tag-bad">' . ((int) $l['status'] ?: 'no reply') . '</span>' ?></td>

@@ -22,6 +22,9 @@ $stateName = Address::STATES[$state] ?? $state;
 if ($f['q'] !== '') {
     $loc = Search::location($f);
     if ($loc && $loc['type'] === 'address') {
+        if (Auth::can('edit')) {
+            App\Services\HomesSearch::run($loc);
+        }
         $id = PropertyRepo::findAddress($loc);
         if (!$id && Auth::can('edit')) {
             $geo = Census::geocode(Address::full($loc)); // free; gives coordinates, ZIP and county
@@ -302,13 +305,25 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             <?= te($res['fetched'] ? 'Just pulled from' : 'Pulled from') ?> <strong><?= e(Quota::PROVIDERS[$snap['provider']] ?? $snap['provider']) ?></strong>
             <?= $res['fetched'] ? te('— requests used.') : te('%s — this search cost nothing.', ago($snap['fetched_at'])) ?>
           <?php else: ?>
-            <?= te('From saved data only.') ?>
+            <?= te(!empty($res['homes']['available']) ? 'Saved homes plus Homes.com public listings.' : 'From saved data only.') ?>
           <?php endif; ?>
           <?php if ($mode === 'sale'): ?> <?= te('Profit, ARV and scores are estimates — open a home to see how each was worked out.') ?><?php endif; ?>
           <?php $waiting = $mode === 'sale' ? count(array_filter($res['rows'], static fn ($r) => $r['score'] === null && empty($r['scored_at']))) : 0; ?>
           <?php if ($waiting): ?> <span class="wait-note"><?= plural($waiting, 'home') ?> <?= te('on this page still being scored — reload in a few minutes.') ?></span><?php endif; ?>
         </p>
       </header>
+
+      <?php if ($res['homes'] !== null): $homes = $res['homes']; ?>
+      <div class="homes-search-status note mt-s" role="status">
+        <strong>Homes.com</strong>
+        <?php if ($homes['available']): ?>
+          <span><?= te('%d listings verified for the requested location.', $homes['count']) ?> <?= te('First-page coverage; this is not the complete market.') ?></span>
+          <small><?= te($homes['cached'] ? 'Using cached source pages.' : 'Source pages checked now.') ?> <?= te('Source checked') ?> <bdi><?= e($homes['observed_at']) ?> UTC</bdi></small>
+        <?php else: ?><span><?= te('Homes.com did not return verified listings for this search. Other sources and saved results remain available.') ?></span><?php endif; ?>
+        <?php if ($homes['limited']): ?><small><?= te('Only part of the requested areas was checked within this search time limit.') ?></small><?php endif; ?>
+        <?php foreach ($homes['errors'] as $error): ?><small><?= te($error) ?></small><?php endforeach; ?>
+      </div>
+      <?php endif; ?>
 
       <?php if ($loc['type'] === 'building'): ?>
       <section class="building-matches callout mt-s">
@@ -436,6 +451,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
             $dom = PropertyRepo::dom($r);
             $band = Score::band($r['score'] !== null ? (int) $r['score'] : null);
             $flags = array_filter(explode(',', (string) $r['flags']));
+            $homesQuote = json_decode((string) ($r['homes_quote'] ?? ''), true);
+            $homesLink = App\Providers\HomesCom::propertyUrl($homesQuote['url'] ?? null);
         ?>
           <article class="hrow hrow-x" data-pid="<?= (int) $r['id'] ?>">
             <?php if (str_starts_with((string) $r['photo_url'], 'https://')): ?>
@@ -448,6 +465,8 @@ View::script('/assets/vendor/leaflet/leaflet.js');
               <span class="where"><bdi><?= e($r['city']) ?>, <?= e($r['state']) ?> <?= e($r['zip']) ?></bdi><?php if ($loc['type'] === 'multi' && $r['county']): ?> · <bdi><?= e($r['county']) ?></bdi><?php endif; ?></span>
               <div class="facts"><?= (PropertyRepo::facts($r) !== '' ? e(PropertyRepo::facts($r)) : te('Details not on file')) ?><?= $r['property_type'] ? ' · ' . te($r['property_type']) : '' ?></div>
               <div class="chips">
+                <?php if ($r['source'] === 'rentcast'): ?><span class="chip">RentCast</span><?php elseif ($r['source'] === 'openwebninja'): ?><span class="chip"><?= te('Zillow data') ?></span><?php endif; ?>
+                <?php if ($homesLink): ?><a class="chip homes-source-link" href="<?= e($homesLink) ?>" target="_blank" rel="noopener noreferrer" title="<?= te('Source checked') ?> <?= e($homesQuote['observed_at'] ?? '') ?> UTC">Homes.com</a><?php endif; ?>
                 <?php if ($mode === 'sale' && $r['est_profit'] !== null): ?>
                   <span class="chip <?= (int) $r['est_profit'] > 0 ? 'chip-good' : 'chip-bad' ?>"><?= te('Profit') ?> <?= e(money_short(abs((int) $r['est_profit']))) ?><?= (int) $r['est_profit'] < 0 ? ' ' . te('loss') : '' ?></span>
                   <?php if ($r['est_arv']): ?><span class="chip"><?= te('ARV') ?> <?= e(money_short($r['est_arv'])) ?></span><?php endif; ?>

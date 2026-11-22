@@ -36,6 +36,8 @@ if (!str_contains((string) App\Config::get('base_url', ''), '127.0.0.1')) {
     fwrite(STDERR, "Refusing to run: base_url is not a local address.\n");
     exit(1);
 }
+$homesWasOn = Settings::get('homes_on', '1');
+Settings::set('homes_on','0'); // Offline checks must never read public listing pages.
 
 $fail = 0;
 $n = 0;
@@ -1004,5 +1006,100 @@ try {
     foreach ($buildingIds as $id) Db::run('DELETE FROM properties WHERE id=?',[$id]);
 }
 
+/* Homes.com public-page integration: fixture pages, cached responses and actual shared search flow. */
+$homesLoc = Address::parseLocation('24979');
+$homesUrl = 'https://www.homes.com/fixtureville-va/24979/';
+$homesPropertyUrl = 'https://www.homes.com/property/1-provider-fixture-rd-fixtureville-va-unit-1s/testhome1/';
+$homesAddress = ['@type'=>'PostalAddress','streetAddress'=>'1 Provider Fixture Rd Unit 1 S','addressLocality'=>'Fixtureville','addressRegion'=>'VA','postalCode'=>'24979','addressCountry'=>'US'];
+$homesRecord = ['@type'=>['RealEstateListing','Product'],'url'=>$homesPropertyUrl,'potentialAction'=>['@type'=>'BuyAction'],
+    'offers'=>['priceCurrency'=>'USD','price'=>275000,'availability'=>'https://schema.org/InStock'],
+    'mainEntity'=>['@type'=>'Apartment','accommodationCategory'=>'Condominium','address'=>$homesAddress,'image'=>'https://images.homes.com/listings/test-house.jpg',
+        'numberOfBedrooms'=>3,'numberOfBathroomsTotal'=>2,'floorSize'=>['value'=>1500,'unitCode'=>'FTK']],
+    'subjectOf'=>[['location'=>['address'=>$homesAddress,'geo'=>['latitude'=>38.8,'longitude'=>-77.1]]]]];
+$homesCard = '<article class="search-placard for-sale-placard" data-est="for sale" data-pk="testhome1"><address>1 Provider Fixture Rd Unit 1 S, Fixtureville, VA 24979</address><ul class="detailed-info-container"><li>3 Beds</li><li>2.5 Baths</li><li>1,500 Sq Ft</li></ul></article>';
+$homesHtml = static function (array $rows, string $url, string $card) : string {
+    return '<html><head><link rel="canonical" href="'.htmlspecialchars($url,ENT_QUOTES).'"></head><body>'.$card
+        .'<script type="application/ld&#x2B;json">'.json_encode(['@graph'=>[['@type'=>'CollectionPage','url'=>$url,'mainEntity'=>['@type'=>'ItemList','itemListElement'=>$rows]]]]) .'</script></body></html>';
+};
+$homesParsed = App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,$homesCard),$homesLoc,$homesUrl,now());
+$eq([$homesParsed['ok'],count($homesParsed['items'])],[true,1],'public Homes.com collection requires a matching visible for-sale card');
+$homesItem = $homesParsed['items'][0];
+$eq([$homesItem['property_type'],$homesItem['beds'],$homesItem['baths'],$homesItem['sqft']],['Condo',3.0,2.5,1500.0],'visible fractional bathrooms override rounded source schema');
+$eq([$homesItem['photo_url'],$homesItem['source_url']],['https://images.homes.com/listings/test-house.jpg',$homesPropertyUrl],'photo and property link remain attached to the same home');
+$eq([$homesItem['lat'],$homesItem['lng']],[38.8,-77.1],'coordinates come from an event for exactly the same apartment');
+$eq(App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,$homesCard),$homesLoc,'https://www.homes.com/other-city-va/',now())['ok'],false,'a redirected Homes.com area is rejected');
+$eq(App\Providers\HomesCom::parse('<html>challenge page</html>',$homesLoc,$homesUrl,now())['ok'],false,'challenge or redesigned pages fail closed');
+$eq(count(App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,str_replace('Unit 1 S','Unit 1 N',$homesCard)),$homesLoc,$homesUrl,now())['items']),0,'JSON-LD for one unit cannot acquire another unit visible in the card');
+$eq(count(App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,$homesCard),Address::parseLocation('24978'),$homesUrl,now())['items']),0,'another ZIP is never relabelled as the requested ZIP');
+$changedRecord = $homesRecord;
+$changedRecord['potentialAction']['@type']='RentAction';
+$eq(count(App\Providers\HomesCom::parse($homesHtml([$changedRecord],$homesUrl,$homesCard),$homesLoc,$homesUrl,now())['items']),0,'rental cards never become for-sale listings');
+$changedRecord = $homesRecord;
+$changedRecord['subjectOf'][0]['location']['address']['streetAddress']='1 Provider Fixture Rd Unit 1 N';
+$geoRejected = App\Providers\HomesCom::parse($homesHtml([$changedRecord],$homesUrl,$homesCard),$homesLoc,$homesUrl,now())['items'][0];
+$ok(!isset($geoRejected['lat'],$geoRejected['lng']),'coordinates for a neighbouring apartment are discarded');
+$soldPage = $homesUrl.'sold/';
+$eq(App\Providers\HomesCom::parse($homesHtml([$homesRecord],$soldPage,$homesCard),$homesLoc,$soldPage,now())['ok'],false,'sold pages do not supply asking prices as recorded transactions');
+$eq(App\Providers\HomesCom::propertyUrl('https://www.homes.com.evil.test/property/a/id/'),null,'lookalike source domains are rejected');
+$eq(App\Providers\HomesCom::pageUrl(Address::parseLocation('Fairfax County, VA')),'https://www.homes.com/fairfax-county-va/','county source uses its own county page');
+$exactHomes = Address::parseLocation('1 Provider Fixture Rd Apt 1S, Fixtureville, VA 24979');
+$ok(App\Services\HomesSearch::matches($homesItem,$exactHomes) && !App\Services\HomesSearch::matches($homesItem,array_replace($exactHomes,['address'=>'1 Provider Fixture Rd Apt 1N'])), 'exact-address enrichment imports only the requested apartment');
+$homesIds = [];
+$homesCacheKey = App\Cache::key('homes','public-search-v1',['key'=>$homesLoc['key']]);
+$homesPriorCache = App\Cache::get($homesCacheKey);
+$primaryKeys = [Settings::get('rentcast_key'),Settings::get('openwebninja_key')];
+try {
+    $primaryId = PropertyRepo::upsert(['address'=>$homesItem['address'],'city'=>$homesItem['city'],'state'=>'VA','zip'=>'24979',
+        'status'=>'for_sale','list_price'=>300000,'beds'=>4,'photo_url'=>'https://example.test/rentcast-house.jpg'], 'rentcast')['id'];
+    $homesIds[] = $primaryId;
+    $beforeCount = (int) Db::val('SELECT COUNT(*) FROM properties');
+    $savedHome = App\Services\HomesSearch::save($homesItem);
+    $combinedHome = PropertyRepo::find($primaryId);
+    $eq([$savedHome['id'],(int)Db::val('SELECT COUNT(*) FROM properties')],[$primaryId,$beforeCount],'RentCast and Homes.com deduplicate into one property');
+    $eq([(int)$combinedHome['list_price'],(int)$combinedHome['beds'],$combinedHome['photo_url'],$combinedHome['source']],
+        [300000,4,'https://example.test/rentcast-house.jpg','rentcast'],'Homes.com never silently overwrites known RentCast price, beds or photo');
+    $eq([(int)$combinedHome['details']['homes']['price'],(float)$combinedHome['baths']],[275000,2.5],'source quote stays separate while missing facts can be filled');
+    $ok(!App\Services\HomesSearch::save($homesItem)['changed'],'cached source observations do not repeatedly invalidate property reports');
+    $countyObservation = $homesItem;
+    $countyObservation['county'] = 'Fixture County';
+    $countyObservation['details']['homes']['observed_at'] = gmdate('Y-m-d H:i:s',time()-3600);
+    $countyObservation['details']['homes']['price'] = 250000;
+    App\Services\HomesSearch::save($countyObservation);
+    $withCounty = PropertyRepo::find($primaryId);
+    $eq($withCounty['county'],'Fixture County','an older cached county page can fill missing county membership');
+    $eq((int)$withCounty['details']['homes']['price'],275000,'filling county context does not replace a newer Homes.com quote');
+    $nextUnit = $homesItem;
+    $nextUnit['address']='1 Provider Fixture Rd Unit 1 N';
+    $secondHome = App\Services\HomesSearch::save($nextUnit);
+    $homesIds[] = $secondHome['id'];
+    $ok($secondHome['created'] && $secondHome['id']!==$primaryId,'another apartment remains a separate property');
+    PropertyRepo::upsert(['address'=>$nextUnit['address'],'city'=>$nextUnit['city'],'state'=>'VA','zip'=>'24979','list_price'=>280000], 'rentcast');
+    $eq(PropertyRepo::find($secondHome['id'])['source'],'rentcast','API enrichment takes primary ownership of an originally Homes.com record');
+    Settings::set('homes_on','1');
+    Settings::set('rentcast_key',null);
+    Settings::set('openwebninja_key',null);
+    $cachedHomes = ['ok'=>true,'items'=>[$homesItem],'observed_at'=>now(),'cached'=>false,'error'=>null,'url'=>$homesUrl];
+    App\Cache::put($homesCacheKey,'homes',$cachedHomes,3600);
+    $usedBefore = Quota::used('rentcast');
+    $reportCount = (int)Db::val('SELECT COUNT(*) FROM property_analyses');
+    $combined = Search::run(Search::fromRequest(['q'=>'24979']));
+    $ok($combined['homes']['available'] && $combined['homes']['cached'] && $combined['total']>=1,'ordinary search automatically includes cached Homes.com alongside primary-provider results');
+    $combinedRow = array_values(array_filter($combined['rows'],static fn($row)=>(int)$row['id']===$primaryId))[0];
+    $eq(json_decode($combinedRow['homes_quote'],true)['url'],$homesPropertyUrl,'normal search projection exposes the source quote and link for its result badge');
+    $eq(Quota::used('rentcast'),$usedBefore,'Homes.com adds no RentCast quota usage');
+    $eq((int)Db::val('SELECT COUNT(*) FROM property_analyses'),$reportCount,'new source searches do not start AI analysis for unopened homes');
+    App\Cache::put($homesCacheKey,'homes',array_replace($cachedHomes,['ok'=>false,'items'=>[],'error'=>'fixture unavailable']),900);
+    $unavailable = Search::run(Search::fromRequest(['q'=>'24979']));
+    $ok(!$unavailable['homes']['available'] && $unavailable['total']>=1,'Homes.com failure keeps other saved results available');
+    $noFetch = Search::run(Search::fromRequest(['q'=>'24979']),['fetch'=>false]);
+    $eq($noFetch['homes'],null,'exports and deletion scopes do not contact Homes.com');
+} finally {
+    Settings::set('rentcast_key',$primaryKeys[0]);
+    Settings::set('openwebninja_key',$primaryKeys[1]);
+    foreach($homesIds as $id) Db::run('DELETE FROM properties WHERE id=?',[$id]);
+    Db::run('DELETE FROM api_cache WHERE cache_key=?',[$homesCacheKey]);
+    if ($homesPriorCache!==null) App\Cache::put($homesCacheKey,'homes',$homesPriorCache,3600);
+}
+Settings::set('homes_on',$homesWasOn);
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

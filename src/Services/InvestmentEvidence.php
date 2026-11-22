@@ -83,6 +83,9 @@ final class InvestmentEvidence
             $add('location', 'Road access to ' . $kind, $place, $propertyScope, 'OpenStreetMap / OSRM', $location['observed_at'] ?? null);
         }
         $schools = SchoolEvidence::forProperty($p, $location);
+        if (!empty($p['details']['homes']['price'])) {
+            $add('housing', 'Homes.com source asking price', $p['details']['homes']['price'], $propertyScope, 'Homes.com', $p['details']['homes']['observed_at'] ?? null);
+        }
         $add('location', 'Nearby schools and source ratings', $schools, $propertyScope, 'Zillow school data / OpenStreetMap', $p['details']['schools_checked_at'] ?? $location['observed_at'] ?? null);
         $add('development', 'Mapped construction awaiting official verification', $location['construction'] ?? null, 'Within 3 miles', 'OpenStreetMap', $location['observed_at'] ?? null);
         $development = $geo && $fetch ? DevelopmentEvidence::nearby((float) $p['lat'], (float) $p['lng'], $p['state']) : [];
