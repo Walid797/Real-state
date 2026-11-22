@@ -58,9 +58,20 @@ final class Census
     }
 
     /** @return array{state:string, county:string, tract:string, name:string, county_name:?string}|null */
+    public static function cachedTract(float $lat, float $lng): ?array
+    {
+        $key = Cache::key('census', 'tract', self::tractParams($lat, $lng));
+        return Cache::get($key);
+    }
+
+    private static function tractParams(float $lat, float $lng): array
+    {
+        return ['lat' => round($lat, 4), 'lng' => round($lng, 4)];
+    }
+
     public static function tractAt(float $lat, float $lng): ?array
     {
-        $key = ['lat' => round($lat, 4), 'lng' => round($lng, 4)];
+        $key = self::tractParams($lat, $lng);
         return Cache::remember('census', 'tract', $key, 86400 * 365, static function () use ($lat, $lng) {
             $res = Http::get(self::GEOCODER . '/geographies/coordinates?' . http_build_query([
                 'x' => $lng, 'y' => $lat, 'benchmark' => 'Public_AR_Current', 'vintage' => 'Current_Current', 'format' => 'json',

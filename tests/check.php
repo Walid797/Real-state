@@ -770,5 +770,69 @@ if ($trId) {
     Db::run('UPDATE properties SET details = ? WHERE id = ?', [$d ? json_encode($d) : null, $trId]);
 }
 
+/* Regional evidence must preserve geography, distinguish missing data from zero, and match real sales. */
+$geoid = '05000US51059';
+$acsFixture = ['release' => ['id' => 'acs2024_5yr'], 'geography' => [$geoid => ['name' => 'Fairfax County, VA']], 'data' => [$geoid => []]];
+foreach (['B01003001' => 10000, 'B11001001' => 4000, 'B25001001' => 4500, 'B19013001' => 100000, 'B25077001' => 400000,
+    'B07003010' => 400, 'B07003013' => 300, 'B07403010' => 200, 'B07403013' => 100] as $col => $value) {
+    $table = substr($col, 0, 6);
+    $acsFixture['data'][$geoid][$table]['estimate'][$col] = $value;
+    $acsFixture['data'][$geoid][$table]['error'][$col] = 10;
+}
+$parsedAcs = App\Providers\RegionalData::decodeAcs($acsFixture, $geoid);
+$eq([$parsedAcs['net_domestic'], $parsedAcs['net_moe'], $parsedAcs['rent']], [400, 20, null], 'regional ACS migration and derived uncertainty, suppressed rent stays unknown');
+$eq(App\Providers\RegionalData::decodeAcs($acsFixture, '05000US48209'), null, 'ACS statistics from another county are rejected');
+$seriesIds = ['LAUCN510590000000003', 'LAUCN510590000000005'];
+$blsFixture = ['status' => 'REQUEST_SUCCEEDED', 'Results' => ['series' => [
+    ['seriesID' => $seriesIds[0], 'data' => [['year' => '2025', 'period' => 'M09', 'value' => '4'], ['year' => '2025', 'period' => 'M13', 'value' => '99']]],
+    ['seriesID' => $seriesIds[1], 'data' => [['year' => '2025', 'period' => 'M09', 'value' => '1020'], ['year' => '2024', 'period' => 'M09', 'value' => '1000']]],
+]]];
+$parsedBls = App\Providers\RegionalData::decodeBls($blsFixture, $seriesIds);
+$ok($parsedBls['month'] === '2025-09' && abs($parsedBls['employment_change'] - 2) < 0.001, 'BLS year-on-year same-month comparison excludes annual-average M13');
+$unknownRegional = App\Services\RegionalDemand::for(['id' => 0, 'zip' => '', 'state' => '', 'lat' => null, 'lng' => null]);
+$eq([$unknownRegional['coverage'], $unknownRegional['score']], [0, null], 'unknown regional evidence produces no score or assumed facts');
+$eq(array_sum(array_column($unknownRegional['groups'], 'weight')), 100, 'regional factors use the requested weights totaling 100');
+$regionalIds = [];
+$regionalKeys = [];
+try {
+    $subjectId = PropertyRepo::upsert(['address' => '11 Regional Test Subject', 'city' => 'Fixture', 'state' => 'VA', 'zip' => '20998',
+        'lat' => 38.855, 'lng' => -77.298, 'property_type' => 'Single Family', 'list_price' => 350000, 'tax_annual' => 3000, 'status' => 'for_sale'], 'manual')['id'];
+    $regionalIds[] = $subjectId;
+    foreach (range(1, 9) as $i) {
+        $fixtureId = PropertyRepo::upsert(['address' => ($i + 20) . ' Regional Test Sale', 'city' => 'Fixture', 'state' => $i === 9 ? 'MD' : 'VA',
+            'zip' => '20998', 'property_type' => 'Single Family', 'status' => 'off_market', 'last_sale_price' => 400000,
+            'last_sale_date' => gmdate('Y-m-d', time() - 10 * 86400)], 'manual')['id'];
+        $regionalIds[] = $fixtureId;
+        PropertyRepo::addEvent($fixtureId, 'listed', 400000, gmdate('Y-m-d', time() - 50 * 86400), 'manual');
+    }
+    $cacheItems = [
+        ['census', 'tract', ['lat' => 38.855, 'lng' => -77.298], ['state' => '51', 'county' => '059', 'tract' => '100100']],
+        ['regional', 'acs', ['fips' => '51059'], $parsedAcs],
+        ['regional', 'bls', ['fips' => '51059'], $parsedBls],
+    ];
+    foreach ($cacheItems as [$provider, $what, $paramsCache, $payload]) {
+        $key = App\Cache::key($provider, $what, $paramsCache);
+        $regionalKeys[$key] = Db::one('SELECT * FROM api_cache WHERE cache_key = ?', [$key]);
+        App\Cache::put($key, $provider, $payload, 3600);
+    }
+    $regional = App\Services\RegionalDemand::for(PropertyRepo::find($subjectId));
+    $ok($regional['county'] === 'Fairfax County, VA' && $regional['score'] !== null && $regional['coverage'] >= 50,
+        'verified county statistics and sufficient linked sales produce a regional score');
+    $eq($regional['groups']['market']['metrics']['Sales with a linked listing history'], '8', 'regional market statistics exclude other states');
+    $eq($regional['groups']['market']['metrics']['Median days from listing to closing'], '40', 'regional days measure listing through actual closing');
+    $ok($regional['score'] >= 0 && $regional['score'] <= 100 && $regional['groups']['safety']['points'] === null
+        && $regional['groups']['development']['points'] === null, 'scores stay bounded and unavailable safety and projects remain unscored');
+} finally {
+    foreach ($regionalIds as $id) {
+        Db::run('DELETE FROM properties WHERE id = ?', [$id]);
+    }
+    foreach ($regionalKeys as $key => $row) {
+        Db::run('DELETE FROM api_cache WHERE cache_key = ?', [$key]);
+        if ($row) {
+            Db::insert('api_cache', $row);
+        }
+    }
+}
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

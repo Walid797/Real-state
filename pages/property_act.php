@@ -25,6 +25,15 @@ $home = '/property/' . $id;
 $full = Address::full($p);
 
 switch ($do) {
+    case 'regional':
+        @set_time_limit(75);
+        $regional = App\Services\RegionalDemand::for($p, true);
+        flash($regional['county_data_complete']
+            ? 'Regional evidence loaded. Review dates, coverage and remaining checks below.'
+            : 'Some regional sources are unavailable. Available figures are shown with their dates. Try again later.', $regional['county_data_complete'] ? 'ok' : 'warn');
+        $home .= '#regional-demand';
+        break;
+
     case 'watch':
         Pipeline::add($id);
         $auto = App\Services\ListingDetails::wanted($p) ? App\Services\ListingDetails::fetch($p, 'auto') : null;
