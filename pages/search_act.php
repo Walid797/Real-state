@@ -19,7 +19,7 @@ $raw = json_decode((string) ($_POST['params'] ?? ''), true);
 $f = Search::fromRequest(is_array($raw) ? $raw : []);
 $query = Search::compact($f);
 $back = url('/search', $query);
-$loc = Address::parseLocation($f['q']);
+$loc = Search::location($f);
 if (!$loc || $loc['type'] === 'address') {
     redirect('/search');
 }
@@ -37,6 +37,9 @@ if ($do === 'save') {
 }
 
 if ($do === 'area_sales') {
+    if ($loc['type'] === 'building') {
+        redirect($back);
+    }
     // One request: the last 12 months of recorded sales for the whole area — real comparables for every listing in it.
     Auth::require('edit');
     @set_time_limit(180);

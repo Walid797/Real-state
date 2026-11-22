@@ -154,6 +154,10 @@ final class OpenWebNinja
         } else {
             return null;
         }
+        $unit = $r['unitNumber'] ?? (is_array($a) ? ($a['unitNumber'] ?? null) : null);
+        if (is_scalar($unit) && trim((string) $unit) !== '' && !str_contains(\App\Address::normalizeStreet((string) $out['address']), ' unit ')) {
+            $out['address'] .= ' Unit ' . trim((string) $unit);
+        }
         return trim((string) $out['address']) === '' ? null : $out;
     }
 
@@ -211,6 +215,7 @@ final class OpenWebNinja
             'est_rent' => $r['rentZestimate'] ?? null,
             'est_source' => !empty($r['zestimate']) ? 'zestimate' : null,
             'est_at' => !empty($r['zestimate']) ? now() : null,
+            'details' => array_filter(['building_name' => self::text($r['buildingName'] ?? $r['apartmentName'] ?? null)]),
         ];
         if ($sold) {
             $p['status'] = 'sold';
@@ -272,6 +277,7 @@ final class OpenWebNinja
         $latest = $taxes ? reset($taxes) : null;
 
         $basement = $facts['basement'] ?? $facts['basementYN'] ?? null;
+        unset($p['details']);
         return $p + [
             'data_status' => 'full',
             'source_site' => 'Zillow',
@@ -294,6 +300,7 @@ final class OpenWebNinja
             'events' => $events,
             'details' => array_filter([
                 'zillow' => true,
+                'building_name' => self::text($d['buildingName'] ?? $d['apartmentName'] ?? null),
                 'schools' => SchoolEvidence::normalize((array) ($d['schools'] ?? [])),
                 'schools_checked_at' => now(),
                 'photos' => array_slice($photos, 0, 40) ?: null,

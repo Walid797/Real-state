@@ -925,5 +925,84 @@ $schoolMapped = $mapDetails->invoke(null, ['zpid'=>12345,'address'=>['streetAddr
     'homeStatus'=>'FOR_SALE','schools'=>[['name'=>'Demo Source School','rating'=>9,'distance'=>0.8]]]);
 $eq($schoolMapped['details']['schools'][0]['rating'],9.0,'school ratings survive normal listing import');
 
+/* Exact addresses, apartment identity and named buildings. All provider/map data here are fixtures. */
+$pastedHome = Address::parseLocation("5501 Seminary Rd\nApartment 1703 S\n22041 Falls Church VA");
+$eq([$pastedHome['address'], $pastedHome['city'], $pastedHome['state'], $pastedHome['zip']],
+    ['5501 Seminary Rd Apartment 1703 S','Falls Church','VA','22041'], 'multiline postal address with ZIP before city retains the apartment');
+$flatHome = Address::parseLocation('5501 Seminary Rd Apt 1703 S Falls Church VA 22041');
+$eq($flatHome['key'], $pastedHome['key'], 'a street suffix disambiguates the same full address without commas');
+$eq(Address::parseLocation('5501 Seminary Rd Apt 1703 S, Falls Church VA 22041')['key'], $pastedHome['key'], 'two-part address is supported');
+$eq(Address::parseLocation('123 Unclear Roadless Somewhere TX')['type'] ?? null, null, 'an ambiguous incomplete street address stays unresolved');
+$ok(Address::sameProperty($pastedHome, ['address'=>'5501 Seminary Road #1703S','city'=>'Falls Church','state'=>'VA','zip'=>'22041']), 'source unit spelling and separated tower letter match');
+$ok(!Address::sameProperty($pastedHome, ['address'=>'5501 Seminary Road Apt 1703N','city'=>'Falls Church','state'=>'VA','zip'=>'22041']), 'another tower is a different apartment');
+$ok(!Address::sameProperty($pastedHome, ['address'=>'5501 Seminary Road','city'=>'Falls Church','state'=>'VA','zip'=>'22041']), 'building-level data do not become apartment-level facts');
+$ok(!Address::sameProperty($pastedHome, ['address'=>'5501 Seminary Rd #1703S','city'=>'Falls Church','state'=>'MD','zip'=>'22041']), 'same street and apartment in a different state cannot match');
+$buildingLoc = App\Services\BuildingSearch::location('Demo Towers, Fixtureville, VA 24979');
+$eq([$buildingLoc['name'],$buildingLoc['city'],$buildingLoc['state'],$buildingLoc['zip']], ['Demo Towers','Fixtureville','VA','24979'], 'building name has an explicit city, state and ZIP');
+$eq(App\Services\BuildingSearch::location('Demo Towers, Virginia')['state'], 'VA', 'full state name is supported for buildings');
+$eq(Search::location(Search::fromRequest(['q'=>$pastedHome['label'],'search_kind'=>'building']))['type'], 'address', 'a full address is recognized even after a building-name search');
+$eq(Search::compact(Search::fromRequest(['q'=>'Demo Towers','search_kind'=>'building']))['search_kind'], 'building', 'saved searches preserve the building search mode');
+$features = [
+    ['properties'=>['name'=>'Demo Towers South','housenumber'=>'71','street'=>'Fixture Road','city'=>'Fixtureville','state'=>'Virginia','postcode'=>'24979','countrycode'=>'US','osm_type'=>'W','osm_id'=>123]],
+    ['properties'=>['name'=>'Different Towers','housenumber'=>'72','street'=>'Fixture Road','city'=>'Fixtureville','state'=>'Virginia','postcode'=>'24979','countrycode'=>'US']],
+    ['properties'=>['name'=>'Demo Towers','housenumber'=>'71','street'=>'Fixture Road','city'=>'Different City','state'=>'Virginia','postcode'=>'24979','countrycode'=>'US']],
+    ['properties'=>['name'=>'Demo Towers','housenumber'=>'71','street'=>'Fixture Road','city'=>'Fixtureville','state'=>'Maryland','postcode'=>'24979','countrycode'=>'US']],
+];
+$buildingLoc['buildings'] = App\Services\BuildingSearch::map($features, $buildingLoc);
+$eq(count($buildingLoc['buildings']),1,'named map matches exclude unrelated names, cities and states');
+$eq($buildingLoc['buildings'][0]['source_url'],'https://www.openstreetmap.org/way/123','building address keeps an actual map citation');
+$buildingIds = [];
+try {
+    $unitId = PropertyRepo::upsert(['address'=>'71 Fixture Rd Apt 1703 S','city'=>'Fixtureville','state'=>'VA','zip'=>'24979',
+        'status'=>'for_sale','list_price'=>250000,'property_type'=>'Condo'], 'manual')['id'];
+    $buildingIds[] = $unitId;
+    $otherUnitId = PropertyRepo::upsert(['address'=>'71 Fixture Rd Apt 1703 N','city'=>'Fixtureville','state'=>'VA','zip'=>'24979',
+        'status'=>'for_sale','list_price'=>280000,'property_type'=>'Condo'], 'manual')['id'];
+    $buildingIds[] = $otherUnitId;
+    $unrelatedId = PropertyRepo::upsert(['address'=>'72 Fixture Rd','city'=>'Fixtureville','state'=>'VA','zip'=>'24979',
+        'status'=>'for_sale','list_price'=>200000], 'manual')['id'];
+    $buildingIds[] = $unrelatedId;
+    $legacyHash = sha1('71 fixture rd unit 1703 s|24979');
+    Db::run('UPDATE properties SET addr_hash=? WHERE id=?',[$legacyHash,$unitId]);
+    $eq(PropertyRepo::upsert(['address'=>'71 Fixture Rd Apt 1703 S','city'=>'Fixtureville','state'=>'VA','zip'=>'24979'], 'manual')['id'],
+        $unitId,'legacy apartment hashes are upgraded without creating duplicate properties');
+    $eq(PropertyRepo::findAddress(['address'=>'71 Fixture Road #1703S','city'=>'Fixtureville','state'=>'VA','zip'=>'']), $unitId, 'saved unit is reused when a pasted address omits the ZIP');
+    $eq(PropertyRepo::findAddress(['address'=>'71 Fixture Road #1704S','city'=>'Fixtureville','state'=>'VA','zip'=>'24979']), null, 'unknown apartment never opens a neighbouring unit');
+    $matches = PropertyRepo::search(['loc'=>$buildingLoc,'mode'=>'sale']);
+    $matchedIds = array_column($matches['rows'],'id');
+    sort($matchedIds);
+    $wantIds = [$unitId,$otherUnitId];
+    sort($wantIds);
+    $eq(array_map('intval',$matchedIds),$wantIds,'building search returns units at its verified address and excludes the neighbouring building');
+    $noMap = array_replace($buildingLoc,['name'=>'Missing Building','buildings'=>[]]);
+    $eq(PropertyRepo::search(['loc'=>$noMap])['total'],0,'an unresolved building never broadens to the whole city');
+    $namedId = PropertyRepo::upsert(['address'=>'73 Fixture Rd','city'=>'Fixtureville','state'=>'VA','zip'=>'24979','status'=>'for_sale','list_price'=>220000,
+        'details'=>['building_name'=>'Missing Building']], 'manual')['id'];
+    $buildingIds[] = $namedId;
+    $eq(PropertyRepo::search(['loc'=>$noMap])['total'],1,'a verified provider building name can match without a map result');
+    $eq(PropertyRepo::search(['loc'=>array_replace($noMap,['name'=>"%' OR 1=1 --"])])['total'],0,'building name wildcard and SQL characters remain literal');
+    $rawUnit = $mapDetails->invoke(null,['zpid'=>9988,'address'=>['streetAddress'=>'71 Fixture Road','city'=>'Fixtureville','state'=>'VA','zipcode'=>'24979'],
+        'unitNumber'=>'1703N','buildingName'=>'Demo Towers South','homeStatus'=>'FOR_SALE','price'=>280000,'schools'=>[]]);
+    $eq($rawUnit['address'],'71 Fixture Road Unit 1703N','source unitNumber is retained when it is separate from streetAddress');
+    $ok(!empty($rawUnit['details']['zillow']) && $rawUnit['details']['building_name']==='Demo Towers South' && isset($rawUnit['details']['schools']),
+        'building-name import preserves full listing facts and school data');
+    $ownKey = Settings::get('openwebninja_key');
+    Settings::set('openwebninja_key','test-cached-only');
+    $subject = PropertyRepo::find($unitId);
+    $cacheKey = App\Cache::key('openwebninja','/property-details-address',['address'=>Address::full($subject)]);
+    App\Cache::put($cacheKey,'openwebninja',['zpid'=>9988,'address'=>['streetAddress'=>'71 Fixture Road Apt 1703N','city'=>'Fixtureville','state'=>'VA','zipcode'=>'24979'],
+        'homeStatus'=>'FOR_SALE','price'=>999999,'imgSrc'=>'https://example.test/wrong-apartment.jpg'],3600);
+    try {
+        $detailResult = App\Services\ListingDetails::fetch($subject);
+        $after = PropertyRepo::find($unitId);
+        $ok($detailResult['status']==='none' && (int)$after['list_price']===250000 && empty($after['photo_url']), 'mismatched provider apartment cannot overwrite this home price or photos');
+    } finally {
+        Settings::set('openwebninja_key',$ownKey);
+        Db::run('DELETE FROM api_cache WHERE cache_key=?',[$cacheKey]);
+    }
+} finally {
+    foreach ($buildingIds as $id) Db::run('DELETE FROM properties WHERE id=?',[$id]);
+}
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

@@ -948,3 +948,8 @@ html[lang="fa"] {
 .analysis-school { display: grid; gap: 5px; padding: 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
 .school-rating { display: inline-flex; align-items: center; gap: 4px; color: var(--teal-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .school-rating > span { color: #9b6600; }
+.building-matches > div{width:100%;min-width:0}
+.results-building{grid-template-columns:minmax(0,1fr)}
+.results-building .results-map{display:none}
+.building-match{display:grid;gap:.45rem;padding:1rem 0;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
+.building-match:last-child{border-bottom:0}

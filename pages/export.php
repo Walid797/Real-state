@@ -36,11 +36,13 @@ if (isset($_GET['report'])) {
 }
 
 $f = Search::fromRequest($_GET);
-$loc = Address::parseLocation($f['q']);
+$loc = Search::location($f);
 if (!$loc || $loc['type'] === 'address') {
     redirect('/search');
 }
-$rows = PropertyRepo::search($f + ['loc' => $loc, 'limit' => 2000])['rows'];
+$res = Search::run($f, ['fetch' => false, 'limit' => 2000]);
+$loc = $res['loc'];
+$rows = $res['rows'];
 $sold = $f['mode'] === 'sold';
 
 $header = ['Address', 'City', 'County', 'State', 'ZIP', $sold ? 'Sale price' : 'List price', $sold ? 'Sale date' : 'Listed', 'Price per sqft',

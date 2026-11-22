@@ -20,12 +20,19 @@ $stateName = Address::STATES[$state] ?? $state;
 
 /* ── A street address goes straight to that home's page ─────────────── */
 if ($f['q'] !== '') {
-    $loc = Address::parseLocation($f['q']);
+    $loc = Search::location($f);
     if ($loc && $loc['type'] === 'address') {
-        $hash = Address::hash($loc['address'], $loc['city'], $loc['state'], $loc['zip']);
-        $id = (int) Db::val('SELECT id FROM properties WHERE addr_hash = ?', [$hash]);
+        $id = PropertyRepo::findAddress($loc);
         if (!$id && Auth::can('edit')) {
             $geo = Census::geocode(Address::full($loc)); // free; gives coordinates, ZIP and county
+            $matched = $geo ? Address::parseFullAddress($geo['matched']) : null;
+            if (!$matched || !Address::sameProperty($loc, $matched, true)) {
+                $geo = null;
+            }
+            $loc['zip'] = $loc['zip'] ?: ($geo['zip'] ?? '');
+            $id = PropertyRepo::findAddress($loc);
+        }
+        if (!$id && Auth::can('edit')) {
             $id = PropertyRepo::upsert([
                 'address' => $loc['address'], 'city' => $loc['city'], 'state' => $loc['state'],
                 'zip' => $loc['zip'] ?: ($geo['zip'] ?? ''), 'lat' => $geo['lat'] ?? null, 'lng' => $geo['lng'] ?? null,
@@ -48,7 +55,7 @@ $countyExample = 'Fairfax County, Loudoun County, VA';
 
 /** The full filter form — used on the landing page and in the results drawer. */
 $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefault, $countyExample): void {
-    $types = $landing && !$f['types'] ? $typesDefault : $f['types'];
+    $types = $landing && !$f['types'] && $f['search_kind'] !== 'building' ? $typesDefault : $f['types'];
     $pair = static function (string $label, string $min, string $max, string $hint = '', bool $isMoney = false) use ($val, $money): void {
         $v = $isMoney ? $money : $val;
         echo '<div class="field"><span>' . te($label) . '</span><div class="pair">'
@@ -62,8 +69,15 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
         <legend><?= te($landing ? 'Area' : 'Type') ?></legend>
         <?php if ($landing): ?>
         <label class="field"><span><?= te('Where') ?></span>
-          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($countyExample) ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
-          <small id="search-area-help"><?= te('Include “County” in each name and separate the names with commas. To combine a county with a city or ZIP code, use a semicolon.') ?></small></label>
+          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
+          <small id="search-area-help"><?= te('Search counties, ZIP codes or a full address with an apartment number. For a building name, select Building name and add its city and state.') ?></small></label>
+        <label class="field"><span><?= te('Search by') ?></span>
+          <select class="select" name="search_kind">
+            <option value="area"<?= selected($f['search_kind'], 'area') ?>><?= te('Area or exact address') ?></option>
+            <option value="building"<?= selected($f['search_kind'], 'building') ?>><?= te('Building name') ?></option>
+          </select>
+          <small><bdi>5501 Seminary Rd, Apt 1703 S, Falls Church, VA 22041</bdi><br><?= te('Building example: Skyline Square, Falls Church, VA') ?></small>
+          <small><?= te('Include “County” in each name and separate the names with commas. To combine a county with a city or ZIP code, use a semicolon.') ?></small></label>
         <div class="field"><span><?= te('Listings') ?></span>
           <span class="seg" role="group" aria-label="<?= te('For sale or sold') ?>">
             <label><input type="radio" name="mode" value="sale"<?= checked($f['mode'] === 'sale') ?>><span><?= te('For sale') ?></span></label>
@@ -71,7 +85,7 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
           </span></div>
         <?php endif; ?>
         <div class="field"><span><?= te('Property type') ?></span>
-          <div class="checks-row">
+          <div class="checks-row"<?= $landing && !$f['types'] ? ' data-default-types="1"' : '' ?>>
             <?php foreach (PropertyRepo::TYPES as $t): ?>
             <label class="check"><input type="checkbox" name="types[]" value="<?= e($t) ?>"<?= checked(in_array($t, $types, true)) ?>><?= te($t) ?></label>
             <?php endforeach; ?>
@@ -185,7 +199,7 @@ if ($f['q'] === '') {
           <input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $s['id'] ?>" form="bulk-profiles" aria-label="<?= te('Select') ?> <?= e($s['name']) ?>">
           <a class="main" href="<?= e(url('/search', $p)) ?>"><?= e($s['name']) ?><span class="sub"><?= e(Search::describe($p)) ?></span></a>
           <span class="end nowrap">
-            <a class="linkbtn" href="<?= e(url('/alerts/new', $p + ['kind' => ($p['mode'] ?? '') === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= te('Alert me') ?></a> ·
+            <?php if (($p['search_kind'] ?? '') !== 'building'): ?><a class="linkbtn" href="<?= e(url('/alerts/new', $p + ['kind' => ($p['mode'] ?? '') === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= te('Alert me') ?></a> ·<?php endif; ?>
             <form method="post" action="/search/act" class="inline" data-confirm="<?= te('Delete this profile?') ?>">
               <?= csrf_field() ?><input type="hidden" name="do" value="unsave"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
               <button class="linkbtn muted" type="submit"><?= te('Delete') ?></button>
@@ -232,7 +246,7 @@ if ($areaLoc && $res['rows']) {
 }
 $elsewhere = $areaLoc ? ExternalSites::forArea($areaLoc) : [];
 $snap = $res['snapshot'];
-$provider = Search::provider();
+$provider = $loc ? Search::locationProvider($loc) : null;
 $needs = $res['needs'];
 $left = $provider ? Quota::left($provider) : 0;
 $activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort'])));
@@ -243,7 +257,11 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 <form class="sbar" method="get" action="/search" role="search">
   <div class="sbar-row">
     <label class="q"><span class="sr"><?= te('Area') ?></span><?= icon('search', 16) ?>
-      <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($countyExample) ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" required aria-describedby="search-area-help"></label>
+      <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" required aria-describedby="search-area-help"></label>
+    <label><span class="sr"><?= te('Search by') ?></span><select class="select" name="search_kind">
+      <option value="area"<?= selected($f['search_kind'], 'area') ?>><?= te('Area or exact address') ?></option>
+      <option value="building"<?= selected($f['search_kind'], 'building') ?>><?= te('Building name') ?></option>
+    </select></label>
     <span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
@@ -253,7 +271,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <div class="drop-panel drop-panel-wide">
         <?php $filterForm(false); ?>
         <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Apply') ?></button>
-          <a class="btn btn-ghost" href="<?= e(url('/search', ['q' => $f['q'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear all') ?></a></div>
+          <a class="btn btn-ghost" href="<?= e(url('/search', ['q' => $f['q'], 'search_kind' => $f['search_kind'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear all') ?></a></div>
       </div>
     </details>
     <label><span class="sr"><?= te('Sort') ?></span>
@@ -262,11 +280,11 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </select></label>
     <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </div>
-  <p class="sbar-desc" id="search-area-help"><?= te('Separate county names with commas, as in %s.', $countyExample) ?></p>
+  <p class="sbar-desc" id="search-area-help"><?= te('Search counties, ZIP codes or a full address with an apartment number. For a building name, select Building name and add its city and state.') ?></p>
   <?php if ($activeFilters): ?><p class="sbar-desc"><?= e(Search::describe($f)) ?></p><?php endif; ?>
 </form>
 
-<div class="results">
+<div class="results<?= ($loc['type'] ?? '') === 'building' && !$points ? ' results-building' : '' ?>">
   <div class="results-list">
     <?php if ($res['error']): ?>
       <div class="empty">
@@ -292,6 +310,22 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         </p>
       </header>
 
+      <?php if ($loc['type'] === 'building'): ?>
+      <section class="building-matches callout mt-s">
+        <div><h2><?= te('Building address matches') ?></h2>
+          <p class="small soft"><?= te('Map addresses identify the building, not an individual apartment or a current sale. Open the correct building or search its full address with the unit number.') ?></p>
+          <?php foreach ($loc['buildings'] as $building): ?>
+          <article class="building-match">
+            <strong><bdi><?= e($building['name']) ?></bdi></strong><span><bdi><?= e(Address::full($building)) ?></bdi></span>
+            <div class="actions"><a class="btn btn-sm" href="<?= e(url('/search', ['q' => Address::full($building)])) ?>"><?= te('Open this address') ?></a>
+              <?php if ($building['source_url']): ?><a class="small" href="<?= e($building['source_url']) ?>" target="_blank" rel="noopener noreferrer"><?= te('OpenStreetMap source') ?></a><?php endif; ?></div>
+          </article>
+          <?php endforeach; ?>
+          <?php if (!$loc['buildings']): ?><p><?= te('No verified map address was found for this building name. Add its city and state, or search the street address directly.') ?></p><?php endif; ?>
+        </div>
+      </section>
+      <?php endif; ?>
+
       <?php if ($needs && $provider && Auth::can('edit')): $n = count($needs); ?>
       <div class="cost-card">
         <div>
@@ -308,7 +342,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 
       <?php
       // Listings alone give only asking prices; one request brings the area's recorded sales for real ARVs.
-      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point'], true)
+      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point', 'building'], true)
           ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
       ?>
       <?php
@@ -355,7 +389,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
           <button class="btn btn-sm" type="submit"><?= icon('bookmark', 14) ?><?= te('Save as profile') ?></button>
         </form>
-        <a class="btn btn-sm" href="<?= e(url('/alerts/new', $query + ['kind' => $mode === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= icon('bell', 14) ?><?= te('Alert me') ?></a>
+        <?php if ($loc['type'] !== 'building'): ?><a class="btn btn-sm" href="<?= e(url('/alerts/new', $query + ['kind' => $mode === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= icon('bell', 14) ?><?= te('Alert me') ?></a><?php endif; ?>
         <?php if ($res['total'] > 0): ?>
         <a class="btn btn-sm" href="<?= e(url('/export.xlsx', $query)) ?>"><?= icon('file-spreadsheet', 14) ?><?= te('Excel') ?></a>
         <?php endif; ?>
@@ -371,7 +405,9 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <?php if ($res['rows'] && Auth::can('edit')): $bulk = ['type' => 'homes', 'form' => 'bulk-homes', 'back' => $_SERVER['REQUEST_URI'] ?? '/search',
           'all' => 'Delete all homes in these results', 'params' => json_encode($query), 'count' => (int) $res['total']]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
 
-      <?php if (!$res['rows']): ?>
+      <?php if (!$res['rows'] && $loc['type'] === 'building'): ?>
+        <p class="blank"><?= te('No verified apartment listings on file for this building.') ?> <?= te('Only homes with a matching building name or verified building address are included. Search a full address and apartment number to open a particular home.') ?></p>
+      <?php elseif (!$res['rows']): ?>
         <div class="empty">
           <?= View::sketch('search-none') ?>
           <?php
@@ -379,7 +415,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           if ($any > 0): ?>
             <h2 class="display"><?= te('Nothing matches those filters.') ?></h2>
             <p><?= plural($any, 'home') ?> <?= te($mode === 'sold' ? 'sold in %s' : 'are for sale in %s', $loc['label']) ?> <?= te('without them. Condition and investment filters only match homes whose listing text was read or analysed.') ?></p>
-            <p><a class="btn" href="<?= e(url('/search', ['q' => $f['q'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear filters') ?></a></p>
+            <p><a class="btn" href="<?= e(url('/search', ['q' => $f['q'], 'search_kind' => $f['search_kind'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear filters') ?></a></p>
           <?php elseif (!$provider && !$snap): ?>
             <h2 class="display"><?= te('Nothing on file for') ?> <?= e($loc['label']) ?> <?= te('yet.') ?></h2>
             <p><?= te('Connect RentCast (free, 50 requests a month) and this search fills in. Or add homes from any site by pasting their link.') ?></p>

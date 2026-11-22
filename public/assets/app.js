@@ -21,6 +21,31 @@
   };
   var usd = function (n) { return n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US'); };
 
+  /* Preserve address-line boundaries when a multiline postal address is pasted into a search input. */
+  $$('input[name="q"]').forEach(function (input) {
+    input.addEventListener('paste', function (event) {
+      var text = event.clipboardData && event.clipboardData.getData('text');
+      if (!text || !/[\r\n]/.test(text)) return;
+      event.preventDefault();
+      text = text.split(/[\r\n]+/).map(function (line) { return line.trim().replace(/,+$/, ''); }).filter(Boolean).join(', ');
+      var start = input.selectionStart == null ? input.value.length : input.selectionStart;
+      var end = input.selectionEnd == null ? start : input.selectionEnd;
+      var next = input.value.slice(0, start) + text + input.value.slice(end);
+      input.value = input.maxLength > 0 ? next.slice(0, input.maxLength) : next;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+  $$('select[name="search_kind"]').forEach(function (select) {
+    var defaults = select.form && $('[data-default-types="1"]', select.form);
+    if (!defaults) return;
+    defaults.addEventListener('change', function () { defaults.dataset.defaultTypes = '0'; });
+    select.addEventListener('change', function () {
+      if (select.value !== 'building' || defaults.dataset.defaultTypes !== '1') return;
+      $$('input[type="checkbox"]', defaults).forEach(function (box) { box.checked = false; });
+      defaults.dataset.defaultTypes = '0';
+    });
+  });
+
   /* Dropdown panels (<details class="drop">): one open at a time, close on outside click or Esc. */
   document.addEventListener('click', function (e) {
     $$('details.drop[open]').forEach(function (d) {

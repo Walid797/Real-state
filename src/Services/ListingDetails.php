@@ -66,6 +66,9 @@ final class ListingDetails
         if (!$r['item']) {
             return ['status' => 'none', 'message' => 'Zillow has no page for this address yet.'];
         }
+        if (!Address::sameProperty($p, $r['item'])) {
+            return ['status' => 'none', 'message' => 'The source returned a different address or apartment. Its details were not added to this home.'];
+        }
         PropertyRepo::upsert(['address' => $p['address'], 'city' => $p['city'], 'state' => $p['state'], 'zip' => $p['zip']] + $r['item'], 'openwebninja');
         $n = 0;
         foreach ($r['comps'] as $c) {

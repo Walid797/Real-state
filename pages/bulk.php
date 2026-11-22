@@ -25,9 +25,13 @@ if ($all && $type === 'homes') {
     // "All" in a result list means every home those results hold, not every home on file.
     $raw = json_decode((string) ($_POST['params'] ?? ''), true);
     $f = Search::fromRequest(is_array($raw) ? $raw : []);
-    $loc = Address::parseLocation($f['q']);
-    if ($loc) {
-        $allIds = array_map('intval', array_column(PropertyRepo::search($f + ['loc' => $loc, 'limit' => 5000])['rows'], 'id'));
+    $loc = Search::location($f);
+    if ($loc && $loc['type'] !== 'address') {
+        $allIds = array_map('intval', array_column(Search::run($f, ['fetch' => false, 'limit' => 5000])['rows'], 'id'));
+    }
+    if (!$allIds) {
+        flash(t('No homes match this search.'), 'warn');
+        redirect($back);
     }
 } elseif ($all && $type === 'users') {
     $allIds = array_map('intval', array_column(Db::all('SELECT id FROM users'), 'id'));

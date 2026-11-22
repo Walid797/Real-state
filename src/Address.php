@@ -51,7 +51,9 @@ final class Address
         $s = preg_replace('/[^a-z0-9\s\/-]/u', ' ', $s) ?? $s;
         $words = preg_split('/\s+/', trim($s)) ?: [];
         $words = array_map(static fn ($w) => self::SUFFIX[$w] ?? $w, $words);
-        return implode(' ', $words);
+        $line = implode(' ', $words);
+        // Tower letters are often separated in pasted addresses: Apt 1703 S / #1703S.
+        return preg_replace('/\bunit ([a-z0-9-]+) ([nsew])$/', 'unit $1$2', $line) ?? $line;
     }
 
     /** Same house → same hash, whether it came as "123 Main Street" or "123 MAIN ST". */
@@ -239,10 +241,38 @@ final class Address
     /** @return array{address:string, city:string, state:string, zip:string}|null */
     public static function parseFullAddress(string $q): ?array
     {
+        $q = strtr($q, ['،' => ',', "\r\n" => ',', "\n" => ',', "\r" => ',']);
+        $q = trim(preg_replace('/\s+/', ' ', $q) ?? '');
+        // Postal addresses pasted as: street / apartment / ZIP city state.
+        if (preg_match('/^(.+?)[,\s]+(\d{5})(?:-\d{4})?\s+([A-Za-z][A-Za-z .\x27-]*?)\s+([A-Za-z]{2})$/', $q, $m)
+            && ($st = self::stateAbbr($m[4]))) {
+            return self::parseFullAddress(rtrim($m[1], ', ') . ', ' . $m[3] . ', ' . $st . ' ' . $m[2]);
+        }
         $parts = array_values(array_filter(array_map('trim', explode(',', $q)), 'strlen'));
         if (count($parts) < 3) {
-            // "123 Main St Austin TX 78704" — too ambiguous to split reliably.
-            return null;
+            // An explicit street suffix provides the boundary when commas are absent.
+            if (!preg_match('/^(.+?)\s+([A-Za-z]{2})\s+(\d{5})(?:-\d{4})?$/', $q, $tail)
+                || !($st = self::stateAbbr($tail[2]))) {
+                return null;
+            }
+            $head = trim($tail[1], ', ');
+            if (str_contains($head, ',')) {
+                $chunks = array_map('trim', explode(',', $head));
+                $city = array_pop($chunks);
+                $line = implode(' ', $chunks);
+            } else {
+                $suffixes = implode('|', array_map('preg_quote', array_unique(array_merge(array_keys(self::SUFFIX), array_values(self::SUFFIX)))));
+                // Unit markers are kept with the street, including an optional tower letter.
+                $pattern = '/^(\d+[a-z]?\s+.+?\s+(?:' . $suffixes . ')\.?(?:\s+[NSEW]{1,2})?(?:\s+(?:apartment|apt|unit|suite|ste|\#)\.?\s*[a-z0-9-]+(?:\s+[NSEW])?)?)\s+([A-Za-z][A-Za-z .\x27-]+)$/i';
+                if (!preg_match($pattern, $head, $m)) {
+                    return null;
+                }
+                [$line, $city] = [$m[1], $m[2]];
+            }
+            if (!preg_match('/^\d+[a-z]?\s+\S+/i', $line) || $city === '' || preg_match('/\d|\b(?:apt|apartment|unit)\b/i', $city)) {
+                return null;
+            }
+            return ['address' => $line, 'city' => self::titleCity($city), 'state' => $st, 'zip' => $tail[3]];
         }
         $last = array_pop($parts);
         if (!preg_match('/^([A-Za-z .]+?)\s*(\d{5})?(?:-\d{4})?$/', $last, $m)) {
@@ -264,6 +294,24 @@ final class Address
         $line = implode(', ', $parts);
         // "123 Main St, Apt 4" → keep the unit on the street line.
         return ['address' => preg_replace('/,\s*/', ' ', $line) ?? $line, 'city' => $city, 'state' => $st, 'zip' => $zip];
+    }
+
+    /** Compare actual addresses, retaining the unit; never merge a different apartment. */
+    public static function sameProperty(array $a, array $b, bool $buildingOnly = false): bool
+    {
+        $left = self::normalizeStreet((string) ($a['address'] ?? ''));
+        $right = self::normalizeStreet((string) ($b['address'] ?? ''));
+        if ($buildingOnly) {
+            $left = preg_replace('/\s+unit\b.*$/', '', $left) ?? $left;
+            $right = preg_replace('/\s+unit\b.*$/', '', $right) ?? $right;
+        }
+        if ($left === '' || $left !== $right || strtoupper((string) ($a['state'] ?? '')) !== strtoupper((string) ($b['state'] ?? ''))) {
+            return false;
+        }
+        if (!empty($a['zip']) && !empty($b['zip'])) {
+            return substr($a['zip'], 0, 5) === substr($b['zip'], 0, 5);
+        }
+        return !empty($a['city']) && strcasecmp(trim($a['city']), trim((string) ($b['city'] ?? ''))) === 0;
     }
 
     public static function slug(string $s, string $sep = '-', bool $lower = false): string

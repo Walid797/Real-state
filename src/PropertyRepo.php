@@ -63,6 +63,13 @@ final class PropertyRepo
 
         $incomingStatus = isset(self::DATA_RANK[$p['data_status'] ?? '']) ? $p['data_status'] : ($source === 'manual' ? null : 'limited');
         $existing = Db::one('SELECT * FROM properties WHERE addr_hash = ?', [$hash]);
+        if (!$existing && preg_match('/\b(?:apartment|apt|unit|suite|ste)\b|\#/i', $address)) {
+            $savedUnit = self::findAddress(['address' => $address, 'city' => $city, 'state' => $state, 'zip' => $zip]);
+            if ($savedUnit) {
+                $existing = Db::one('SELECT * FROM properties WHERE id = ?', [$savedUnit]);
+                $data['addr_hash'] = $hash; // update a legacy separated-tower hash while retaining the property's ID
+            }
+        }
         if ($incomingStatus !== null && ($existing === null || (self::DATA_RANK[$existing['data_status']] ?? 9) < self::DATA_RANK[$incomingStatus])) {
             $data['data_status'] = $incomingStatus; // only ever upgraded here; "link dead" / "removed" stay as people set them
         }
@@ -240,6 +247,27 @@ final class PropertyRepo
         return $row;
     }
 
+    /** Reuse a saved unit even when the pasted address omits a ZIP or uses another unit spelling. */
+    public static function findAddress(array $address): ?int
+    {
+        $hash = Address::hash($address['address'], $address['city'], $address['state'], $address['zip']);
+        $id = Db::val('SELECT id FROM properties WHERE addr_hash = ?', [$hash]);
+        if ($id) {
+            return (int) $id;
+        }
+        if (!preg_match('/^(\d+[a-z]?)\s/i', $address['address'], $m)) {
+            return null;
+        }
+        $rows = Db::all('SELECT id, address, city, state, zip FROM properties WHERE state = ? AND (city = ? OR (? <> \'\' AND zip = ?)) AND address LIKE ?',
+            [$address['state'], $address['city'], $address['zip'], $address['zip'], $m[1] . ' %']);
+        foreach ($rows as $row) {
+            if (Address::sameProperty($address, $row)) {
+                return (int) $row['id'];
+            }
+        }
+        return null;
+    }
+
     public static function events(int $id): array
     {
         return Db::all('SELECT event, price, event_date, source FROM price_events WHERE property_id = ? ORDER BY event_date DESC, id DESC', [$id]);
@@ -259,6 +287,13 @@ final class PropertyRepo
     public static function locSql(array $loc, array &$a): string
     {
         switch ($loc['type'] ?? '') {
+            case 'building':
+                $ids = \App\Services\BuildingSearch::savedIds($loc);
+                if (!$ids) {
+                    return '1=0';
+                }
+                array_push($a, ...$ids);
+                return 'p.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
             case 'zip':
                 $a[] = $loc['zip'];
                 return 'p.zip = ?';

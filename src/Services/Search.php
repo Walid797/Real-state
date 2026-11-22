@@ -35,11 +35,12 @@ final class Search
     ];
 
     /** Request fields that describe a search (also what a saved profile / alert stores). */
-    public const FIELDS = ['q', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
+    public const FIELDS = ['q', 'search_kind', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
 
     public static function fromRequest(array $src): array
     {
         $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH)];
+        $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'area';
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
@@ -68,6 +69,7 @@ final class Search
             $v = $f[$k] ?? null;
             if ($v === null || $v === '' || $v === [] || ($k === 'mode' && $v === 'sale') || ($k === 'sort' && $v === 'newest')
                 || (str_starts_with($k, 'c_') && $v === 'any')
+                || ($k === 'search_kind' && $v === 'area')
                 || ($k === 'sold_days' && (($f['mode'] ?? 'sale') !== 'sold' || (int) $v === 180))) {
                 continue;
             }
@@ -81,7 +83,7 @@ final class Search
     {
         $bits = [];
         if (!empty($f['q'])) {
-            $loc = Address::parseLocation((string) $f['q']);
+            $loc = self::location($f);
             $bits[] = $loc['label'] ?? $f['q'];
         }
         if (($f['mode'] ?? 'sale') === 'sold') {
@@ -138,6 +140,24 @@ final class Search
         };
     }
 
+    public static function location(array $f): ?array
+    {
+        $address = Address::parseLocation((string) ($f['q'] ?? ''));
+        if (($address['type'] ?? '') === 'address') {
+            return $address;
+        }
+        return ($f['search_kind'] ?? '') === 'building'
+            ? BuildingSearch::location((string) ($f['q'] ?? ''))
+            : $address;
+    }
+
+    public static function locationProvider(array $loc, string $ctx = 'manual'): ?string
+    {
+        return $loc['type'] === 'building'
+            ? (OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx) ? OpenWebNinja::ID : null)
+            : self::provider($ctx);
+    }
+
     public static function provider(string $ctx = 'manual'): ?string
     {
         $pref = Settings::get('search_provider', 'auto');
@@ -160,10 +180,15 @@ final class Search
         $ctx = $opt['ctx'] ?? 'manual';
         $out = ['loc' => null, 'rows' => [], 'total' => 0, 'snapshot' => null, 'fetched' => false, 'partial' => false,
             'notice' => null, 'error' => null, 'needs' => []];
-        $loc = Address::parseLocation((string) ($f['q'] ?? ''));
+        $loc = self::location($f);
         if ($loc === null) {
-            $out['error'] = 'Type a state (Virginia), a county (Fairfax County), a city (Richmond, VA), one or more ZIP codes, or a full street address.';
+            $out['error'] = ($f['search_kind'] ?? '') === 'building'
+                ? 'Enter a building name, optionally followed by city and state, for example Skyline Square, Falls Church, VA.'
+                : 'Type a state (Virginia), a county (Fairfax County), a city (Richmond, VA), one or more ZIP codes, or a full street address.';
             return $out;
+        }
+        if ($loc['type'] === 'building') {
+            $loc['buildings'] = BuildingSearch::resolve($loc, ($opt['fetch'] ?? true) !== false);
         }
         $out['loc'] = $loc;
         if ($loc['type'] === 'address') {
@@ -340,9 +365,13 @@ final class Search
             }
         }
 
-        $provider = self::provider($ctx);
+        $provider = self::locationProvider($loc, $ctx);
         $latest = self::latestSnapshot($loc, $mode);
         if ($provider === null) {
+            if ($loc['type'] === 'building') {
+                return ['snapshot' => $latest, 'fetched' => false, 'partial' => true,
+                    'notice' => 'Building addresses and saved homes are shown below. Live building listings need a connected Zillow-data source with requests remaining.'];
+            }
             $notice = (!RentCast::enabled() && !OpenWebNinja::enabled())
                 ? 'No data source is connected yet — showing only what’s already saved. Add a free API key in Settings.'
                 : ($ctx === 'cron' ? 'Quota reserved for manual searches; used saved data.'
@@ -383,6 +412,9 @@ final class Search
         }
         if (!$res['ok']) {
             return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null, 'notice' => $res['error']];
+        }
+        if ($loc['type'] === 'building') {
+            $res['items'] = array_values(array_filter($res['items'], static fn ($item) => BuildingSearch::matches($item, $loc)));
         }
         $t1 = microtime(true);
 
