@@ -44,7 +44,11 @@ final class HomesSearch
                     continue;
                 }
                 $seen[$key] = true;
-                $saved = self::save($item);
+                try {
+                    $saved = self::save($item);
+                } catch (\InvalidArgumentException) {
+                    continue;
+                }
                 $out['count']++;
                 $out['added'] += $saved['created'] ? 1 : 0;
                 if ($saved['changed']) {
@@ -103,11 +107,17 @@ final class HomesSearch
     /** Keep separate provider quotes. Fill blanks without overwriting RentCast/Zillow facts. */
     public static function save(array $item): array
     {
+        $hash = Address::hash($item['address'],$item['city'],$item['state'],$item['zip']);
+        if (($item['details']['homes']['address_hash']??'') !== $hash) {
+            throw new \InvalidArgumentException('Homes.com observation belongs to a different address or unit.');
+        }
         $id = PropertyRepo::findAddress($item);
         $existing = $id ? PropertyRepo::find($id) : null;
         $evidence = $item['details']['homes'];
         if ($existing) {
             $prior = $existing['details']['homes'] ?? [];
+            $newPhotos = ($evidence['observed_at']??'') >= ($prior['observed_at']??'') && !empty($evidence['photos'])
+                && (($evidence['photos']??[]) !== ($prior['photos']??[]) || empty($prior['address_hash']));
             $fillFields = ['property_type','beds','baths','sqft','description','photo_url','agent_name','office_name','county'];
             $missing = false;
             foreach ($fillFields as $field) {
@@ -115,7 +125,7 @@ final class HomesSearch
                     $missing = true;
                 }
             }
-            if (($prior['observed_at'] ?? '') >= $evidence['observed_at'] && ($prior['url'] ?? '') === $evidence['url'] && !$missing) {
+            if (($prior['observed_at'] ?? '') >= $evidence['observed_at'] && ($prior['url'] ?? '') === $evidence['url'] && !$missing && !$newPhotos) {
                 return ['id' => $id, 'created' => false, 'changed' => false];
             }
             $older = ($prior['observed_at'] ?? '') > $evidence['observed_at'];
@@ -123,6 +133,12 @@ final class HomesSearch
                 $evidence = $prior;
             }
             $data = array_intersect_key($existing, array_flip(['address','city','state','zip']));
+            foreach (['city','state'] as $field) {
+                if (!$data[$field] && !empty($item[$field])) {
+                    $data[$field] = $item[$field];
+                }
+            }
+            $evidence['address_hash'] = Address::hash($data['address'],$data['city'],$data['state'],$data['zip']);
             $data['details'] = ['homes' => $evidence];
             $ownsPrimary = !$older && $existing['source'] === HomesCom::ID && empty($existing['details']['zillow']) && !in_array($existing['data_status'], ['removed','link_dead'], true);
             foreach ($fillFields as $field) {

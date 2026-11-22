@@ -40,7 +40,7 @@ final class Search
     public static function fromRequest(array $src): array
     {
         $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH)];
-        $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'area';
+        $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'auto';
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
@@ -69,7 +69,7 @@ final class Search
             $v = $f[$k] ?? null;
             if ($v === null || $v === '' || $v === [] || ($k === 'mode' && $v === 'sale') || ($k === 'sort' && $v === 'newest')
                 || (str_starts_with($k, 'c_') && $v === 'any')
-                || ($k === 'search_kind' && $v === 'area')
+                || ($k === 'search_kind' && in_array($v, ['area','auto'], true))
                 || ($k === 'sold_days' && (($f['mode'] ?? 'sale') !== 'sold' || (int) $v === 180))) {
                 continue;
             }
@@ -140,15 +140,17 @@ final class Search
         };
     }
 
-    public static function location(array $f): ?array
+    public static function location(array $f, bool $fetch = false): ?array
     {
         $address = Address::parseLocation((string) ($f['q'] ?? ''));
-        if (($address['type'] ?? '') === 'address') {
+        if ($address && $address['type'] !== 'city') {
             return $address;
         }
-        return ($f['search_kind'] ?? '') === 'building'
-            ? BuildingSearch::location((string) ($f['q'] ?? ''))
-            : $address;
+        if (($f['search_kind'] ?? '') === 'building') {
+            $loc = BuildingSearch::location((string) ($f['q'] ?? ''));
+            return $loc ? $loc + ['buildings'=>BuildingSearch::resolve($loc,$fetch)] : null;
+        }
+        return SmartLocation::resolve((string) ($f['q'] ?? ''), $fetch);
     }
 
     public static function locationProvider(array $loc, string $ctx = 'manual'): ?string
@@ -180,15 +182,13 @@ final class Search
         $ctx = $opt['ctx'] ?? 'manual';
         $out = ['loc' => null, 'rows' => [], 'total' => 0, 'snapshot' => null, 'fetched' => false, 'partial' => false,
             'notice' => null, 'error' => null, 'needs' => [], 'homes' => null];
-        $loc = self::location($f);
+        $loc = self::location($f, ($opt['fetch'] ?? true) !== false);
         if ($loc === null) {
-            $out['error'] = ($f['search_kind'] ?? '') === 'building'
-                ? 'Enter a building name, optionally followed by city and state, for example Skyline Square, Falls Church, VA.'
-                : 'Type a state (Virginia), a county (Fairfax County), a city (Richmond, VA), one or more ZIP codes, or a full street address.';
+            $out['error'] = 'Could not identify this address or place reliably. Add its city, state or ZIP code.';
             return $out;
         }
         if ($loc['type'] === 'building') {
-            $loc['buildings'] = BuildingSearch::resolve($loc, ($opt['fetch'] ?? true) !== false);
+            $loc['buildings'] ??= BuildingSearch::resolve($loc, ($opt['fetch'] ?? true) !== false);
         }
         $out['loc'] = $loc;
         if ($loc['type'] === 'address') {

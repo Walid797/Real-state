@@ -1634,4 +1634,9 @@ return [
     'Add public Homes.com listings alongside RentCast' => 'آگهی‌های عمومی Homes.com همراه نتایج RentCast اضافه شوند',
     'Reads the first public search page for up to three areas within a short time limit. Pages are cached for one hour. No RentCast request is used for this source. Access and coverage depend on Homes.com.' => 'صفحهٔ اول عمومی حداکثر سه منطقه در مهلت کوتاه بررسی و برای یک ساعت ذخیره می‌شود. این منبع سهمیهٔ RentCast را مصرف نمی‌کند؛ دسترسی و پوشش به Homes.com بستگی دارد.',
     'Homes.com source asking price' => 'قیمت درخواستی طبق منبع Homes.com',
+    'Type an address, apartment number, building name, city, county or ZIP. Search detects the type automatically; add city and state for an ambiguous name.' => 'آدرس خانه همراه شمارهٔ واحد، نام ساختمان، شهر، کونتی یا زیپ را بنویسید؛ نوع جستجو خودکار تشخیص داده می‌شود. برای نام‌های مبهم، شهر و ایالت را هم اضافه کنید.',
+    'Detected automatically: %s' => 'تشخیص خودکار: %s',
+    'Multiple areas' => 'چند منطقه',
+    'Could not identify this address or place reliably. Add its city, state or ZIP code.' => 'این آدرس یا محل با اطمینان تشخیص داده نشد؛ شهر، ایالت یا زیپ آن را هم بنویسید.',
+    'Photos from Homes.com for this exact home' => 'عکس‌های Homes.com برای همین خانه و شمارهٔ واحد',
 ];

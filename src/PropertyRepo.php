@@ -475,7 +475,10 @@ final class PropertyRepo
             "SELECT p.id, p.address, p.city, p.state, p.zip, p.lat, p.lng, p.property_type, p.beds, p.baths, p.sqft,
                     p.lot_sqft, p.year_built, p.hoa_fee, p.garage_spaces, p.has_basement, p.flags, p.status, p.list_price, p.listed_date,
                     p.days_on_market, p.listing_type, p.last_sale_price, p.last_sale_date, p.est_value, p.source,
-                    COALESCE(NULLIF(p.photo_url, ''), CASE WHEN JSON_VALID(p.details)
+                    COALESCE(CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.homes.address_hash')) = p.addr_hash
+                        AND JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.homes.photos[0]')) LIKE 'https://images.homes.com/listings/%'
+                        THEN NULLIF(JSON_UNQUOTE(JSON_EXTRACT(p.details,'$.homes.photos[0]')),'') END,
+                        NULLIF(p.photo_url, ''), CASE WHEN JSON_VALID(p.details)
                         THEN JSON_UNQUOTE(JSON_EXTRACT(p.details, '$.photos[0]')) END) AS photo_url,
                     JSON_EXTRACT(p.details, '$.homes') AS homes_quote,
                     p.source_url, p.data_status, p.first_seen_at, p.county, p.score, p.risk, p.confidence, p.est_arv, p.est_reno,

@@ -35,12 +35,8 @@ if (App\Services\CountyRecords::wanted($p) && App\Services\CountyRecords::enrich
 }
 $id = (int) $p['id'];
 $d = $p['details'];
-$photos = array_values(array_filter((array) ($d['photos'] ?? []), static fn ($src) =>
-    is_string($src) && str_starts_with($src, 'https://')
-));
-if (!$photos && str_starts_with((string) $p['photo_url'], 'https://')) {
-    $photos = [$p['photo_url']];
-}
+$photos = App\Services\PropertyPhotos::gallery($p);
+$homesPhotos = App\Services\PropertyPhotos::homes($p);
 $events = PropertyRepo::events($id);
 $hasGeo = Geo::valid($p['lat'], $p['lng']);
 $forSale = in_array($p['status'], ['for_sale', 'pending'], true) && (int) $p['list_price'] > 0;
@@ -173,6 +169,7 @@ if (count($series) >= 2) {
 </header>
 
 <?php if ($photos): ?>
+<?php if ($homesPhotos): ?><p class="small photo-source"><?= te('Photos from Homes.com for this exact home') ?></p><?php endif; ?>
 <div class="photos" aria-label="<?= te('Listing photos') ?>">
   <?php foreach (array_slice($photos, 0, 24) as $i => $src): ?>
   <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">

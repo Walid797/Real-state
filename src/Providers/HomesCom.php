@@ -18,6 +18,7 @@ final class HomesCom
 {
     public const ID = 'homes';
     public const TTL = 3600;
+    public const CACHE_VERSION = 'public-search-v2';
 
     public static function enabled(): bool
     {
@@ -42,7 +43,7 @@ final class HomesCom
     public static function search(array $loc, string $ctx = 'manual', float $budget = 10): array
     {
         $started = microtime(true);
-        $key = Cache::key(self::ID, 'public-search-v1', ['key' => $loc['key']]);
+        $key = Cache::key(self::ID, self::CACHE_VERSION, ['key' => $loc['key']]);
         $cached = Cache::get($key);
         if (is_array($cached)) {
             return array_replace($cached, ['cached' => true]);
@@ -107,6 +108,11 @@ final class HomesCom
         }
         $url = str_starts_with($url, '/property/') ? 'https://www.homes.com' . $url : $url;
         return preg_match('#^https://www\.homes\.com/property/[a-z0-9-]+/[a-z0-9]+/$#i', $url) ? $url : null;
+    }
+
+    public static function photoUrl(mixed $url): ?string
+    {
+        return is_string($url) && preg_match('#^https://images\.homes\.com/listings/[a-z0-9/_.%-]+(?:\?[^\s]*)?$#i',$url) ? $url : null;
     }
 
     public static function parse(string $html, array $loc, string $requestedUrl, string $observed): array
@@ -192,9 +198,21 @@ final class HomesCom
                             $item[$field] = (float) str_replace(',', '', $m[1]);
                         }
                     }
-                    $photo = $home['image'] ?? $listing['image'] ?? null;
-                    if (is_string($photo) && preg_match('#^https://images\.homes\.com/listings/#', $photo)) {
-                        $item['photo_url'] = $photo;
+                    $photos = [];
+                    $photo = self::photoUrl($home['image'] ?? $listing['image'] ?? null);
+                    if ($photo) {
+                        $photos[] = $photo;
+                    }
+                    // Only gallery images inside this verified unit's card; never agent photos or adjacent cards.
+                    foreach ($xp->query('.//img[contains(concat(" ",normalize-space(@class)," ")," embla__slide__img ")]',$card) as $image) {
+                        $photo = self::photoUrl($image->getAttribute('data-defer-src')) ?? self::photoUrl($image->getAttribute('src'));
+                        if ($photo) {
+                            $photos[] = $photo;
+                        }
+                    }
+                    $photos = array_slice(array_values(array_unique($photos)),0,24);
+                    if ($photos) {
+                        $item['photo_url'] = $photos[0];
                     }
                     if (Geo::valid($home['geo']['latitude'] ?? null, $home['geo']['longitude'] ?? null)) {
                         $item['lat'] = (float) $home['geo']['latitude'];
@@ -217,6 +235,7 @@ final class HomesCom
                         $item['county'] = $loc['county']; // membership asserted by this verified county collection page
                     }
                     $item['details'] = ['homes' => ['url' => $url, 'observed_at' => $observed, 'page_url' => $canonical,
+                        'address_hash'=>Address::hash($item['address'],$item['city'],$item['state'],$item['zip']), 'photos'=>$photos,
                         'price' => $item['list_price'], 'beds' => $item['beds'], 'baths' => $item['baths'], 'sqft' => $item['sqft'], 'partial' => true]];
                     $items[$id] = $item;
                 }

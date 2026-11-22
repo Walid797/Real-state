@@ -35,16 +35,6 @@
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
   });
-  $$('select[name="search_kind"]').forEach(function (select) {
-    var defaults = select.form && $('[data-default-types="1"]', select.form);
-    if (!defaults) return;
-    defaults.addEventListener('change', function () { defaults.dataset.defaultTypes = '0'; });
-    select.addEventListener('change', function () {
-      if (select.value !== 'building' || defaults.dataset.defaultTypes !== '1') return;
-      $$('input[type="checkbox"]', defaults).forEach(function (box) { box.checked = false; });
-      defaults.dataset.defaultTypes = '0';
-    });
-  });
 
   /* Dropdown panels (<details class="drop">): one open at a time, close on outside click or Esc. */
   document.addEventListener('click', function (e) {

@@ -1,6 +1,8 @@
 # Exact home and building searches
 
-The existing `/search` field accepts counties, cities, states, ZIPs and complete street addresses. `search_kind=building` explicitly selects a named building, avoiding confusion with a city name. Saved search profiles retain this selection. County and multi-county searches keep their previous behavior.
+The single `/search` field detects counties, cities, states, ZIPs, street addresses and building names automatically. There is no type selector. Legacy `search_kind=building` URLs remain readable, while new profiles and URLs need only the query. All property types are included unless the user chooses filters, so a building search cannot silently exclude its condos and apartments. County and multi-county searches keep their previous behavior.
+
+Structured queries are parsed locally. Ambiguous names and incomplete streets use bounded Photon/OpenStreetMap evidence, saved for seven days. Known saved cities/buildings and cached matches avoid repeated lookups. Persian/Arabic digits are normalized. The resolver verifies the requested/default state, building name and address; multiple distinct street matches require more locality instead of choosing a home arbitrarily. The detected type is displayed in search results. No LLM or paid API request is used for classification.
 
 Exact addresses accept the existing comma-separated forms, a street-suffix-delimited address without commas, and pasted postal text such as:
 
@@ -18,4 +20,4 @@ The existing Zillow-data source searches the building name within its existing q
 
 Map building matches are displayed separately from individual listings. A user can open a mapped address or enter a full address plus apartment number. A building location never supplies another apartment's details. Full listing enrichment now rejects a provider response with a different street, state, locality or unit before applying photos, price and other facts. School and investment reports continue to run only for the opened property.
 
-Verification: `php tests/check.php` exercises pasted addresses, apartment identity, map name/locality checks, local building filtering, SQL/wildcard input, saved modes and rejection of a mismatched apartment response. Browser checks additionally cover multiline paste, navigation to the exact saved unit, named-building results and mobile layout. Live listing retrieval still depends on configured source keys and remaining quotas.
+Verification: `php tests/check.php` exercises pasted and incomplete addresses, automatic building/city classification, Persian ZIP digits, ambiguous streets, apartment identity, map name/locality checks, local building filtering, SQL/wildcard input, legacy modes and rejection of a mismatched apartment response. Browser checks cover the single input, multiline paste, navigation to the exact saved unit, automatic building results and mobile layout. Live listing retrieval still depends on configured source keys and remaining quotas.

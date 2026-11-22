@@ -38,6 +38,7 @@ if (!str_contains((string) App\Config::get('base_url', ''), '127.0.0.1')) {
 }
 $homesWasOn = Settings::get('homes_on', '1');
 Settings::set('homes_on','0'); // Offline checks must never read public listing pages.
+App\Services\SmartLocation::$network = false;
 
 $fail = 0;
 $n = 0;
@@ -1045,7 +1046,7 @@ $eq(App\Providers\HomesCom::pageUrl(Address::parseLocation('Fairfax County, VA')
 $exactHomes = Address::parseLocation('1 Provider Fixture Rd Apt 1S, Fixtureville, VA 24979');
 $ok(App\Services\HomesSearch::matches($homesItem,$exactHomes) && !App\Services\HomesSearch::matches($homesItem,array_replace($exactHomes,['address'=>'1 Provider Fixture Rd Apt 1N'])), 'exact-address enrichment imports only the requested apartment');
 $homesIds = [];
-$homesCacheKey = App\Cache::key('homes','public-search-v1',['key'=>$homesLoc['key']]);
+$homesCacheKey = App\Cache::key('homes',App\Providers\HomesCom::CACHE_VERSION,['key'=>$homesLoc['key']]);
 $homesPriorCache = App\Cache::get($homesCacheKey);
 $primaryKeys = [Settings::get('rentcast_key'),Settings::get('openwebninja_key')];
 try {
@@ -1070,6 +1071,7 @@ try {
     $eq((int)$withCounty['details']['homes']['price'],275000,'filling county context does not replace a newer Homes.com quote');
     $nextUnit = $homesItem;
     $nextUnit['address']='1 Provider Fixture Rd Unit 1 N';
+    $nextUnit['details']['homes']['address_hash']=Address::hash($nextUnit['address'],$nextUnit['city'],$nextUnit['state'],$nextUnit['zip']);
     $secondHome = App\Services\HomesSearch::save($nextUnit);
     $homesIds[] = $secondHome['id'];
     $ok($secondHome['created'] && $secondHome['id']!==$primaryId,'another apartment remains a separate property');
@@ -1086,6 +1088,31 @@ try {
     $ok($combined['homes']['available'] && $combined['homes']['cached'] && $combined['total']>=1,'ordinary search automatically includes cached Homes.com alongside primary-provider results');
     $combinedRow = array_values(array_filter($combined['rows'],static fn($row)=>(int)$row['id']===$primaryId))[0];
     $eq(json_decode($combinedRow['homes_quote'],true)['url'],$homesPropertyUrl,'normal search projection exposes the source quote and link for its result badge');
+    $eq($combinedRow['photo_url'],$homesItem['photo_url'],'RentCast search results prefer the matched Homes.com photo even when a primary photo exists');
+    $galleryProperty = PropertyRepo::find($primaryId);
+    $galleryProperty['details']['photos'] = ['https://example.test/zillow-photo.jpg'];
+    $eq(App\Services\PropertyPhotos::gallery($galleryProperty),$homesItem['details']['homes']['photos'],'the opened property uses the Homes.com gallery already collected during search');
+    $wrongGallery = array_replace($galleryProperty,['address'=>'1 Provider Fixture Rd Unit 1 N']);
+    $eq(App\Services\PropertyPhotos::homes($wrongGallery),[],'another apartment cannot display this unit Homes.com gallery');
+    $badObservation = $homesItem;
+    $badObservation['address']='1 Provider Fixture Rd Unit 9';
+    try {
+        App\Services\HomesSearch::save($badObservation);
+        $ok(false,'a source identity mismatch is rejected before saving');
+    } catch (InvalidArgumentException) {
+        $ok(true,'a source identity mismatch is rejected before saving');
+    }
+    Db::run("UPDATE properties SET details=JSON_REMOVE(details,'$.homes.photos','$.homes.address_hash') WHERE id=?",[$primaryId]);
+    $backfilled = App\Services\HomesSearch::save($homesItem);
+    $ok($backfilled['changed'] && count(App\Services\PropertyPhotos::homes(PropertyRepo::find($primaryId)))===1,'a cached observation backfills older records with source-specific photos and verified identity');
+    $ok(!App\Services\HomesSearch::save($homesItem)['changed'],'photo backfill runs once without repeated source or report refreshes');
+    $noZipItem = $homesItem;
+    $noZipItem['address']='2 Provider Fixture Rd';
+    $noZipItem['details']['homes']['address_hash']=Address::hash($noZipItem['address'],$noZipItem['city'],$noZipItem['state'],$noZipItem['zip']);
+    $noZipId = PropertyRepo::upsert(['address'=>$noZipItem['address'],'city'=>$noZipItem['city'],'state'=>'VA','zip'=>'','status'=>'for_sale','list_price'=>220000], 'rentcast')['id'];
+    $homesIds[] = $noZipId;
+    $noZipSaved = App\Services\HomesSearch::save($noZipItem);
+    $ok($noZipSaved['id']===$noZipId && count(App\Services\PropertyPhotos::homes(PropertyRepo::find($noZipId)))===1,'a saved RentCast address without a ZIP acquires its verified photo without creating a duplicate');
     $eq(Quota::used('rentcast'),$usedBefore,'Homes.com adds no RentCast quota usage');
     $eq((int)Db::val('SELECT COUNT(*) FROM property_analyses'),$reportCount,'new source searches do not start AI analysis for unopened homes');
     App\Cache::put($homesCacheKey,'homes',array_replace($cachedHomes,['ok'=>false,'items'=>[],'error'=>'fixture unavailable']),900);
@@ -1100,6 +1127,41 @@ try {
     Db::run('DELETE FROM api_cache WHERE cache_key=?',[$homesCacheKey]);
     if ($homesPriorCache!==null) App\Cache::put($homesCacheKey,'homes',$homesPriorCache,3600);
 }
+/* Automatic intent detection; fixtures are geographic evidence, not invented listing facts. */
+$smartFeatures = [['properties'=>['name'=>'Demo Towers South','housenumber'=>'71','street'=>'Fixture Road','city'=>'Fixtureville','state'=>'Virginia',
+    'postcode'=>'24979','countrycode'=>'US','osm_type'=>'W','osm_id'=>123]]];
+$autoBuilding = App\Services\SmartLocation::fromFeatures('Demo Towers, Fixtureville, VA',$smartFeatures);
+$eq([$autoBuilding['type'],$autoBuilding['city']],['building','Fixtureville'],'a building name is detected without a search mode');
+$eq(App\Services\SmartLocation::fromFeatures('Demo Towers Fixtureville VA',$smartFeatures)['type'],'building','building names without commas are recognized against map evidence');
+$eq(App\Services\SmartLocation::fromFeatures('Demo Towers',$smartFeatures)['type'],'building','a bare building name can be recognized in the home state');
+$shortAddress = App\Services\SmartLocation::fromFeatures('71 Fixture Rd Apt 1703 S',$smartFeatures);
+$eq([$shortAddress['type'],$shortAddress['address'],$shortAddress['zip']],['address','71 Fixture Road Unit 1703 S','24979'],'an incomplete street lookup fills only verified locality and preserves the requested unit');
+$secondStreet = $smartFeatures[0];
+$secondStreet['properties']['city']='Another City';
+$secondStreet['properties']['postcode']='24978';
+$eq(App\Services\SmartLocation::fromFeatures('71 Fixture Rd Apt 1703 S',[$smartFeatures[0],$secondStreet]),null,'ambiguous street addresses do not select an arbitrary home');
+$foreignBuilding = $smartFeatures[0];
+$foreignBuilding['properties']['state']='Maryland';
+$eq(App\Services\SmartLocation::fromFeatures('Demo Towers, Fixtureville, VA',[$foreignBuilding]),null,'a matching building name in another state is rejected');
+$cityFeature = [['properties'=>['name'=>'Richmond','osm_key'=>'place','osm_value'=>'city','state'=>'Virginia','countrycode'=>'US']]];
+$eq(App\Services\SmartLocation::fromFeatures('Richmond VA',$cityFeature)['type'],'city','verified city names remain city searches');
+$eq(Search::location(Search::fromRequest(['q'=>'۲۲۰۴۱']))['key'],'zip:22041','Persian digits in a ZIP are understood automatically');
+$eq(Search::location(Search::fromRequest(['q'=>'22041','search_kind'=>'building']))['type'],'zip','legacy mode parameters do not override an unambiguous ZIP');
+$ok(!isset(Search::compact(Search::fromRequest(['q'=>'Demo Towers']))['search_kind']),'new smart searches need no mode parameter in URLs or profiles');
+$smartKey = App\Services\SmartLocation::key('Demo Towers, Fixtureville, VA');
+$priorSmart = App\Cache::get($smartKey);
+App\Cache::put($smartKey,'smart_location',['location'=>$autoBuilding],3600);
+$eq(Search::location(Search::fromRequest(['q'=>'Demo Towers, Fixtureville, VA']))['type'],'building','cached automatic classification is reused by saved profiles and exports without network');
+Db::run('DELETE FROM api_cache WHERE cache_key=?',[$smartKey]);
+if($priorSmart!==null) App\Cache::put($smartKey,'smart_location',$priorSmart,3600);
+$galleryCard = str_replace('</article>', '<img class="embla__slide__img" src="https://images.homes.com/listings/test-house.jpg">'
+    .'<img class="embla__slide__img" src="/assets/spacer.gif" data-defer-src="https://images.homes.com/listings/test-kitchen.jpg">'
+    .'<img class="embla__slide__img" src="https://images.homes.com/listings/test-bath.jpg">'
+    .'<img class="agent-photo" src="https://images.homes.com/listings/not-a-house.jpg"></article>',$homesCard);
+$galleryParsed = App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,$galleryCard),$homesLoc,$homesUrl,now())['items'][0];
+$eq($galleryParsed['details']['homes']['photos'],['https://images.homes.com/listings/test-house.jpg','https://images.homes.com/listings/test-kitchen.jpg','https://images.homes.com/listings/test-bath.jpg'],
+    'same-card gallery photos are collected during search, deduplicated, and agent portraits are excluded');
+$eq(App\Providers\HomesCom::photoUrl('https://images.homes.com.evil.test/listings/fake.jpg'),null,'lookalike photo hosts are rejected');
 Settings::set('homes_on',$homesWasOn);
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);
