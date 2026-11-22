@@ -35,7 +35,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
   <p class="small muted"><?= te('Evidence collected') ?> <time><?= e($packet['collected_at']) ?> UTC</time><?= $report['model'] ? ' · ' . e($report['model']) : '' ?></p>
   <div class="analysis-scores">
     <?php foreach ($scoreLabels as $key => $label): ?>
-    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong><small class="score-share"><?= te('Score share: %d/100', $packet['scores']['weights'][$key]) ?></small></div>
+    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong></div>
     <?php endforeach; ?>
     <div><span><?= te('Final investment score') ?></span><strong><?= $packet['scores']['final_score'] === null ? '—' : (int) $packet['scores']['final_score'] . '/100' ?></strong><small><?= te('Evidence coverage %d%%', $packet['scores']['coverage']) ?></small></div>
   </div>

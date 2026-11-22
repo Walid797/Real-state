@@ -17,7 +17,7 @@ $regional = App\Services\RegionalDemand::for($p);
   <div class="regional-groups">
     <?php foreach ($regional['groups'] as $group): ?>
     <article class="regional-group">
-      <header><h3><?= te($group['label']) ?></h3><span class="small score-share"><?= te('Score share: %d/100', $group['weight']) ?></span></header>
+      <header><h3><?= te($group['label']) ?></h3></header>
       <p class="regional-points"><?= $group['points'] === null ? te('Needs verification') : te('Score earned: %1$s/%2$d', trim_num($group['points']), $group['weight']) ?></p>
       <?php if ($group['metrics']): ?>
       <dl>
