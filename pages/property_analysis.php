@@ -20,6 +20,10 @@ if (is_post()) {
         Auth::require('edit');
     }
     PropertyAnalysis::enqueue($id, $refresh);
+    session_write_close();
+    @set_time_limit(150);
+    ignore_user_abort(true);
+    PropertyAnalysis::run(110, $id);
 }
 $report = PropertyAnalysis::publicReport($id);
 if (!empty($params['status'])) {
@@ -28,7 +32,7 @@ if (!empty($params['status'])) {
     $html = ob_get_clean();
     json_out([
         'status' => $report['status'] ?? 'pending', 'configured' => App\Providers\OpenRouter::enabled(),
-        'updated_at' => $report['updated_at'] ?? null, 'html' => $html,
+        'updated_at' => $report['updated_at'] ?? null, 'next_attempt_at' => $report['next_attempt_at'] ?? null, 'html' => $html,
     ]);
 }
 json_out(['report' => $report], is_post() ? 202 : 200);

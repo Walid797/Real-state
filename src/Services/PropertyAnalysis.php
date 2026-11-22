@@ -12,25 +12,6 @@ use App\Providers\OpenRouter;
 
 final class PropertyAnalysis
 {
-    public static function enqueueSearch(array $filters): void
-    {
-        $compact = Search::compact($filters);
-        unset($compact['sort']);
-        ksort($compact);
-        $json = json_encode($compact, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $signature = hash('sha256', $json);
-        $max = (int) Db::val('SELECT MAX(id) FROM properties');
-        Db::run(
-            'INSERT INTO analysis_searches (signature, filters, max_id, requested_at) VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                cursor_id = IF(max_id < VALUES(max_id) OR requested_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 48 HOUR), 0, cursor_id),
-                completed = IF(max_id < VALUES(max_id) OR requested_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 48 HOUR), 0, completed),
-                requested_at = IF(max_id < VALUES(max_id) OR requested_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 48 HOUR), VALUES(requested_at), requested_at),
-                max_id = GREATEST(max_id, VALUES(max_id))',
-            [$signature, $json, $max, now()]
-        );
-    }
-
     public static function enqueue(int $id, bool $refresh = false): void
     {
         $previous = Db::one('SELECT fingerprint, status FROM property_analyses WHERE property_id=?', [$id]);
@@ -44,11 +25,11 @@ final class PropertyAnalysis
                 WHERE property_id=? AND status <> 'collecting'", [now(), now(), now(), $id]);
         }
         Db::run(
-            "INSERT INTO property_analyses (property_id, requested_at, updated_at, next_attempt_at) VALUES (?, ?, ?, ?)
+            "INSERT INTO property_analyses (property_id, requested_at, updated_at, next_attempt_at, opened_at) VALUES (?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 status = IF(status IN ('ready','evidence_ready','awaiting_key','failed') AND generated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 48 HOUR), 'pending', status),
-                attempts = IF(status='pending', 0, attempts)",
-            [$id, now(), now(), now()]
+                attempts = IF(status='pending', 0, attempts), opened_at = VALUES(opened_at)",
+            [$id, now(), now(), now(), now()]
         );
     }
 
@@ -83,25 +64,27 @@ final class PropertyAnalysis
         return $r;
     }
 
-    /** A database lock serializes jobs even when HTTP cron and CLI cron overlap. */
-    public static function run(int $budgetSeconds = 110): array
+    /** Run the requested house immediately, with one lock shared by its AJAX and cron workers. */
+    public static function run(int $budgetSeconds = 110, ?int $propertyId = null): array
     {
-        if ((int) Db::val("SELECT GET_LOCK('plat_property_intelligence', 0)") !== 1) {
-            return ['Property intelligence is already running.'];
+        Db::run("UPDATE property_analyses SET status='retry', error_code='interrupted', next_attempt_at=UTC_TIMESTAMP()
+            WHERE opened_at IS NOT NULL AND status='collecting' AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)
+            AND (? IS NULL OR property_id=?)", [$propertyId, $propertyId]);
+        $row = self::due($propertyId);
+        if (!$row) {
+            return ['Property intelligence has no due opened homes.'];
+        }
+        $id = (int) $row['property_id'];
+        $lockName = 'plat_intelligence_' . $id;
+        if ((int) Db::val('SELECT GET_LOCK(?, 0)', [$lockName]) !== 1) {
+            return ['This property is already being analyzed.'];
         }
         $start = microtime(true);
         try {
-            self::expandSearch();
-            // Recover a process that exceeded its shared-host execution limit.
-            Db::run("UPDATE property_analyses SET status='retry', error_code='interrupted', next_attempt_at=UTC_TIMESTAMP()
-                WHERE status='collecting' AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)");
-            $row = Db::one("SELECT * FROM property_analyses WHERE next_attempt_at <= UTC_TIMESTAMP()
-                AND (status IN ('pending','retry') OR (status IN ('evidence_ready','awaiting_key') AND ? = 1))
-                ORDER BY requested_at, property_id LIMIT 1", [OpenRouter::enabled()]);
+            $row = self::due($id);
             if (!$row) {
-                return ['Property intelligence has no due reports.'];
+                return ['This property has already been handled.'];
             }
-            $id = (int) $row['property_id'];
             $p = PropertyRepo::find($id);
             if (!$p) {
                 return ['Property no longer exists.'];
@@ -139,7 +122,7 @@ final class PropertyAnalysis
             }
             if (microtime(true) - $start > $budgetSeconds - 60) {
                 self::state($id, 'evidence_ready', null, 0);
-                return ['Property ' . $id . ' evidence collected; AI will run on the next scheduler pass.'];
+                return ['Property ' . $id . ' evidence collected; AI will continue on the next request.'];
             }
             $result = OpenRouter::analyze($packet);
             if (!$result['ok']) {
@@ -160,7 +143,7 @@ final class PropertyAnalysis
             error_log('Property intelligence failed: ' . get_class($e));
             return ['Property intelligence will retry after a data-source failure.'];
         } finally {
-            Db::val("SELECT RELEASE_LOCK('plat_property_intelligence')");
+            Db::val('SELECT RELEASE_LOCK(?)', [$lockName]);
         }
     }
 
@@ -177,23 +160,11 @@ final class PropertyAnalysis
         return hash('sha256', json_encode([$fields, Deal::saved((int) $p['id']), Condition::get((int) $p['id'])], JSON_INVALID_UTF8_SUBSTITUTE));
     }
 
-    private static function expandSearch(): void
+    private static function due(?int $propertyId): ?array
     {
-        $search = Db::one('SELECT * FROM analysis_searches WHERE completed=0 ORDER BY requested_at LIMIT 1');
-        if (!$search) {
-            return;
-        }
-        $f = Search::fromRequest(json_decode($search['filters'], true) ?: []);
-        $loc = Address::parseLocation($f['q']);
-        if (!$loc || $loc['type'] === 'address') {
-            Db::run('UPDATE analysis_searches SET completed=1 WHERE signature=?', [$search['signature']]);
-            return;
-        }
-        $r = PropertyRepo::search($f + ['loc' => $loc, 'limit' => 200, 'analysis_after' => (int) $search['cursor_id'], 'analysis_max' => (int) $search['max_id']]);
-        foreach ($r['rows'] as $property) {
-            self::enqueue((int) $property['id']);
-        }
-        $cursor = $r['rows'] ? (int) end($r['rows'])['id'] : (int) $search['cursor_id'];
-        Db::run('UPDATE analysis_searches SET cursor_id=?, completed=? WHERE signature=?', [$cursor, count($r['rows']) < 200, $search['signature']]);
+        return Db::one("SELECT * FROM property_analyses WHERE opened_at IS NOT NULL AND next_attempt_at <= UTC_TIMESTAMP()
+            AND (status IN ('pending','retry') OR (status IN ('evidence_ready','awaiting_key') AND ? = 1))
+            AND (? IS NULL OR property_id=?)
+            ORDER BY opened_at DESC, property_id LIMIT 1", [OpenRouter::enabled(), $propertyId, $propertyId]);
     }
 }

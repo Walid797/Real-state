@@ -2,7 +2,7 @@
 
 Plat uses PHP 8.1+, plain PHP templates, CSS and JavaScript, PDO, and MySQL or MariaDB. It has a front controller in public/index.php. Existing RentCast and OpenWeb Ninja connections supply listings and property details. Recorded county sales, Census, FEMA, OpenStreetMap and Zillow Research provide additional evidence.
 
-The module adds individual reports to existing property pages. The database migration runs automatically at the next application request. Existing properties, calculations and source caches are reused.
+Opening a property page starts analysis for that property through its authenticated AJAX request. Search results do not request reports. The database migration runs automatically at the next application request. Existing properties, calculations and source caches are reused.
 
 ## Configuration
 
@@ -17,20 +17,22 @@ Run this job every two minutes in addition to the existing scheduled jobs, using
 
     php /path/to/app/cron/run.php intelligence
 
-The existing auto and score jobs also process analysis work. Each pass expands up to 200 matched property IDs and processes one report. Data collection and AI interpretation can take separate passes on slower hosts. The queue deduplicates properties, uses a database lock across CLI and HTTP workers, retries interrupted work, and resumes after temporary source failures. Keep one regular scheduler active to finish all reports.
+The existing auto and score jobs also process analysis work. Each background pass processes one previously opened property. An open page starts its own property immediately through the POST endpoint. Data collection and AI interpretation can take separate passes on slower hosts. The queue deduplicates properties, uses a property-specific database lock shared by CLI and HTTP workers, retries interrupted work, and resumes after temporary source failures. Keep one regular scheduler active to retry work for properties that were opened.
 
 ## Reports and APIs
 
-A search registers its filters and a maximum property ID. The worker iterates matching IDs in order through the existing filter logic, including results beyond the first page. Opening a property also queues its report. Reports are refreshed after 48 hours when searched or opened again. Property and calculator edits invalidate the stored input fingerprint. The refresh action requests an earlier update.
+Opening a property marks only its report as requested, starts a targeted worker through JavaScript, and polls its status. The worker always selects that property ID. Recently opened homes have background retry priority. Legacy bulk requests stay dormant until their own property page is opened.
+
+Reports are refreshed after 48 hours when opened again. Property and calculator edits invalidate the stored input fingerprint. The refresh action requests an earlier update. Source collection and AI interpretation may take separate requests on slower hosts. Cached completed reports are reused.
 
 Authenticated endpoints are available through the existing session and CSRF checks.
 
-- POST /api/property-analysis accepts property_id and queues that existing property.
+- POST /api/property-analysis accepts property_id and processes only that existing opened property.
 - GET /api/property-analysis/{id} returns its stored report and status.
 - GET /api/property-analysis/{id}/status returns status and rendered report content.
 - POST /api/property-analysis/{id}/refresh requires edit permission and requests a fresh report.
 
-property_analyses holds one current snapshot, AI narrative, source evidence, model, status, input fingerprint and retry state per property. analysis_searches tracks traversal of matched search results. api_log records model call status and duration without prompts, keys or model error bodies. Existing api_cache shares county and tract statistics between properties.
+property_analyses holds one current snapshot, AI narrative, source evidence, model, status, input fingerprint and retry state per property. The earlier analysis_searches table is dormant. It is retained for upgrade compatibility. api_log records model call status and duration without prompts, keys or model error bodies. Existing api_cache shares county and tract statistics between properties.
 
 ## Sources and calculation
 

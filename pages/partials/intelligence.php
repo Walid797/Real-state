@@ -27,7 +27,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
     <?php endif; ?>
   </div>
   <p class="small analysis-status" role="status"><?= te($stateLabels[$status] ?? $stateLabels['pending']) ?></p>
-  <?php if (!$packet): ?><p class="small soft mt-s"><?= te('Reports are prepared automatically for all searched properties by the scheduler. Data-source and free-model limits may delay completion.') ?></p><?php endif; ?>
+  <?php if (!$packet): ?><p class="small soft mt-s"><?= te('Opening this home starts its individual analysis automatically. Source and free-model limits may delay completion.') ?></p><?php endif; ?>
   <?php if ($status === 'awaiting_key' && App\Auth::can('admin')): ?><p class="note mt-s"><?= te('Set OPENROUTER_API_KEY in the private server .env file to enable AI interpretation. Public evidence continues to be collected automatically.') ?></p><?php endif; ?>
   <?php if (!empty($report['stale'])): ?><p class="note mt-s"><?= te('This snapshot predates a property or calculator change. A fresh report has been requested.') ?></p><?php endif; ?>
   <?php if ($packet): ?>

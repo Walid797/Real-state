@@ -873,12 +873,21 @@ try {
         && $packet['scores']['infrastructure'] === null && count($packet['missing_data']) > 0,
         'missing evidence produces null scores in the subject-specific packet');
     $eq(array_sum($packet['scores']['weights']), 100, 'individual investment weights total 100');
-    $filter = Search::fromRequest(['q'=>'20997']);
-    App\Services\PropertyAnalysis::enqueueSearch($filter);
-    $sig = hash('sha256', json_encode(['q'=>'20997'], JSON_UNESCAPED_UNICODE));
-    $cursorRows = PropertyRepo::search($filter + ['loc'=>Address::parseLocation('20997'),'analysis_after'=>0,'analysis_max'=>$analysisId]);
-    $ok(in_array($analysisId, array_map('intval', array_column($cursorRows['rows'],'id')), true), 'background search traversal matches the original search filters');
-    Db::run('DELETE FROM analysis_searches WHERE signature=?',[$sig]);
+    $ok(Db::val('SELECT opened_at FROM property_analyses WHERE property_id=?', [$analysisId]) !== null, 'only a specifically requested property is marked as opened');
+    $otherId = PropertyRepo::upsert(['address'=>'72 Intelligence Check Ct','city'=>'Fixture','state'=>'VA','zip'=>'20997',
+        'status'=>'for_sale','list_price'=>260000,'sqft'=>1500,'property_type'=>'Single Family'], 'manual')['id'];
+    try {
+        $searchCount = (int) Db::val('SELECT COUNT(*) FROM property_analyses');
+        Search::run(Search::fromRequest(['q'=>'20997']), ['fetch'=>false]);
+        $eq((int) Db::val('SELECT COUNT(*) FROM property_analyses'), $searchCount, 'searching an area creates no additional analysis requests');
+        $eq(App\Services\PropertyAnalysis::get($otherId), null, 'a second house in the same search remains unanalyzed until opened');
+        Db::run('INSERT INTO property_analyses(property_id, requested_at,updated_at,next_attempt_at) VALUES(?,?,?,?)', [$otherId,now(),now(),now()]);
+        $choose = new ReflectionMethod(App\Services\PropertyAnalysis::class, 'due');
+        $eq($choose->invoke(null, $otherId), null, 'legacy bulk work remains dormant');
+        $eq((int) $choose->invoke(null, $analysisId)['property_id'], $analysisId, 'targeted worker selection returns only the opened property');
+    } finally {
+        Db::run('DELETE FROM properties WHERE id=?',[$otherId]);
+    }
 } finally {
     Db::run('DELETE FROM properties WHERE id=?',[$analysisId]);
 }

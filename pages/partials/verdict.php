@@ -39,7 +39,7 @@ $confLabel = ['high' => 'High confidence', 'medium' => 'Medium confidence', 'low
     <?php foreach ($v['checks'] as $c): ?><li><?= $fmt($c) ?></li><?php endforeach; ?>
   </ul>
   <?php endif; ?>
-  <div data-intelligence-url="/api/property-analysis/<?= (int) $p['id'] ?>/status">
+  <div data-intelligence-url="/api/property-analysis/<?= (int) $p['id'] ?>/status" data-property-id="<?= (int) $p['id'] ?>" data-csrf="<?= e(App\Auth::csrfToken()) ?>">
     <?php $report = App\Services\PropertyAnalysis::get((int) $p['id']); include APP_ROOT . '/pages/partials/intelligence.php'; ?>
   </div>
   <?php include APP_ROOT . '/pages/partials/regional_demand.php'; ?>

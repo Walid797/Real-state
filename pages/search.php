@@ -207,9 +207,6 @@ $per = 40;
 $page = max(1, (int) ($_GET['page'] ?? 1));
 $res = Search::run($f, ['limit' => $per, 'offset' => ($page - 1) * $per]);
 $loc = $res['loc'];
-if ($loc && $res['total'] > 0) {
-    App\Services\PropertyAnalysis::enqueueSearch($f);
-}
 $mode = $f['mode'];
 $query = Search::compact($f);
 

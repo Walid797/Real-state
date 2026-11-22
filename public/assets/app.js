@@ -488,25 +488,50 @@
   }
 })();
 
-/* Refresh the individual report while its background job is running. */
+/* Opening a property starts only that home's report; polling never selects another home. */
 (function () {
   var host = document.querySelector('[data-intelligence-url]');
   if (!host) return;
+  var running = false;
   var polls = 0;
+  var timer = null;
+  function schedule(delay) {
+    clearTimeout(timer);
+    if (polls < 60) timer = setTimeout(poll, delay);
+  }
+  function start(data) {
+    var due = !data.next_attempt_at || Date.parse(data.next_attempt_at.replace(' ', 'T') + 'Z') <= Date.now();
+    var needed = data.status === 'pending' || (data.status === 'evidence_ready' && data.configured)
+      || (data.status === 'awaiting_key' && data.configured) || (data.status === 'retry' && due);
+    if (running || !needed) return;
+    running = true;
+    var body = new URLSearchParams({ property_id: host.getAttribute('data-property-id') });
+    fetch('/api/property-analysis', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { Accept: 'application/json', 'X-CSRF-Token': host.getAttribute('data-csrf') || '' },
+      body: body
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Analysis request failed');
+      return r.json();
+    }).catch(function () {
+      // A gateway timeout can occur while the server continues collecting evidence.
+    }).finally(function () {
+      running = false;
+      schedule(1000);
+    });
+  }
   function poll() {
-    if (document.hidden || polls >= 20) return;
+    if (document.hidden || polls >= 60) return;
     polls += 1;
     fetch(host.getAttribute('data-intelligence-url'), { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (r) { if (!r.ok) throw new Error('Report status unavailable'); return r.json(); })
       .then(function (data) {
-        var current = host.querySelector('[data-analysis-status]');
-        if (!current || current.getAttribute('data-analysis-status') !== data.status) {
-          host.innerHTML = data.html;
-        }
-        if (['ready', 'awaiting_key', 'failed'].indexOf(data.status) < 0) setTimeout(poll, 15000);
+        host.innerHTML = data.html;
+        start(data);
+        if (['ready', 'awaiting_key', 'failed'].indexOf(data.status) < 0 || running) schedule(5000);
       })
-      .catch(function () { setTimeout(poll, 30000); });
+      .catch(function () { schedule(15000); });
   }
-  setTimeout(poll, 15000);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) poll(); });
+  schedule(50);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) schedule(50); });
 })();

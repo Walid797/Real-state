@@ -302,10 +302,6 @@ final class PropertyRepo
             $w[] = "p.status IN ('for_sale','pending') AND p.list_price > 0";
         }
 
-        if (isset($f['analysis_after'], $f['analysis_max'])) {
-            $w[] = 'p.id > ? AND p.id <= ?';
-            array_push($a, (int) $f['analysis_after'], (int) $f['analysis_max']);
-        }
         if (is_array($f['loc'] ?? null)) {
             $w[] = self::locSql($f['loc'], $a);
         }
@@ -434,9 +430,6 @@ final class PropertyRepo
             default => $mode === 'sold' ? 'p.last_sale_date DESC' : 'COALESCE(p.listed_date, DATE(p.first_seen_at)) DESC',
         };
 
-        if (isset($f['analysis_after'])) {
-            $order = 'p.id ASC';
-        }
         $where = implode(' AND ', $w);
         $from = 'FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id LEFT JOIN property_condition c ON c.property_id = p.id
                  LEFT JOIN users ou ON ou.id = w.owner_id WHERE ' . $where;

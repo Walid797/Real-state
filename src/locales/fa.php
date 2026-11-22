@@ -1490,7 +1490,7 @@ return [
     'Source limit or temporary failure; automatic retry scheduled' => 'محدودیت منبع یا خطای موقت؛ تلاش دوباره زمان‌بندی شد',
     'AI response could not be verified' => 'پاسخ هوش مصنوعی قابل تأیید نبود',
     'Individual property report ready' => 'گزارش اختصاصی ملک آماده است',
-    'Reports are prepared automatically for all searched properties by the scheduler. Data-source and free-model limits may delay completion.' => 'گزارش تمام ملک‌های جستجوشده به‌صورت خودکار توسط زمان‌بند آماده می‌شود. محدودیت منابع و مدل‌های رایگان ممکن است زمان تکمیل را افزایش دهد.',
+    'Opening this home starts its individual analysis automatically. Source and free-model limits may delay completion.' => 'با بازکردن همین خانه، تحلیل اختصاصی آن خودکار آغاز می‌شود. محدودیت منابع و مدل رایگان ممکن است زمان تکمیل را افزایش دهد.',
     'Set OPENROUTER_API_KEY in the private server .env file to enable AI interpretation. Public evidence continues to be collected automatically.' => 'برای فعال‌شدن تفسیر هوش مصنوعی، OPENROUTER_API_KEY را در فایل خصوصی .env سرور تنظیم کنید. آمار عمومی به‌صورت خودکار دریافت می‌شود.',
     'This snapshot predates a property or calculator change. A fresh report has been requested.' => 'پس از این گزارش، اطلاعات ملک یا محاسبات تغییر کرده است. گزارش تازه درخواست شد.',
     'Evidence collected' => 'تاریخ گردآوری شواهد',
