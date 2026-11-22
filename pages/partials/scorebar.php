@@ -13,7 +13,7 @@ $riskBand = $sc['risk'] >= 60 ? 'high' : ($sc['risk'] >= 35 ? 'mid' : 'low');
   <div class="sb-cell">
     <span class="eyebrow"><?= te('Est. net profit') ?></span>
     <b class="<?= $deal['ok'] && $deal['base']['profit'] < 0 ? 'up' : '' ?>"><?= $deal['ok'] ? e(money_short(abs($deal['base']['profit']))) . ($deal['base']['profit'] < 0 ? ' ' . te('loss') : '') : '—' ?></b>
-    <span><?= $deal['ok'] ? te('ROI %s', number_format($deal['base']['roi'], 1) . '%') : te('Needs %s', implode(t(', '), array_map('t', $deal['missing'] ?? []))) ?></span>
+    <span><?= $deal['ok'] ? te('Investment return %s', number_format($deal['base']['roi'], 1) . '%') : te('Needs %s', implode(t(', '), array_map('t', $deal['missing'] ?? []))) ?></span>
   </div>
   <div class="sb-cell">
     <span class="eyebrow"><?= te('After-repair value') ?></span>

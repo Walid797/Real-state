@@ -120,7 +120,7 @@ if (count($series) >= 2) {
 ?>
 <nav class="crumbs" aria-label="<?= te('Back') ?>">
   <a href="<?= e(url('/search', ['q' => $backQ])) ?>"><?= icon('arrow-left', 14) ?><?= e($backQ) ?></a>
-  <?php if ($p['watch_id']): ?><span>·</span><a href="/pipeline"><?= te('Pipeline') ?></a><?php endif; ?>
+  <?php if ($p['watch_id']): ?><span>·</span><a href="/pipeline"><?= te('Favorites') ?></a><?php endif; ?>
 </nav>
 
 <nav class="setting-nav no-print" aria-label="<?= te('Property sections') ?>">
@@ -161,7 +161,7 @@ if (count($series) >= 2) {
       <?php if ($canEdit && !$p['watch_id']): ?>
       <form method="post" action="/property/<?= $id ?>/act" class="inline">
         <?= csrf_field() ?><input type="hidden" name="do" value="watch">
-        <button class="btn btn-sm btn-primary" type="submit"><?= icon('star', 14) ?><?= te('Add to pipeline') ?></button>
+        <button class="btn btn-sm btn-primary" type="submit"><?= icon('star', 14) ?><?= te('Add to favorites') ?></button>
       </form>
       <?php endif; ?>
     </div>

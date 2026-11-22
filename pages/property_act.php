@@ -43,12 +43,12 @@ switch ($do) {
     case 'watch':
         Pipeline::add($id);
         $auto = App\Services\ListingDetails::wanted($p) ? App\Services\ListingDetails::fetch($p, 'auto') : null;
-        flash('Added to the team pipeline.' . ($auto && $auto['status'] === 'fetched' ? ' ' . $auto['message'] : ''));
+        flash('Added to favorites.' . ($auto && $auto['status'] === 'fetched' ? ' ' . $auto['message'] : ''));
         break;
 
     case 'unwatch':
         Pipeline::remove($id);
-        flash('Removed from the pipeline.');
+        flash('Removed from favorites.');
         break;
 
     case 'stage':

@@ -6,6 +6,16 @@ namespace App;
 final class Locale
 {
     private const COOKIE = 'plat_language';
+    /** Keep stored report labels readable without rewriting historical reports. */
+    private const LABEL_ALIASES = [
+        'Pipeline'=>'Favorites',
+        'ARV'=>'Value after renovation',
+        'ROI'=>'Return on investment',
+        'ROI %s'=>'Investment return %s',
+        'Weight %d'=>'Score share: %d/100',
+        'Regional evidence score'=>'Area score',
+        'Scored weight covered'=>'Data coverage',
+    ];
 
     public static function language(): string
     {
@@ -19,6 +29,7 @@ final class Locale
 
     public static function text(string $message): string
     {
+        $message = self::LABEL_ALIASES[$message] ?? $message;
         if (self::language() !== 'fa') {
             return $message;
         }

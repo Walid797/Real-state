@@ -18,7 +18,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
 ?>
 <section class="property-intelligence mt-l" id="property-intelligence" data-analysis-status="<?= e($status) ?>">
   <div class="section-head">
-    <h2>Virginia Property Intelligence</h2>
+    <h2><?= te('AI Property Report') ?></h2>
     <?php if (App\Auth::can('edit')): ?>
     <form method="post" action="/property/<?= (int) $p['id'] ?>/act" class="no-print">
       <?= csrf_field() ?><input type="hidden" name="do" value="analysis_refresh">
@@ -35,7 +35,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
   <p class="small muted"><?= te('Evidence collected') ?> <time><?= e($packet['collected_at']) ?> UTC</time><?= $report['model'] ? ' · ' . e($report['model']) : '' ?></p>
   <div class="analysis-scores">
     <?php foreach ($scoreLabels as $key => $label): ?>
-    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong><small><?= te('Weight %d', $packet['scores']['weights'][$key]) ?></small></div>
+    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong><small class="score-share"><?= te('Score share: %d/100', $packet['scores']['weights'][$key]) ?></small></div>
     <?php endforeach; ?>
     <div><span><?= te('Final investment score') ?></span><strong><?= $packet['scores']['final_score'] === null ? '—' : (int) $packet['scores']['final_score'] . '/100' ?></strong><small><?= te('Evidence coverage %d%%', $packet['scores']['coverage']) ?></small></div>
   </div>

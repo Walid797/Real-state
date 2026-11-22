@@ -66,7 +66,7 @@ if (is_post() && input('do') === 'link') {
         }
         Activity::log('added', $res['id'], 'From a ' . $r['site'] . ' link');
         Score::refresh($res['id']);
-        flash(($res['created'] ? 'Added from ' . $r['site'] . '.' : 'That home was already on file — linked it and added it to the pipeline.')
+        flash(($res['created'] ? 'Added from ' . $r['site'] . '.' : 'That home was already saved — linked it and added it to favorites.')
             . ' Only the address came from the link: add the facts by hand or pull the public record.');
         redirect('/property/' . $res['id']);
     }
@@ -229,7 +229,7 @@ View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
   <?php if (!$edit && !$near): ?>
   <section class="card link-card">
     <h3><?= icon('link-2', 16) ?> <?= te('Add from a listing link') ?></h3>
-    <p class="small soft mb-m"><?= te('Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. The address is read from the link itself — the other site is never downloaded — and the home goes into the team pipeline with a “View original listing” button.') ?></p>
+    <p class="small soft mb-m"><?= te('Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. Its address is read from the link, and the home is added to favorites with a button to view the original listing.') ?></p>
     <?php if ($linkError): ?><p class="err" role="alert"><?= e($linkError) ?></p><?php endif; ?>
     <form method="post" action="/add">
       <?= csrf_field() ?><input type="hidden" name="do" value="link">
@@ -277,7 +277,7 @@ View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
 
       <label class="field c12"><span><?= te($edit ? 'Add a note for the team' : 'Note for the team') ?></span>
         <textarea class="textarea" name="notes" rows="3" placeholder="<?= te('Corner lot, backs onto the greenbelt.') ?>"><?= e($form['notes']) ?></textarea></label>
-      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>><?= te('In the team pipeline') ?></label></div>
+      <div class="field c12"><label class="check"><input type="checkbox" name="watch"<?= checked($form['watch']) ?>><?= te('In favorites') ?></label></div>
     </div>
     <div class="form-foot">
       <button class="btn btn-primary" type="submit"><?= te($edit ? 'Save changes' : 'Add home') ?></button>

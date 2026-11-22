@@ -170,7 +170,7 @@ View::header('Settings', 'settings');
         <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
         <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
         <label class="field c4"><span><?= te('Fetched by themselves, per month') ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
-          <small><?= te('The first time a home is opened or added to the pipeline, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?></small></label>
+          <small><?= te('The first time a home is opened or added to favorites, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?></small></label>
       </div>
     </div>
 

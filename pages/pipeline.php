@@ -42,11 +42,11 @@ foreach ($rows as $r) {
 $counts = array_column(Db::all('SELECT stage, COUNT(*) AS n FROM watchlist GROUP BY stage'), 'n', 'stage');
 $canEdit = Auth::can('edit');
 
-View::header('Pipeline', 'pipeline');
+View::header('Favorites', 'pipeline');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Pipeline') ?></h1>
+    <h1 class="display"><?= te('Favorites') ?></h1>
     <p><?= te('Homes the team is working. One status per home, one person handling it — so nobody chases a house someone else is already negotiating.') ?></p>
   </div>
   <?php if ($canEdit): ?><div class="actions"><a class="btn btn-primary" href="/add?watch=1"><?= icon('plus', 15) ?><?= te('Add from a link') ?></a></div><?php endif; ?>
@@ -79,7 +79,7 @@ View::header('Pipeline', 'pipeline');
   </div>
 <?php endif; ?>
 
-<?php if ($rows && Auth::can('edit')): $bulk = ['type' => 'pipeline', 'form' => 'bulk-pipeline', 'back' => $_SERVER['REQUEST_URI'] ?? '/pipeline', 'all' => 'Remove all from the pipeline', 'count' => count($rows)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
+<?php if ($rows && Auth::can('edit')): $bulk = ['type' => 'pipeline', 'form' => 'bulk-pipeline', 'back' => $_SERVER['REQUEST_URI'] ?? '/pipeline', 'all' => 'Remove all favorites', 'count' => count($rows)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; endif; ?>
 
 <div class="deal-board">
 <?php foreach (Pipeline::STAGES as $stage => $label):

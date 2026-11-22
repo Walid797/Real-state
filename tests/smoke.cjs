@@ -86,8 +86,8 @@ const PASS = process.env.PLAT_PASSWORD || 'correct horse battery staple';
     if (noToken.status() !== 419) throw new Error('3D view opened without the form token: ' + noToken.status());
     await shot('07-property', true);
     // add to pipeline and take it
-    if (await page.locator('button:has-text("Add to pipeline")').count()) {
-      await Promise.all([page.waitForNavigation(), page.locator('button:has-text("Add to pipeline")').first().click()]);
+    if (await page.locator('button:has-text("Add to favorites")').count()) {
+      await Promise.all([page.waitForNavigation(), page.locator('button:has-text("Add to favorites")').first().click()]);
     }
     await Promise.all([page.waitForNavigation(), page.selectOption('.pipe-card select[name=stage]', 'under_review')]);
     await has(page, 'Changed just now');

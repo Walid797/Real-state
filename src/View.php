@@ -10,7 +10,7 @@ final class View
     private const NAV = [
         'dashboard' => ['/', 'Dashboard', 'view', 'layout-dashboard'],
         'search' => ['/search', 'Search', 'view', 'search'],
-        'pipeline' => ['/pipeline', 'Pipeline', 'view', 'kanban'],
+        'pipeline' => ['/pipeline', 'Favorites', 'view', 'star'],
         'alerts' => ['/alerts', 'Alerts', 'view', 'bell'],
         'reports' => ['/reports', 'Reports', 'view', 'file-spreadsheet'],
         'market' => ['/market', 'Market', 'view', 'trending-up'],

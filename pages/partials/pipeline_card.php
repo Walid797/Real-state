@@ -5,10 +5,10 @@ use App\Services\Pipeline;
 <div class="card pipe-card">
   <h3><?= te('Team status') ?></h3>
   <?php if (!$p['watch_id']): ?>
-    <p class="small muted mb-m"><?= te('Not in the pipeline. Add it so the team can track it.') ?></p>
+    <p class="small muted mb-m"><?= te('Not in favorites yet. Save this home so the team can follow it.') ?></p>
     <?php if ($canEdit): ?>
     <form method="post" action="/property/<?= $id ?>/act"><?= csrf_field() ?><input type="hidden" name="do" value="watch">
-      <button class="btn btn-sm btn-primary" type="submit"><?= icon('star', 14) ?><?= te('Add to pipeline') ?></button></form>
+      <button class="btn btn-sm btn-primary" type="submit"><?= icon('star', 14) ?><?= te('Add to favorites') ?></button></form>
     <?php endif; ?>
   <?php else: ?>
     <?php if ($canEdit): ?>
@@ -16,7 +16,7 @@ use App\Services\Pipeline;
       <?= csrf_field() ?><input type="hidden" name="do" value="stage">
       <label class="field"><span><?= te('Status') ?></span>
         <select class="select" name="stage" data-autosubmit>
-          <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($p['watch_stage'], $k) ?>><?= e($l) ?></option><?php endforeach; ?>
+          <?php foreach (Pipeline::STAGES as $k => $l): ?><option value="<?= $k ?>"<?= selected($p['watch_stage'], $k) ?>><?= te($l) ?></option><?php endforeach; ?>
         </select></label>
     </form>
     <form method="post" action="/property/<?= $id ?>/act" class="pipe-form">
@@ -33,9 +33,9 @@ use App\Services\Pipeline;
     <?php endif; ?>
     <p class="small muted mt-s"><?= te('Changed') ?> <?= e(ago($p['stage_at'])) ?><?= $p['stage_by'] ? ' ' . te('by %s', $p['stage_by']) : '' ?>.</p>
     <?php if ($canEdit): ?>
-    <form method="post" action="/property/<?= $id ?>/act" class="mt-s" data-confirm="<?= te('Take this home out of the team pipeline? Notes and deal numbers stay.') ?>">
+    <form method="post" action="/property/<?= $id ?>/act" class="mt-s" data-confirm="<?= te('Remove this home from favorites? Notes and calculations will be kept.') ?>">
       <?= csrf_field() ?><input type="hidden" name="do" value="unwatch">
-      <button class="linkbtn small muted" type="submit"><?= te('Remove from pipeline') ?></button></form>
+      <button class="linkbtn small muted" type="submit"><?= te('Remove from favorites') ?></button></form>
     <?php endif; ?>
   <?php endif; ?>
 </div>

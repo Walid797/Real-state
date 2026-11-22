@@ -71,7 +71,7 @@ View::header('Dashboard', 'dashboard');
     </form>
   </div>
   <a class="hero-pipeline" href="/pipeline">
-    <span><?= icon('kanban', 18) ?><?= te('Pipeline') ?><?= icon('arrow-up-right', 15) ?></span>
+    <span><?= icon('star', 18) ?><?= te('Favorites') ?><?= icon('arrow-up-right', 15) ?></span>
     <strong><?= number_format(array_sum($stages)) ?></strong>
     <small><?= te('Saved homes') ?></small>
   </a>
@@ -104,7 +104,7 @@ View::header('Dashboard', 'dashboard');
   </section>
 
   <section class="section">
-    <div class="section-head"><h2><?= te('Pipeline') ?></h2><a class="aside" href="/pipeline"><?= te('Open') ?></a></div>
+    <div class="section-head"><h2><?= te('Favorites') ?></h2><a class="aside" href="/pipeline"><?= te('Open') ?></a></div>
     <div class="stage-mini">
       <?php foreach (Pipeline::STAGES as $key => $label): ?>
       <a href="/pipeline?show=all#st-<?= $key ?>"><span><?= te($label) ?></span><progress aria-hidden="true" max="<?= (int) $largestStage ?>" value="<?= (int) ($stages[$key] ?? 0) ?>"></progress><b><?= (int) ($stages[$key] ?? 0) ?></b></a>
@@ -142,7 +142,7 @@ View::header('Dashboard', 'dashboard');
     <div class="section-head mt-l"><h2><?= te('Shortcuts') ?></h2></div>
     <div class="shortcuts">
       <a href="/search"><?= icon('search', 16) ?><?= te('Search homes') ?></a>
-      <a href="/pipeline"><?= icon('kanban', 16) ?><?= te('Saved homes') ?></a>
+      <a href="/pipeline"><?= icon('star', 16) ?><?= te('Favorites') ?></a>
       <a href="/alerts"><?= icon('bell', 16) ?><?= te('Alerts') ?><?= $alertsOn ? ' · ' . $alertsOn . ' on' : '' ?></a>
       <a href="/reports"><?= icon('file-spreadsheet', 16) ?><?= te('Reports') ?></a>
       <?php if (Auth::can('edit')): ?><a href="/add"><?= icon('link-2', 16) ?><?= te('Add from a link') ?></a><?php endif; ?>

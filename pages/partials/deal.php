@@ -22,8 +22,8 @@ $field = static function (string $name, string $label, mixed $estimate, string $
   <div class="deal-sum">
     <div><span><?= te('Total investment') ?></span><b><?= e(money($b['total'])) ?></b><small><?= te('cash needed') ?> <?= e(money($b['cash'])) ?></small></div>
     <div><span><?= te('Net profit') ?></span><b class="<?= $b['profit'] < 0 ? 'up' : 'down' ?>"><?= e(($b['profit'] < 0 ? '−' : '') . money(abs($b['profit']))) ?></b><small><?= te('after selling costs') ?></small></div>
-    <div><span><?= te('ROI') ?></span><b><?= number_format($b['roi'], 1) ?>%</b><small><?= te('profit ÷ total investment') ?></small></div>
-    <div><span><?= te('Break-even sale') ?></span><b><?= e(money($deal['break_even'])) ?></b><small><?= te('ARV') ?> <?= e(money($in['arvValue'])) ?></small></div>
+    <div><span><?= te('Return on investment') ?></span><b><?= number_format($b['roi'], 1) ?>%</b><small><?= te('profit ÷ total investment') ?></small></div>
+    <div><span><?= te('Break-even sale') ?></span><b><?= e(money($deal['break_even'])) ?></b><small><?= te('Value after renovation') ?> <?= e(money($in['arvValue'])) ?></small></div>
   </div>
 
   <div class="table-wrap">
@@ -47,7 +47,7 @@ $field = static function (string $name, string $label, mixed $estimate, string $
           <td class="r<?= $label === 'Net profit' ? ($v < 0 ? ' up' : ' down') : '' ?>"><?= e(($v < 0 ? '−' : '') . money(abs($v), '$0')) ?></td>
           <?php endforeach; ?></tr>
       <?php endforeach; ?>
-        <tr><td><?= te('ROI') ?></td><?php foreach (['pessimistic', 'typical', 'optimistic'] as $k): ?><td class="r"><?= number_format($sx[$k]['roi'], 1) ?>%</td><?php endforeach; ?></tr>
+        <tr><td><?= te('Return on investment') ?></td><?php foreach (['pessimistic', 'typical', 'optimistic'] as $k): ?><td class="r"><?= number_format($sx[$k]['roi'], 1) ?>%</td><?php endforeach; ?></tr>
       </tbody>
     </table>
   </div>

@@ -23,7 +23,7 @@ final class Alerts
 {
     public const KINDS = [
         'new_listing' => 'New listing',
-        'price_drop' => 'Price cut on a pipeline home',
+        'price_drop' => 'Price drop on a favorite home',
         'new_sale' => 'New sale nearby',
     ];
 

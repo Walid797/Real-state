@@ -41,7 +41,7 @@ if (!$all && !$ids) {
     redirect($back);
 }
 $r = Bulk::delete($type, $ids, $all, $allIds);
-[$one, $many] = ['users' => ['team member', 'team members'], 'homes' => ['home', 'homes'], 'pipeline' => ['pipeline entry', 'pipeline entries'],
+[$one, $many] = ['users' => ['team member', 'team members'], 'homes' => ['home', 'homes'], 'pipeline' => ['favorite home', 'favorite homes'],
     'alerts' => ['alert', 'alerts'], 'profiles' => ['search profile', 'search profiles']][$type];
 flash(t('Deleted: %s.', plural($r['count'], $one, $many)) . ($r['skipped'] ? ' ' . t('Kept %d (you, or the last admin).', $r['skipped']) : ''), $r['count'] ? 'ok' : 'warn');
 redirect($back);

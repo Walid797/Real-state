@@ -39,13 +39,13 @@ final class Pipeline
             'property_id' => $propertyId, 'stage' => 'new', 'added_by' => Auth::userId() ?: null, 'updated_by' => Auth::userId() ?: null,
             'source_url' => $sourceUrl, 'created_at' => now(), 'updated_at' => now(),
         ]);
-        Activity::log('stage', $propertyId, 'Added to the pipeline');
+        Activity::log('stage', $propertyId, 'Added to favorites');
     }
 
     public static function remove(int $propertyId): void
     {
         if (Db::run('DELETE FROM watchlist WHERE property_id = ?', [$propertyId])->rowCount()) {
-            Activity::log('stage', $propertyId, 'Removed from the pipeline');
+            Activity::log('stage', $propertyId, 'Removed from favorites');
         }
     }
 

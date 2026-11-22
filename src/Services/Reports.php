@@ -58,7 +58,7 @@ final class Reports
         );
         $byStage = array_column($stage, null, 'stage');
         $t[] = [
-            'key' => 'stage', 'title' => 'Pipeline', 'note' => 'Every home the team has saved, by status.',
+            'key' => 'stage', 'title' => 'Favorites', 'note' => 'Every home the team has saved, by status.',
             'header' => ['Status', 'Homes', 'Sum of est. profit'],
             'rows' => array_map(static fn ($k, $l) => [$l, (int) ($byStage[$k]['n'] ?? 0), isset($byStage[$k]['profit']) ? (int) $byStage[$k]['profit'] : null], array_keys(Pipeline::STAGES), Pipeline::STAGES),
             'widths' => [20, 8, 16], 'money' => [2],

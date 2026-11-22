@@ -190,7 +190,7 @@ final class Deal
             'months_from' => ($src['holding_months'] ?? '') === 'est' ? ($pace ? 'flips' : 'default') : 'set', 'months_flips' => $pace['count'] ?? 0,
         ];
         if (!$purchase || !$arvValue || $reno === null) {
-            $out['missing'] = array_keys(array_filter(['purchase price' => !$purchase, 'ARV' => !$arvValue, 'renovation cost (needs sqft)' => $reno === null]));
+            $out['missing'] = array_keys(array_filter(['purchase price' => !$purchase, 'Value after renovation' => !$arvValue, 'renovation cost (needs sqft)' => $reno === null]));
             return $out;
         }
 

@@ -47,7 +47,7 @@ final class InvestmentEvidence
             $factSource = $field === 'est_arv' ? 'Investment calculator' : ($p['source_url'] ?: 'Property record');
             $add('risk', $label, $factValue, $propertyScope, $factSource, $p['updated_at']);
         }
-        foreach (['profit' => 'Est. net profit', 'roi' => 'ROI'] as $field => $label) {
+        foreach (['profit' => 'Est. net profit', 'roi' => 'Return on investment'] as $field => $label) {
             $add('housing', $label, $deal['base'][$field] ?? null, $propertyScope, 'Investment calculator', now());
         }
         $add('risk', 'Renovation', $deal['inputs']['reno'] ?? null, $propertyScope, 'Investment calculator', now());

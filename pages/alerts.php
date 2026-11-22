@@ -87,7 +87,7 @@ View::header('Alerts', 'alerts');
             $crit = json_decode((string) $a['criteria'], true) ?: [];
             $desc = Search::describe($crit + ['q' => $a['location'], 'mode' => $a['kind'] === 'new_sale' ? 'sold' : 'sale', 'sold_days' => 90]);
             if ($a['kind'] === 'price_drop') {
-                $desc = trim(($a['location'] !== '' ? $a['location'] . ' · ' : '') . 'pipeline homes' . (!empty($crit['min_drop_pct']) ? ' · cut of ' . trim_num($crit['min_drop_pct']) . '% or more' : ''));
+                $desc = trim(($a['location'] !== '' ? $a['location'] . ' · ' : '') . 'favorite homes' . (!empty($crit['min_drop_pct']) ? ' · cut of ' . trim_num($crit['min_drop_pct']) . '% or more' : ''));
             }
         ?>
           <tr>

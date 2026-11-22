@@ -463,7 +463,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
                 <?php if ($homesLink): ?><a class="chip homes-source-link" href="<?= e($homesLink) ?>" target="_blank" rel="noopener noreferrer" title="<?= te('Source checked') ?> <?= e($homesQuote['observed_at'] ?? '') ?> UTC">Homes.com</a><?php endif; ?>
                 <?php if ($mode === 'sale' && $r['est_profit'] !== null): ?>
                   <span class="chip <?= (int) $r['est_profit'] > 0 ? 'chip-good' : 'chip-bad' ?>"><?= te('Profit') ?> <?= e(money_short(abs((int) $r['est_profit']))) ?><?= (int) $r['est_profit'] < 0 ? ' ' . te('loss') : '' ?></span>
-                  <?php if ($r['est_arv']): ?><span class="chip"><?= te('ARV') ?> <?= e(money_short($r['est_arv'])) ?></span><?php endif; ?>
+                  <?php if ($r['est_arv']): ?><span class="chip"><?= te('Value after renovation') ?> <?= e(money_short($r['est_arv'])) ?></span><?php endif; ?>
                 <?php endif; ?>
                 <?php if ($r['cond_overall'] && $r['cond_overall'] !== 'not_disclosed'): ?><span class="chip chip-cond"><?= te(Condition::OVERALL[$r['cond_overall']]) ?></span><?php endif; ?>
                 <?php foreach ($flags as $fl): ?><span class="chip chip-warn"><?= te(Condition::FLAGS[$fl] ?? $fl) ?></span><?php endforeach; ?>
@@ -486,7 +486,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
               <?php if (Auth::can('edit')): ?>
               <form method="post" action="/property/<?= (int) $r['id'] ?>/act">
                 <?= csrf_field() ?><input type="hidden" name="do" value="<?= $r['watch_id'] ? 'unwatch' : 'watch' ?>"><input type="hidden" name="back" value="<?= e($_SERVER['REQUEST_URI'] ?? '/search') ?>">
-                <button class="star<?= $r['watch_id'] ? ' is-on' : '' ?>" type="submit" title="<?= te($r['watch_id'] ? 'In the pipeline — remove' : 'Add to the team pipeline') ?>"><?= icon('star', 17) ?><span class="sr"><?= te($r['watch_id'] ? 'Remove from pipeline' : 'Add to pipeline') ?></span></button>
+                <button class="star<?= $r['watch_id'] ? ' is-on' : '' ?>" type="submit" title="<?= te($r['watch_id'] ? 'In favorites — remove' : 'Add to favorites') ?>"><?= icon('star', 17) ?><span class="sr"><?= te($r['watch_id'] ? 'Remove from favorites' : 'Add to favorites') ?></span></button>
               </form>
               <?php endif; ?>
             </div>

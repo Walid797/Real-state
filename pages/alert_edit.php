@@ -128,7 +128,7 @@ View::header($alert ? $alert['name'] : t('New alert'), 'alerts');
         </select></label>
       <label class="field c6"><span><?= te('Area') ?></span>
         <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Virginia · Fairfax County · Richmond · 22030, 20176">
-        <small data-kind="price_drop"><?= te('Optional. Empty covers every home in the pipeline.') ?></small></label>
+        <small data-kind="price_drop"><?= te('Leave blank to include all favorite homes.') ?></small></label>
 
       <?php foreach ([['Price ($)', 'price'], ['Bedrooms', 'beds'], ['Bathrooms', 'baths'], ['Living area (sqft)', 'sqft'], ['Year built', 'year'], ['Lot (sqft)', 'lot']] as [$label, $k]): ?>
       <div class="field c4" data-kind="new_listing new_sale"><span><?= te($label) ?></span><div class="pair">
