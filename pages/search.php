@@ -165,7 +165,7 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
 };
 
 /* ── Landing: no query yet ──────────────────────────────────────────── */
-if ($f['q'] === '') {
+if ($f['q'] === '' && $f['scope'] !== 'saved') {
     $saved = Db::all('SELECT * FROM saved_searches WHERE user_id = ? ORDER BY COALESCE(last_run_at, created_at) DESC LIMIT 12', [Auth::userId()]);
     View::header('Search', 'search');
     ?>
@@ -197,7 +197,7 @@ if ($f['q'] === '') {
           <input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $s['id'] ?>" form="bulk-profiles" aria-label="<?= te('Select') ?> <?= e($s['name']) ?>">
           <a class="main" href="<?= e(url('/search', $p)) ?>"><?= e($s['name']) ?><span class="sub"><?= e(Search::describe($p)) ?></span></a>
           <span class="end nowrap">
-            <?php if ((Search::location($p)['type'] ?? '') !== 'building'): ?><a class="linkbtn" href="<?= e(url('/alerts/new', $p + ['kind' => ($p['mode'] ?? '') === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= te('Alert me') ?></a> ·<?php endif; ?>
+            <?php if (!in_array(Search::location($p)['type'] ?? '',['building','saved'],true)): ?><a class="linkbtn" href="<?= e(url('/alerts/new', $p + ['kind' => ($p['mode'] ?? '') === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= te('Alert me') ?></a> ·<?php endif; ?>
             <form method="post" action="/search/act" class="inline" data-confirm="<?= te('Delete this profile?') ?>">
               <?= csrf_field() ?><input type="hidden" name="do" value="unsave"><input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
               <button class="linkbtn muted" type="submit"><?= te('Delete') ?></button>
@@ -247,25 +247,26 @@ $snap = $res['snapshot'];
 $provider = $loc ? Search::locationProvider($loc) : null;
 $needs = $res['needs'];
 $left = $provider ? Quota::left($provider) : 0;
-$activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort'])));
+$activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort', 'scope', 'view'])));
 
 View::header($mode === 'sold' ? t('%s — sold', $loc['label'] ?? t('Search')) : ($loc['label'] ?? 'Search'), 'search', ['wide' => true, 'map' => true]);
 View::script('/assets/vendor/leaflet/leaflet.js');
 ?>
 <form class="sbar" method="get" action="/search" role="search">
+  <?php if ($f['scope']==='saved'): ?><input type="hidden" name="scope" value="saved"><input type="hidden" name="view" value="<?= e($f['view']) ?>"><?php endif; ?>
   <div class="sbar-row">
     <label class="q"><span class="sr"><?= te('Area') ?></span><?= icon('search', 16) ?>
-      <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" required aria-describedby="search-area-help"></label>
-    <span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
+      <input class="input" type="search" name="q" value="<?= e($f['scope']==='saved' ? $loc['label'] : $f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" <?= $f['scope']==='saved' ? 'readonly' : 'required' ?> aria-describedby="search-area-help"></label>
+    <?php if ($f['scope']!=='saved'): ?><span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
-    </span>
+    </span><?php endif; ?>
     <details class="drop drop-wide"<?= isset($_GET['open']) ? ' open' : '' ?>>
       <summary class="btn"><?= icon('filter', 14) ?><?= te('Filters') ?><?php if ($activeFilters): ?><span class="count"><?= $activeFilters ?></span><?php endif; ?></summary>
       <div class="drop-panel drop-panel-wide">
         <?php $filterForm(false); ?>
         <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Apply') ?></button>
-          <a class="btn btn-ghost" href="<?= e(url('/search', ['q' => $f['q'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear all') ?></a></div>
+          <a class="btn btn-ghost" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode'])))) ?>"><?= te('Clear all') ?></a></div>
       </div>
     </details>
     <label><span class="sr"><?= te('Sort') ?></span>
@@ -274,8 +275,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </select></label>
     <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </div>
-  <p class="sbar-desc" id="search-area-help"><?= te('Type an address, apartment number, building name, city, county or ZIP. Search detects the type automatically; add city and state for an ambiguous name.') ?></p>
-  <?php if ($loc): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas']; ?>
+  <?php if ($f['scope']==='saved'): ?>
+  <p class="sbar-desc" id="search-area-help"><?= te('Showing saved homes across all areas. This view does not call external data sources.') ?> <a href="/search"><?= te('Search a new area') ?></a></p>
+  <?php else: ?><p class="sbar-desc" id="search-area-help"><?= te('Type an address, apartment number, building name, city, county or ZIP. Search detects the type automatically; add city and state for an ambiguous name.') ?></p><?php endif; ?>
+  <?php if ($loc && $loc['type']!=='saved'): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas']; ?>
   <p class="sbar-desc search-detected" data-detected="<?= e($loc['type']) ?>"><?= te('Detected automatically: %s',t($typeLabels[$loc['type']]??'Address')) ?></p>
   <?php endif; ?>
   <?php if ($activeFilters): ?><p class="sbar-desc"><?= e(Search::describe($f)) ?></p><?php endif; ?>
@@ -351,7 +354,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 
       <?php
       // Listings alone give only asking prices; one request brings the area's recorded sales for real ARVs.
-      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point', 'building'], true)
+      $areaSales = $mode === 'sale' && $res['total'] > 0 && !in_array($loc['type'], ['address', 'point', 'building', 'saved'], true)
           ? PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'] : null;
       ?>
       <?php
@@ -398,7 +401,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           <input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">
           <button class="btn btn-sm" type="submit"><?= icon('bookmark', 14) ?><?= te('Save as profile') ?></button>
         </form>
-        <?php if ($loc['type'] !== 'building'): ?><a class="btn btn-sm" href="<?= e(url('/alerts/new', $query + ['kind' => $mode === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= icon('bell', 14) ?><?= te('Alert me') ?></a><?php endif; ?>
+        <?php if (!in_array($loc['type'],['building','saved'],true)): ?><a class="btn btn-sm" href="<?= e(url('/alerts/new', $query + ['kind' => $mode === 'sold' ? 'new_sale' : 'new_listing'])) ?>"><?= icon('bell', 14) ?><?= te('Alert me') ?></a><?php endif; ?>
         <?php if ($res['total'] > 0): ?>
         <a class="btn btn-sm" href="<?= e(url('/export.xlsx', $query)) ?>"><?= icon('file-spreadsheet', 14) ?><?= te('Excel') ?></a>
         <?php endif; ?>
@@ -420,11 +423,14 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         <div class="empty">
           <?= View::sketch('search-none') ?>
           <?php
-          $any = PropertyRepo::search(['loc' => $loc, 'mode' => $mode, 'sold_days' => $f['sold_days'], 'limit' => 1])['total'];
+          $any = PropertyRepo::search(['loc' => $loc, 'scope'=>$f['scope'], 'view'=>$f['view'], 'score_min'=>$f['view']==='opportunities'?70:0, 'mode' => $mode, 'sold_days' => $f['sold_days'], 'limit' => 1])['total'];
           if ($any > 0): ?>
             <h2 class="display"><?= te('Nothing matches those filters.') ?></h2>
             <p><?= plural($any, 'home') ?> <?= te($mode === 'sold' ? 'sold in %s' : 'are for sale in %s', $loc['label']) ?> <?= te('without them. Condition and investment filters only match homes whose listing text was read or analysed.') ?></p>
-            <p><a class="btn" href="<?= e(url('/search', ['q' => $f['q'], 'mode' => $mode === 'sold' ? 'sold' : null])) ?>"><?= te('Clear filters') ?></a></p>
+            <p><a class="btn" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode'])))) ?>"><?= te('Clear filters') ?></a></p>
+          <?php elseif ($loc['type']==='saved'): ?>
+            <h2 class="display"><?= te('No saved homes match these filters.') ?></h2>
+            <p><a href="/search"><?= te('Search a new area') ?></a></p>
           <?php elseif (!$provider && !$snap): ?>
             <h2 class="display"><?= te('Nothing on file for') ?> <?= e($loc['label']) ?> <?= te('yet.') ?></h2>
             <p><?= te('Connect RentCast (free, 50 requests a month) and this search fills in. Or add homes from any site by pasting their link.') ?></p>

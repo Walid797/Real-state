@@ -37,7 +37,7 @@ if ($do === 'save') {
 }
 
 if ($do === 'area_sales') {
-    if ($loc['type'] === 'building') {
+    if (in_array($loc['type'],['building','saved'],true)) {
         redirect($back);
     }
     // One request: the last 12 months of recorded sales for the whole area — real comparables for every listing in it.

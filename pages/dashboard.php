@@ -78,8 +78,8 @@ View::header('Dashboard', 'dashboard');
 </header>
 
 <div class="kpis dashboard-kpis">
-  <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName])) ?>"><span><?= icon('house', 17) ?><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? te('+%s this week', number_format($k['new'])) : te('none new this week') ?></small></a>
-  <a class="kpi kpi-good" href="/search?<?= e(http_build_query(['q' => $stateName, 'score_min' => 70, 'sort' => 'score'])) ?>"><span><?= icon('trending-up', 17) ?><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
+  <a class="kpi" href="/search?scope=saved"><span><?= icon('house', 17) ?><?= te('Homes for sale on file') ?></span><b><?= number_format($k['homes']) ?></b><small><?= $k['new'] ? te('+%s this week', number_format($k['new'])) : te('none new this week') ?></small></a>
+  <a class="kpi kpi-good" href="/search?scope=saved&amp;view=opportunities"><span><?= icon('trending-up', 17) ?><?= te('Strong opportunities') ?></span><b><?= number_format($k['good']) ?></b><small><?= te('score 70 or more') ?></small></a>
   <a class="kpi" href="/search?<?= e(http_build_query(['q' => $stateName, 'listing' => ['reduced'], 'sort' => 'score'])) ?>"><span><?= icon('trending-down', 17) ?><?= te('Price cuts this week') ?></span><b><?= number_format($k['cuts']) ?></b><small><?= te('still for sale') ?></small></a>
   <a class="kpi" href="/pipeline"><span><?= icon('users', 17) ?><?= te('Under team review') ?></span><b><?= number_format($k['review']) ?></b><small><?= $k['mine'] ? te('%d handled by you', $k['mine']) : te('none handled by you') ?></small></a>
 </div>

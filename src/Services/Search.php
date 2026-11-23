@@ -35,11 +35,13 @@ final class Search
     ];
 
     /** Request fields that describe a search (also what a saved profile / alert stores). */
-    public const FIELDS = ['q', 'search_kind', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
+    public const FIELDS = ['q', 'scope', 'view', 'search_kind', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
 
     public static function fromRequest(array $src): array
     {
         $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH)];
+        $f['scope'] = ($src['scope']??'') === 'saved' ? 'saved' : 'area';
+        $f['view'] = $f['scope']==='saved' && ($src['view']??'')==='opportunities' ? 'opportunities' : 'all';
         $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'auto';
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
@@ -58,6 +60,14 @@ final class Search
             $f['c_' . $part] = isset(Condition::FILTER[$v]) ? $v : 'any';
         }
         $f['sort'] = isset(PropertyRepo::SORTS[$src['sort'] ?? '']) ? $src['sort'] : 'newest';
+        if ($f['scope']==='saved') {
+            $f['q']='';
+            $f['mode']='sale';
+            if ($f['view']==='opportunities') {
+                $f['score_min']=max(70,$f['score_min']??0);
+                if (!isset(PropertyRepo::SORTS[$src['sort']??''])) $f['sort']='score';
+            }
+        }
         return $f;
     }
 
@@ -70,6 +80,7 @@ final class Search
             if ($v === null || $v === '' || $v === [] || ($k === 'mode' && $v === 'sale') || ($k === 'sort' && $v === 'newest')
                 || (str_starts_with($k, 'c_') && $v === 'any')
                 || ($k === 'search_kind' && in_array($v, ['area','auto'], true))
+                || ($k === 'scope' && $v === 'area') || ($k === 'view' && $v === 'all')
                 || ($k === 'sold_days' && (($f['mode'] ?? 'sale') !== 'sold' || (int) $v === 180))) {
                 continue;
             }
@@ -82,6 +93,7 @@ final class Search
     public static function describe(array $f): string
     {
         $bits = [];
+        if (($f['scope']??'')==='saved') $bits[] = t(($f['view']??'')==='opportunities' ? 'Saved opportunities' : 'Saved homes');
         if (!empty($f['q'])) {
             $loc = self::location($f);
             $bits[] = $loc['label'] ?? $f['q'];
@@ -142,6 +154,7 @@ final class Search
 
     public static function location(array $f, bool $fetch = false): ?array
     {
+        if (($f['scope']??'')==='saved') return ['type'=>'saved','key'=>'saved:all','label'=>t(($f['view']??'')==='opportunities' ? 'Saved opportunities' : 'Saved homes')];
         $address = Address::parseLocation((string) ($f['q'] ?? ''));
         if ($address && $address['type'] !== 'city') {
             return $address;
@@ -155,6 +168,7 @@ final class Search
 
     public static function locationProvider(array $loc, string $ctx = 'manual'): ?string
     {
+        if ($loc['type']==='saved') return null;
         return $loc['type'] === 'building'
             ? (OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx) ? OpenWebNinja::ID : null)
             : self::provider($ctx);
@@ -195,7 +209,7 @@ final class Search
             return $out; // the caller sends address lookups to the property page
         }
 
-        if (($opt['fetch'] ?? true) !== false) {
+        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved') {
             $plan = self::plan($loc, $f, $ctx);
             $out['needs'] = $plan['needs'];
             $confirmed = !empty($opt['confirm']);
@@ -222,10 +236,10 @@ final class Search
             }
             $out['snapshot'] ??= $plan['snapshot'];
         } else {
-            $out['snapshot'] = self::latestSnapshot($loc, $f['mode'] ?? 'sale');
+            $out['snapshot'] = $loc['type']==='saved' ? null : self::latestSnapshot($loc, $f['mode'] ?? 'sale');
         }
 
-        if (($opt['fetch'] ?? true) !== false && ($f['mode'] ?? 'sale') === 'sale') {
+        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved' && ($f['mode'] ?? 'sale') === 'sale') {
             $out['homes'] = HomesSearch::run($loc, $ctx);
             if (!empty($out['homes']['available']) && !RentCast::enabled() && !OpenWebNinja::enabled()) {
                 $out['notice'] = 'Results include public Homes.com listings. RentCast and Zillow data are not connected.';
@@ -244,6 +258,7 @@ final class Search
      */
     public static function plan(array $loc, array $f, string $ctx = 'manual'): array
     {
+        if ($loc['type']==='saved') return ['needs'=>[],'recent'=>false,'snapshot'=>null];
         $needs = [];
         $recent = false;
         $latest = null;

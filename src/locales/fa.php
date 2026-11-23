@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'No saved homes match these filters.'=>'هیچ خانهٔ ذخیره‌شده‌ای با این فیلترها منطبق نیست.',
+    'Saved opportunities'=>'فرصت‌های پربازده ذخیره‌شده',
+    'Showing saved homes across all areas. This view does not call external data sources.'=>'خانه‌های ذخیره‌شدهٔ همهٔ مناطق نشان داده می‌شوند؛ این فهرست از منابع خارجی درخواست نمی‌فرستد.',
+    'Search a new area'=>'جستجوی منطقهٔ تازه',
     'Last activity'=>'آخرین فعالیت در سایت',
     'Online now'=>'آنلاین',
     'No activity recorded yet'=>'هنوز فعالیتی ثبت نشده',

@@ -287,6 +287,8 @@ final class PropertyRepo
     public static function locSql(array $loc, array &$a): string
     {
         switch ($loc['type'] ?? '') {
+            case 'saved':
+                return '1=1';
             case 'building':
                 $ids = \App\Services\BuildingSearch::savedIds($loc);
                 if (!$ids) {
@@ -334,7 +336,9 @@ final class PropertyRepo
             $w[] = 'p.last_sale_price > 0 AND p.last_sale_date >= ?';
             $a[] = gmdate('Y-m-d', time() - $days * 86400);
         } else {
-            $w[] = "p.status IN ('for_sale','pending') AND p.list_price > 0";
+            $w[] = ($f['scope']??'')==='saved'
+                ? (($f['view']??'')==='opportunities' ? "p.status = 'for_sale'" : "p.status IN ('for_sale','pending')")
+                : "p.status IN ('for_sale','pending') AND p.list_price > 0";
         }
 
         if (is_array($f['loc'] ?? null)) {

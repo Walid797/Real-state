@@ -1178,6 +1178,16 @@ try {
     $ok(!App\Services\Presence::statuses()[$presenceUser]['online'],'disabled accounts never show online');
     $eq(Db::val('SELECT last_login_at FROM users WHERE id=?',[$presenceUser]),'2020-01-01 00:00:00','presence does not overwrite the actual login date');
 } finally { Db::run('DELETE FROM users WHERE id=?',[$presenceUser]); }
+$savedFilters=Search::fromRequest(['scope'=>'saved']);
+$apiBefore=(int)Db::val('SELECT COUNT(*) FROM api_log');
+$savedResults=Search::run($savedFilters);
+$eq($savedResults['total'],(int)Db::val("SELECT COUNT(*) FROM properties WHERE status IN ('for_sale','pending')"),'dashboard saved-home list matches its global count including unpriced homes');
+$goodFilters=Search::fromRequest(['scope'=>'saved','view'=>'opportunities']);
+$goodResults=Search::run($goodFilters);
+$eq($goodResults['total'],(int)Db::val("SELECT COUNT(*) FROM properties WHERE status='for_sale' AND score>=70"),'dashboard opportunities list matches its count across all states');
+$eq((int)Db::val('SELECT COUNT(*) FROM api_log'),$apiBefore,'dashboard inventory cards make no external data requests');
+$ok($savedResults['homes']===null && !$savedResults['fetched'] && !$savedResults['needs'],'saved inventory bypasses provider planning and Homes.com');
+$eq(Search::fromRequest(Search::compact($goodFilters))['scope'],'saved','inventory scope survives pagination, export and saved-profile parameters');
 Settings::set('homes_on',$homesWasOn);
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);
