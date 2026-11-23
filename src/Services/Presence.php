@@ -33,7 +33,7 @@ final class Presence
             [gmdate('Y-m-d H:i:s',time()-self::ONLINE_SECONDS)]);
         return array_column(array_map(static function(array $row): array {
             $row['online'] = (bool)$row['online'];
-            $row['label'] = $row['online'] ? t('Online now') : ($row['last_active_at'] ? ago($row['last_active_at']) : t('No activity recorded yet'));
+            $row['label'] = $row['online'] ? t('Online now') : ($row['last_active_at'] ? fmt_date($row['last_active_at'],'Y-m-d H:i T') : t('No activity recorded yet'));
             $row['title'] = $row['last_active_at'] ? $row['last_active_at'].' UTC' : '';
             return $row;
         },$rows),null,'id');

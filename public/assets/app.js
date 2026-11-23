@@ -24,6 +24,17 @@
   /* Presence follows a visible authenticated page, independently of the last sign-in. */
   var presenceToken = $('form[action="/logout"] input[name="_csrf"]');
   if (presenceToken) {
+    var presenceLabel = function (u) {
+      if (u.online || !u.last_active_at) return u.label;
+      var date = new Date(u.last_active_at.replace(' ','T')+'Z');
+      if (isNaN(date.getTime())) return u.label;
+      return new Intl.DateTimeFormat(document.documentElement.lang === 'fa' ? 'fa-IR-u-ca-gregory' : 'en-US', {
+        year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false,timeZoneName:'short'
+      }).format(date);
+    };
+    $$('[data-user-presence]').forEach(function(el) {
+      el.textContent = presenceLabel({online:el.dataset.presenceOnline==='1',last_active_at:el.dataset.presenceAt,label:el.textContent});
+    });
     var presenceBusy = false, presenceStopped = false;
     var updatePresence = function () {
       if (document.hidden || presenceBusy || presenceStopped) return;
@@ -38,7 +49,7 @@
           (data.users || []).forEach(function(u) {
             var el = $('[data-user-presence="'+Number(u.id)+'"]');
             if (!el) return;
-            el.textContent = u.label; el.title = u.title;
+            el.textContent = presenceLabel(u); el.title = u.title;
             el.className = u.online ? 'tag tag-live' : 'muted';
           });
         }).catch(function() {}).finally(function(){presenceBusy=false;});

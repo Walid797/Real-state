@@ -136,7 +136,7 @@ View::header('Team', 'users');
               </select></form></td>
           <td><?= $pending ? '<span class="tag tag-warn">' . te('Invite not accepted') . '</span>' : te($u['google_sub'] ? 'Password · Google' : 'Password') ?>
             <?= $u['is_active'] ? '' : '<span class="tag tag-bad">Disabled</span>' ?></td>
-          <td class="nowrap"><span data-user-presence="<?= (int)$u['id'] ?>" class="<?= $presence[$u['id']]['online'] ? 'tag tag-live' : 'muted' ?>" title="<?= e($presence[$u['id']]['title']) ?>"><?= e($presence[$u['id']]['label']) ?></span></td>
+          <td class="nowrap"><span data-user-presence="<?= (int)$u['id'] ?>" data-presence-at="<?= e($presence[$u['id']]['last_active_at'] ?? '') ?>" data-presence-online="<?= $presence[$u['id']]['online'] ? '1' : '0' ?>" class="<?= $presence[$u['id']]['online'] ? 'tag tag-live' : 'muted' ?>" title="<?= e($presence[$u['id']]['title']) ?>"><?= e($presence[$u['id']]['label']) ?></span></td>
           <td class="r"><?= (int) $u['actions'] ?></td>
           <td class="r nowrap">
             <?php if ($pending || (int) $u['id'] !== $me): ?>
