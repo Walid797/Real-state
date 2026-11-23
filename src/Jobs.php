@@ -67,6 +67,7 @@ final class Jobs
                 $n = Cache::prune();
                 Db::run('DELETE FROM login_attempts WHERE attempted_at < ?', [gmdate('Y-m-d H:i:s', time() - 7 * 86400)]);
                 Db::run('DELETE FROM api_log WHERE created_at < ?', [gmdate('Y-m-d H:i:s', time() - 90 * 86400)]);
+                Db::run('DELETE FROM user_presence WHERE last_active_at < ?', [gmdate('Y-m-d H:i:s',time()-14*86400)]);
                 Db::run('DELETE FROM notify_log WHERE created_at < ?', [gmdate('Y-m-d H:i:s', time() - 90 * 86400)]);
                 Db::run('DELETE FROM snapshots WHERE fetched_at < ?', [gmdate('Y-m-d H:i:s', time() - 60 * 86400)]);
                 Settings::set('job_prune_at', now());

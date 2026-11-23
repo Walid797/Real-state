@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Last activity'=>'آخرین فعالیت در سایت',
+    'Online now'=>'آنلاین',
+    'No activity recorded yet'=>'هنوز فعالیتی ثبت نشده',
+    'Online means activity within the last 90 seconds. Last activity updates when someone visits or uses a visible page.'=>'آنلاین یعنی فعالیت در ۹۰ ثانیهٔ گذشته. آخرین فعالیت با بازدید یا استفاده از صفحهٔ باز سایت به‌روز می‌شود.',
     'Skip to content' => 'رفتن به محتوای اصلی',
     'Menu' => 'منو',
     'Main' => 'منوی اصلی',

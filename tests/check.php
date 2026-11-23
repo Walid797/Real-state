@@ -1162,6 +1162,22 @@ $galleryParsed = App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesU
 $eq($galleryParsed['details']['homes']['photos'],['https://images.homes.com/listings/test-house.jpg','https://images.homes.com/listings/test-kitchen.jpg','https://images.homes.com/listings/test-bath.jpg'],
     'same-card gallery photos are collected during search, deduplicated, and agent portraits are excluded');
 $eq(App\Providers\HomesCom::photoUrl('https://images.homes.com.evil.test/listings/fake.jpg'),null,'lookalike photo hosts are rejected');
+$presenceUser = Db::insert('users',['email'=>'presence-check@example.test','password_hash'=>'','created_at'=>now(),'name'=>'Presence fixture','role'=>'viewer','is_active'=>1,'session_epoch'=>0]);
+try {
+    Db::run('UPDATE users SET last_active_at=?,last_login_at=? WHERE id=?',[now(),'2020-01-01 00:00:00',$presenceUser]);
+    Db::insert('user_presence',['session_key'=>hash('sha256','presence-fixture-1'),'user_id'=>$presenceUser,'session_epoch'=>0,'last_active_at'=>now()]);
+    $ok(App\Services\Presence::statuses()[$presenceUser]['online'],'recent authenticated activity shows online independently of an old login');
+    Db::run('UPDATE user_presence SET last_active_at=? WHERE user_id=?',[gmdate('Y-m-d H:i:s',time()-120),$presenceUser]);
+    $ok(!App\Services\Presence::statuses()[$presenceUser]['online'],'an abandoned page becomes offline after the presence window');
+    Db::run('UPDATE user_presence SET last_active_at=? WHERE user_id=?',[now(),$presenceUser]);
+    Db::run('UPDATE users SET session_epoch=1 WHERE id=?',[$presenceUser]);
+    $ok(!App\Services\Presence::statuses()[$presenceUser]['online'],'sign out everywhere immediately invalidates old presence sessions');
+    Db::insert('user_presence',['session_key'=>hash('sha256','presence-fixture-2'),'user_id'=>$presenceUser,'session_epoch'=>1,'last_active_at'=>now()]);
+    $ok(App\Services\Presence::statuses()[$presenceUser]['online'],'another valid device can keep a member online');
+    Db::run('UPDATE users SET is_active=0 WHERE id=?',[$presenceUser]);
+    $ok(!App\Services\Presence::statuses()[$presenceUser]['online'],'disabled accounts never show online');
+    $eq(Db::val('SELECT last_login_at FROM users WHERE id=?',[$presenceUser]),'2020-01-01 00:00:00','presence does not overwrite the actual login date');
+} finally { Db::run('DELETE FROM users WHERE id=?',[$presenceUser]); }
 Settings::set('homes_on',$homesWasOn);
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

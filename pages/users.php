@@ -99,6 +99,7 @@ $users = Db::all(
     "SELECT u.*, (SELECT COUNT(*) FROM activity_log a WHERE a.user_id = u.id) AS actions FROM users u ORDER BY u.is_active DESC, FIELD(u.role,'admin','partner','viewer'), u.created_at"
 );
 
+$presence = App\Services\Presence::statuses();
 View::header('Team', 'users');
 ?>
 <header class="page-head">
@@ -121,8 +122,8 @@ View::header('Team', 'users');
   <div class="section-head"><h2><?= te('Members') ?></h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
   <?php $bulk = ['type' => 'users', 'form' => 'bulk-users', 'back' => '/users', 'all' => 'Delete everyone but you', 'count' => max(0, count($users) - 1)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
   <div class="table-wrap">
-    <table class="table">
-      <thead><tr><th><?= te('Person') ?></th><th><?= te('Role') ?></th><th><?= te('Sign-in') ?></th><th><?= te('Last seen') ?></th><th class="r"><?= te('Actions taken') ?></th><th></th></tr></thead>
+    <table class="table" data-presence-users>
+      <thead><tr><th><?= te('Person') ?></th><th><?= te('Role') ?></th><th><?= te('Sign-in') ?></th><th><?= te('Last activity') ?></th><th class="r"><?= te('Actions taken') ?></th><th></th></tr></thead>
       <tbody>
       <?php foreach ($users as $u): $pending = $u['password_hash'] === '' && !$u['google_sub']; ?>
         <tr<?= $u['is_active'] ? '' : ' class="muted"' ?>>
@@ -135,7 +136,7 @@ View::header('Team', 'users');
               </select></form></td>
           <td><?= $pending ? '<span class="tag tag-warn">' . te('Invite not accepted') . '</span>' : te($u['google_sub'] ? 'Password · Google' : 'Password') ?>
             <?= $u['is_active'] ? '' : '<span class="tag tag-bad">Disabled</span>' ?></td>
-          <td class="nowrap"><?= $u['last_login_at'] ? e(ago($u['last_login_at'])) : '<span class="muted">' . te('Never') . '</span>' ?></td>
+          <td class="nowrap"><span data-user-presence="<?= (int)$u['id'] ?>" class="<?= $presence[$u['id']]['online'] ? 'tag tag-live' : 'muted' ?>" title="<?= e($presence[$u['id']]['title']) ?>"><?= e($presence[$u['id']]['label']) ?></span></td>
           <td class="r"><?= (int) $u['actions'] ?></td>
           <td class="r nowrap">
             <?php if ($pending || (int) $u['id'] !== $me): ?>
@@ -153,6 +154,7 @@ View::header('Team', 'users');
       <?php endforeach; ?>
       </tbody>
     </table>
+    <p class="small muted mt-s"><?= te('Online means activity within the last 90 seconds. Last activity updates when someone visits or uses a visible page.') ?></p>
   </div>
 </section>
 

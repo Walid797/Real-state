@@ -21,6 +21,33 @@
   };
   var usd = function (n) { return n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US'); };
 
+  /* Presence follows a visible authenticated page, independently of the last sign-in. */
+  var presenceToken = $('form[action="/logout"] input[name="_csrf"]');
+  if (presenceToken) {
+    var presenceBusy = false, presenceStopped = false;
+    var updatePresence = function () {
+      if (document.hidden || presenceBusy || presenceStopped) return;
+      presenceBusy = true;
+      fetch('/api/presence', { method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':presenceToken.value,Accept:'application/json'} })
+        .then(function(r) {
+          if (r.status === 401) presenceStopped = true;
+          if (!r.ok || !$('[data-presence-users]')) return null;
+          return fetch('/api/presence/users',{credentials:'same-origin',headers:{Accept:'application/json'}}).then(function(s){return s.ok?s.json():null;});
+        }).then(function(data) {
+          if (!data) return;
+          (data.users || []).forEach(function(u) {
+            var el = $('[data-user-presence="'+Number(u.id)+'"]');
+            if (!el) return;
+            el.textContent = u.label; el.title = u.title;
+            el.className = u.online ? 'tag tag-live' : 'muted';
+          });
+        }).catch(function() {}).finally(function(){presenceBusy=false;});
+    };
+    updatePresence();
+    setInterval(updatePresence,30000);
+    document.addEventListener('visibilitychange',updatePresence);
+  }
+
   /* Preserve address-line boundaries when a multiline postal address is pasted into a search input. */
   $$('input[name="q"]').forEach(function (input) {
     input.addEventListener('paste', function (event) {

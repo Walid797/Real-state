@@ -11,6 +11,8 @@ final class Kernel
      * Permissions: public | view (any signed-in role) | edit (admin, partner) | admin.
      */
     private const ROUTES = [
+        ['POST', '#^/api/presence$#', 'presence', 'view', 'view'],
+        ['GET', '#^/api/presence/users$#', 'presence', 'admin', 'admin'],
         ['GET', '#^/welcome$#', 'welcome', 'public', 'public'],
         ['GET|POST', '#^/login$#', 'login', 'public', 'public'],
         ['POST', '#^/language$#', 'language', 'public', 'public'],
@@ -95,6 +97,10 @@ final class Kernel
             }
             if ($method === 'POST') {
                 Auth::verifyCsrf();
+            }
+            if ($perm !== 'public' && $method === 'GET' && !str_starts_with($path,'/api/') && !str_starts_with($path,'/export.')) {
+                $u = Auth::user();
+                \App\Services\Presence::touch((int)$u['id'],(int)$u['session_epoch']);
             }
             $params = array_filter($m, 'is_string', ARRAY_FILTER_USE_KEY);
             (static function (string $__file, array $params): void {

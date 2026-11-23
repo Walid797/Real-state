@@ -130,6 +130,7 @@ final class Auth
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
         self::$user = null;
         Db::run('UPDATE users SET last_login_at = ? WHERE id = ?', [now(), $user['id']]);
+        \App\Services\Presence::touch((int)$user['id'],(int)$user['session_epoch']);
     }
 
     /** Ends every session of a user on every device. */
@@ -185,6 +186,7 @@ final class Auth
 
     public static function logout(): void
     {
+        \App\Services\Presence::leave();
         self::$user = null;
         if (session_status() !== PHP_SESSION_ACTIVE) {
             return;
