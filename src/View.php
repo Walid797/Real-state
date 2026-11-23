@@ -144,6 +144,10 @@ final class View
             'Couldn’t translate this.',
             'Zoom in',
             'Zoom out',
+            'Enlarge photo',
+            'Close photo',
+            'Previous',
+            'Next',
         ];
         $labels = array_combine($messages, array_map('t', $messages));
         return ' data-ui-labels="' . e(json_encode($labels, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)) . '"';

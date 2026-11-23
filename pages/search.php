@@ -456,7 +456,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         ?>
           <article class="hrow hrow-x" data-pid="<?= (int) $r['id'] ?>">
             <?php if (str_starts_with((string) $r['photo_url'], 'https://')): ?>
-            <img class="listing-thumb" src="<?= e($r['photo_url']) ?>" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">
+            <img class="listing-thumb" src="<?= e($r['photo_url']) ?>" alt="<?= e($r['address']) ?>" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-photo-trigger role="button" tabindex="0" aria-label="<?= te('Enlarge photo') ?>: <?= e($r['address']) ?>">
             <?php endif; ?>
             <div class="price"><?php if (Auth::can('edit')): ?><input class="bulk-pick" type="checkbox" name="ids[]" value="<?= (int) $r['id'] ?>" form="bulk-homes" aria-label="<?= te('Select') ?> <?= e($r['address']) ?>"> <?php endif; ?><?= e(money($price)) ?>
               <?php if ($pp): ?><small>$<?= number_format($pp) ?><?= te('/sqft') ?></small><?php endif; ?></div>

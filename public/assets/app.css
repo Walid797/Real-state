@@ -956,3 +956,16 @@ html[lang="fa"] {
 .homes-search-status,.homes-property-source{display:flex;flex-wrap:wrap;gap:.4rem .7rem;align-items:baseline}
 .homes-search-status small,.homes-property-source small{flex-basis:100%;font-size:.8rem}
 .homes-source-link{color:var(--teal)}
+[data-photo-trigger]{cursor:zoom-in}
+.hrow .listing-thumb[data-photo-trigger]{position:relative;z-index:2}
+[data-photo-trigger]:focus-visible{outline:3px solid var(--teal);outline-offset:3px}
+.photo-viewer{width:min(1200px,96vw);max-width:96vw;max-height:94vh;max-height:94dvh;padding:12px;border:0;border-radius:12px;background:#171916;color:#fff}
+.photo-viewer::backdrop{background:#000d}
+.photo-viewer-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.photo-viewer-bar button{color:#fff;background:#333831;border:1px solid #697164;border-radius:7px;padding:8px 14px;cursor:pointer;min-height:44px}
+.photo-viewer-count{direction:ltr;font-variant-numeric:tabular-nums}
+.photo-viewer-stage{display:flex;align-items:center;justify-content:center;overflow:auto;max-height:78vh;max-height:78dvh;min-height:150px;touch-action:pan-x pan-y pinch-zoom}
+.photo-viewer-stage img{display:block;max-width:100%;max-height:76vh;max-height:76dvh;object-fit:contain;cursor:zoom-in}
+.photo-viewer-stage.is-zoomed{display:block;height:76vh;height:76dvh}
+.photo-viewer-stage.is-zoomed img{max-width:none;max-height:none;min-width:100%;cursor:zoom-out}
+@media print{.photo-viewer{display:none!important}}

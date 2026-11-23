@@ -172,7 +172,7 @@ if (count($series) >= 2) {
 <?php if ($homesPhotos): ?><p class="small photo-source"><?= te('Photos from Homes.com for this exact home') ?></p><?php endif; ?>
 <div class="photos" aria-label="<?= te('Listing photos') ?>">
   <?php foreach (array_slice($photos, 0, 24) as $i => $src): ?>
-  <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer">
+  <img src="<?= e($src) ?>" alt="<?= te('Photo') ?> <?= $i + 1 ?> <?= te('of') ?> <?= e($p['address']) ?>" loading="lazy" referrerpolicy="no-referrer" data-photo-trigger role="button" tabindex="0" aria-label="<?= te('Enlarge photo') ?> <?= $i + 1 ?>">
   <?php endforeach; ?>
 </div>
 <?php endif; ?>

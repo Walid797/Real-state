@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Enlarge photo'=>'بزرگ‌کردن عکس',
+    'Close photo'=>'بستن عکس',
     'No saved homes match these filters.'=>'هیچ خانهٔ ذخیره‌شده‌ای با این فیلترها منطبق نیست.',
     'Saved opportunities'=>'فرصت‌های پربازده ذخیره‌شده',
     'Showing saved homes across all areas. This view does not call external data sources.'=>'خانه‌های ذخیره‌شدهٔ همهٔ مناطق نشان داده می‌شوند؛ این فهرست از منابع خارجی درخواست نمی‌فرستد.',

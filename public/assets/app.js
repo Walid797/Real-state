@@ -21,6 +21,48 @@
   };
   var usd = function (n) { return n == null ? '—' : '$' + Math.round(n).toLocaleString('en-US'); };
 
+  /* Enlarge listing photos; a property gallery never includes another home's images. */
+  var photoDialog = null, photoItems = [], photoIndex = 0, photoOrigin = null;
+  var createPhotoDialog = function () {
+    if (photoDialog) return;
+    photoDialog = document.createElement('dialog');
+    photoDialog.className = 'photo-viewer';
+    photoDialog.setAttribute('aria-label',ui('Enlarge photo'));
+    photoDialog.innerHTML = '<div class="photo-viewer-bar"><button type="button" data-photo-close autofocus>'+esc(ui('Close photo'))+'</button>'
+      +'<button type="button" data-photo-prev>'+esc(ui('Previous'))+'</button><span class="photo-viewer-count" aria-live="polite"></span>'
+      +'<button type="button" data-photo-next>'+esc(ui('Next'))+'</button><button type="button" data-photo-zoom>'+esc(ui('Zoom in'))+'</button></div>'
+      +'<div class="photo-viewer-stage"><img alt="" referrerpolicy="no-referrer"></div>';
+    document.body.appendChild(photoDialog);
+    $('[data-photo-close]',photoDialog).onclick = function(){photoDialog.close();};
+    $('[data-photo-prev]',photoDialog).onclick = function(){showPhoto(photoIndex-1);};
+    $('[data-photo-next]',photoDialog).onclick = function(){showPhoto(photoIndex+1);};
+    var zoom = function(){var on=$('.photo-viewer-stage',photoDialog).classList.toggle('is-zoomed');$('[data-photo-zoom]',photoDialog).textContent=ui(on?'Zoom out':'Zoom in');};
+    $('[data-photo-zoom]',photoDialog).onclick=zoom;
+    $('.photo-viewer-stage img',photoDialog).onclick=zoom;
+    photoDialog.addEventListener('click',function(e){if(e.target===photoDialog)photoDialog.close();});
+    photoDialog.addEventListener('close',function(){if(photoOrigin)photoOrigin.focus({preventScroll:true});});
+    photoDialog.addEventListener('keydown',function(e){
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();showPhoto(photoIndex+(e.key==='ArrowRight'?1:-1));}
+    });
+  };
+  var showPhoto = function(index){
+    photoIndex=(index+photoItems.length)%photoItems.length;
+    var img=$('.photo-viewer-stage img',photoDialog);
+    img.src=photoItems[photoIndex].currentSrc||photoItems[photoIndex].src;
+    img.alt=photoItems[photoIndex].alt;
+    $('.photo-viewer-count',photoDialog).textContent=(photoIndex+1)+' / '+photoItems.length;
+    $('.photo-viewer-stage',photoDialog).classList.remove('is-zoomed');
+    $('[data-photo-zoom]',photoDialog).textContent=ui('Zoom in');
+    $('[data-photo-prev]',photoDialog).hidden=$('[data-photo-next]',photoDialog).hidden=photoItems.length<2;
+  };
+  var openPhoto = function(el){
+    createPhotoDialog();photoOrigin=el;
+    photoItems=el.closest('.photos')?$$('[data-photo-trigger]',el.closest('.photos')):[el];
+    showPhoto(photoItems.indexOf(el));photoDialog.showModal();
+  };
+  document.addEventListener('click',function(e){var el=e.target.closest('[data-photo-trigger]');if(el){e.preventDefault();openPhoto(el);}});
+  document.addEventListener('keydown',function(e){var el=e.target.closest('[data-photo-trigger]');if(el&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPhoto(el);}});
+
   /* Presence follows a visible authenticated page, independently of the last sign-in. */
   var presenceToken = $('form[action="/logout"] input[name="_csrf"]');
   if (presenceToken) {
