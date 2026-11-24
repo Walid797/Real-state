@@ -357,9 +357,13 @@ final class PropertyRepo
                 $a[] = $loc['zip'];
                 return 'p.zip = ?';
             case 'city':
-                // "Fairfax City" is also the county-level name of an independent city.
-                array_push($a, $loc['state'], $loc['city'], $loc['city']);
-                return '(p.state = ? AND (p.city = ? OR p.county = ?))';
+                array_push($a, $loc['state'], $loc['city']);
+                if (preg_match('/\s+city$/i', $loc['city'])) {
+                    // "Fairfax City" is the county-level name of an independent city; its homes carry the postal name.
+                    $a[] = $loc['city'];
+                    return '(p.state = ? AND (p.city = ? OR p.county = ?))';
+                }
+                return '(p.state = ? AND p.city = ?)';
             case 'street':
                 $sql = 'p.state = ? AND LOWER(p.address) REGEXP ?';
                 array_push($a, $loc['state'], Address::streetRegex($loc['street']));

@@ -290,7 +290,7 @@ $eq(array_column($mix['parts'] ?? [], 'type'), ['county', 'city', 'zip'], 'mixed
 $plan = Search::plan($mix, Search::fromRequest(['q' => 'x']));
 $eq(array_column($plan['needs'], 'key'), ['state:VA', 'city:VA:richmond', 'zip:22030'], 'a county is pulled through its state; one pull per area');
 $a2 = [];
-$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 9, 'several areas search with OR (a city also matches its independent-city county)');
+$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 8, 'several areas search with OR');
 $counties = Address::parseLocation('Fairfax County, Loudoun County, VA');
 $eq(array_column(Address::areas($counties), 'key'), ['county:VA:fairfax', 'county:VA:loudoun'], 'county list shares a trailing state');
 $eq(array_column(Address::areas(Address::parseLocation('Fairfax County, VA, Montgomery County, MD')), 'key'), ['county:VA:fairfax', 'county:MD:montgomery'], 'commas preserve each explicit county state');
@@ -1287,10 +1287,16 @@ Db::run('DELETE FROM properties WHERE zip = ?', ['99908']);
 $circle = App\Providers\CountyArea::pick([['NAME' => 'Fairfax city', 'AREALAND' => 16e6, 'INTPTLAT' => '+38.85', 'INTPTLON' => '-077.30'],
     ['NAME' => 'Fairfax County', 'AREALAND' => 1.0e9, 'INTPTLAT' => '+38.84', 'INTPTLON' => '-077.27']], false);
 $ok($circle && $circle['name'] === 'Fairfax County' && $circle['radius'] > 10 && $circle['radius'] < 20 && abs($circle['lat'] - 38.84) < 0.001, 'a county becomes a circle of about its own size, not its same-named city');
-$eq(App\Providers\CountyArea::pick([['NAME' => 'Huge County', 'AREALAND' => 2.0e10, 'INTPTLAT' => '40', 'INTPTLON' => '-110']], false), null, 'a very large county falls back to the state pull');
+$eq(App\Providers\CountyArea::pick([['NAME' => 'Huge County', 'AREALAND' => 5.0e10, 'INTPTLAT' => '40', 'INTPTLON' => '-110']], false), null, 'a very large county falls back to the state pull');
 
 $eq(Search::fetchArea(Address::parseLocation('Fairfax City'))['key'], 'city:VA:fairfax', 'an independent city is pulled by its postal name');
 $eq(Search::fetchArea(Address::parseLocation('Kansas City, MO'))['key'], 'city:MO:kansas city', 'a city whose name ends in "City" keeps it');
+
+$fc = [];
+PropertyRepo::locSql(Address::parseLocation('Fairfax City'), $fc);
+$fx = [];
+PropertyRepo::locSql(Address::parseLocation('Fairfax'), $fx);
+$ok(count($fc) === 3 && count($fx) === 2, 'an independent city also matches its county-level name; a plain city does not take in the county');
 
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

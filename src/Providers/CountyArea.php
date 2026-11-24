@@ -20,7 +20,7 @@ final class CountyArea
     private const LAYER = 'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1';
 
     /** Above this radius the circle would hold more than the county; the state pull is used. */
-    public const MAX_RADIUS_MI = 30.0;
+    public const MAX_RADIUS_MI = 50.0;
 
     public const FIPS = [
         'AL' => '01', 'AK' => '02', 'AZ' => '04', 'AR' => '05', 'CA' => '06', 'CO' => '08', 'CT' => '09', 'DE' => '10', 'DC' => '11',
@@ -43,7 +43,7 @@ final class CountyArea
         if ($fips === null || $base === '') {
             return null;
         }
-        $key = Cache::key('tigerweb', 'county_area', ['s' => $state, 'c' => mb_strtolower($base), 'city' => $isCity]);
+        $key = Cache::key('tigerweb', 'county_area_v2', ['s' => $state, 'c' => mb_strtolower($base), 'city' => $isCity]);
         $kept = Cache::get($key);
         if (is_array($kept)) {
             return $kept['area'];

@@ -24,7 +24,7 @@ final class SmartLocation
 
     public static function key(string $q): string
     {
-        return Cache::key('smart_location', 'v1', ['q'=>mb_strtolower(self::normalize($q)), 'state'=>Address::homeState()]);
+        return Cache::key('smart_location', 'v2', ['q'=>mb_strtolower(self::normalize($q)), 'state'=>Address::homeState()]);
     }
 
     public static function resolve(string $query, bool $fetch = false): ?array
@@ -38,7 +38,7 @@ final class SmartLocation
         if (is_array($cached)) {
             return $cached['location'];
         }
-        if ($parsed && $parsed['type'] === 'city' && Db::val('SELECT id FROM properties WHERE state=? AND city=? LIMIT 1', [$parsed['state'],$parsed['city']])) {
+        if ($parsed && $parsed['type'] === 'city' && Db::val('SELECT id FROM properties WHERE state=? AND (city=? OR county=?) LIMIT 1', [$parsed['state'],$parsed['city'],$parsed['city']])) {
             return $parsed;
         }
         $building = BuildingSearch::location($q);
