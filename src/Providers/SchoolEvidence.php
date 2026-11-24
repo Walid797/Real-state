@@ -40,7 +40,7 @@ final class SchoolEvidence
 
     public static function forProperty(array $p, array $location): array
     {
-        $schools = $p['details']['schools'] ?? null;
+        $schools = $p['details']['schools'] ?? $p['details']['zillow_search_schools'] ?? null;
         if (!is_array($schools)) {
             $raw = Cache::get(Cache::key(OpenWebNinja::ID, '/property-details-address', ['address' => Address::full($p)]));
             $raw = is_array($raw) && array_is_list($raw) ? ($raw[0] ?? []) : $raw;

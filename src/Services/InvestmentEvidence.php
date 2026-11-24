@@ -114,7 +114,7 @@ final class InvestmentEvidence
         if (!empty($p['details']['homes']['price'])) {
             $add('housing', 'Homes.com source asking price', $p['details']['homes']['price'], $propertyScope, 'Homes.com', $p['details']['homes']['observed_at'] ?? null);
         }
-        $add('location', 'Nearby schools and source ratings', $schools, $propertyScope, 'Zillow school data / OpenStreetMap', $p['details']['schools_checked_at'] ?? $location['observed_at'] ?? null);
+        $add('location', 'Nearby schools and source ratings', $schools, $propertyScope, 'Zillow school data / OpenStreetMap', $p['details']['schools_checked_at'] ?? $p['details']['zillow_search_schools_at'] ?? $location['observed_at'] ?? null);
         $add('development', 'Mapped construction awaiting official verification', $location['construction'] ?? null, 'Within 3 miles', 'OpenStreetMap', $location['observed_at'] ?? null);
         $add('development', 'Nearby VDOT approved-program projects', $development['projects'] ?? null, 'Within 3 miles', 'VDOT SYIP', $development['collected_at'] ?? null);
         $record = $p['details']['county_record'] ?? [];

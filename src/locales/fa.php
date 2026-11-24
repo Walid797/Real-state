@@ -3,6 +3,14 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Search with Homes.com'=>'جستجو با Homes.com',
+    'Allow new Zillow API requests'=>'اجازهٔ ارسال درخواست تازه به Zillow',
+    'Zillow data is turned off in Settings.'=>'داده‌های Zillow در تنظیمات غیرفعال است.',
+    'Automatically fetch full Zillow details when homes are opened or saved'=>'هنگام باز کردن یا ذخیرهٔ ملک، جزئیات کامل از Zillow خودکار دریافت شود',
+    'Monthly cap when automatic Zillow details are enabled.'=>'سقف ماهانه در صورت فعال‌بودن دریافت خودکار جزئیات Zillow.',
+    'Opening this home uses saved details. Use the Zillow photos and history button to request more.'=>'با باز کردن این ملک، اطلاعات ذخیره‌شده نمایش داده می‌شود. برای اطلاعات بیشتر، دکمهٔ عکس‌ها و سابقهٔ Zillow را بزنید.',
+    'Homes.com search fetches for-sale listings only. Showing saved sales.'=>'جستجوی Homes.com آگهی‌های فعال فروش را دریافت می‌کند. فروش‌های ذخیره‌شده نمایش داده می‌شوند.',
+    'Homes.com is available for manual searches only.'=>'Homes.com فقط در جستجوی دستی در دسترس است.',
     'Listing source'=>'منبع آگهی',
     'Default sources'=>'منابع پیش‌فرض',
     'Search with Zillow data'=>'جستجو با داده‌های Zillow',

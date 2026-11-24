@@ -22,7 +22,9 @@ final class ListingDetails
 
     public static function autoLimit(): int
     {
-        return max(0, Settings::int('openwebninja_auto', 60));
+        return Settings::get('openwebninja_auto_on', '0') === '1'
+            ? max(0, Settings::int('openwebninja_auto', 60))
+            : 0;
     }
 
     public static function autoUsed(): int
@@ -55,6 +57,12 @@ final class ListingDetails
      */
     public static function fetch(array $p, string $ctx = 'manual'): array
     {
+        if (!OpenWebNinja::switchedOn()) {
+            return ['status' => 'error', 'message' => t('Zillow data is turned off in Settings.')];
+        }
+        if ($ctx === 'auto' && !self::wanted($p)) {
+            return ['status' => 'none', 'message' => 'Automatic Zillow details are unavailable.'];
+        }
         $id = (int) $p['id'];
         // Remember the attempt first, so a failure is not retried on every page view.
         Db::run('UPDATE properties SET details = JSON_SET(COALESCE(details, JSON_OBJECT()), \'$.zillow_tried_at\', ?, \'$.zillow_error\', false) WHERE id = ?', [now(), $id]);

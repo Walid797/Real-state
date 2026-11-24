@@ -20,6 +20,7 @@ $sourceField = static function () use ($f): void { ?>
       <select class="select" name="listing_source">
         <option value=""><?= te('Default sources') ?></option>
         <option value="openwebninja"<?= selected($f['listing_source'], 'openwebninja') ?>><?= te('Search with Zillow data') ?></option>
+        <option value="homes"<?= selected($f['listing_source'], 'homes') ?>><?= te('Search with Homes.com') ?></option>
       </select>
     </label>
 <?php };
@@ -31,7 +32,7 @@ $stateName = Address::STATES[$state] ?? $state;
 if ($f['q'] !== '') {
     $loc = Search::location($f, true);
     if ($loc && $loc['type'] === 'address') {
-        if (Auth::can('edit') && empty($loc['partial']) && empty($f['listing_source'])) {
+        if (Auth::can('edit') && empty($loc['partial']) && $f['listing_source'] !== App\Providers\OpenWebNinja::ID) {
             App\Services\HomesSearch::run($loc);
             $loc = Search::withHomes(array_diff_key($loc, ['ids' => 1]));
         }

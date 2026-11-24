@@ -6,6 +6,7 @@ namespace App\Services;
 use App\Address;
 use App\Db;
 use App\PropertyRepo;
+use App\Providers\HomesCom;
 use App\Providers\OpenWebNinja;
 use App\Providers\RentCast;
 use App\Quota;
@@ -45,7 +46,8 @@ final class Search
         $f['scope'] = ($src['scope']??'') === 'saved' ? 'saved' : 'area';
         $f['view'] = $f['scope']==='saved' && ($src['view']??'')==='opportunities' ? 'opportunities' : 'all';
         $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'auto';
-        $f['listing_source'] = $f['scope'] === 'area' && ($src['listing_source'] ?? '') === OpenWebNinja::ID ? OpenWebNinja::ID : '';
+        $source = $src['listing_source'] ?? '';
+        $f['listing_source'] = $f['scope'] === 'area' && in_array($source, [OpenWebNinja::ID, HomesCom::ID], true) ? $source : '';
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
@@ -239,7 +241,7 @@ final class Search
 
     public static function locationProvider(array $loc, string $ctx = 'manual', string $source = ''): ?string
     {
-        if ($loc['type']==='saved') return null;
+        if ($loc['type'] === 'saved' || $source === HomesCom::ID) return null;
         return $loc['type'] === 'building' || $source === OpenWebNinja::ID
             ? (OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx) ? OpenWebNinja::ID : null)
             : self::provider($ctx);
@@ -294,7 +296,8 @@ final class Search
             $out['loc'] = $loc;
         }
 
-        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved') {
+        $source = $f['listing_source'] ?? '';
+        if (($opt['fetch'] ?? true) !== false && $loc['type'] !== 'saved' && $source !== HomesCom::ID) {
             $force = !empty($opt['force']);
             $plan = self::plan($loc, $f, $ctx, $force);
             $out['needs'] = $plan['needs'];
@@ -320,15 +323,22 @@ final class Search
                 $out['partial'] = (bool) $plan['needs'];
             }
             $out['snapshot'] ??= $plan['snapshot'];
-        } else {
+        } elseif ($source !== HomesCom::ID) {
             $out['snapshot'] = $loc['type']==='saved' ? null : self::latestSnapshot($loc, $f['mode'] ?? 'sale');
         }
 
-        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved' && ($f['mode'] ?? 'sale') === 'sale' && empty($f['listing_source'])) {
+        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved' && ($f['mode'] ?? 'sale') === 'sale' && $source !== OpenWebNinja::ID) {
             $out['homes'] = HomesSearch::run($loc, $ctx);
             if (!empty($out['homes']['available']) && !RentCast::enabled() && !OpenWebNinja::enabled()) {
                 $out['notice'] = 'Results include public Homes.com listings. RentCast and Zillow data are not connected.';
             }
+        }
+        if (($opt['fetch'] ?? true) !== false && $source === HomesCom::ID && $out['homes'] === null) {
+            $out['notice'] = match (true) {
+                !HomesCom::enabled() => 'Homes.com search is turned off in Settings.',
+                ($f['mode'] ?? 'sale') === 'sold' => 'Homes.com search fetches for-sale listings only. Showing saved sales.',
+                default => 'Homes.com is available for manual searches only.',
+            };
         }
         $res = PropertyRepo::search($f + ['loc' => $loc, 'limit' => $opt['limit'] ?? 60, 'offset' => $opt['offset'] ?? 0]);
         $out['rows'] = $res['rows'];
@@ -343,7 +353,7 @@ final class Search
      */
     public static function plan(array $loc, array $f, string $ctx = 'manual', bool $force = false): array
     {
-        if ($loc['type']==='saved') return ['needs'=>[],'recent'=>false,'snapshot'=>null];
+        if ($loc['type'] === 'saved' || ($f['listing_source'] ?? '') === HomesCom::ID) return ['needs'=>[],'recent'=>false,'snapshot'=>null];
         $needs = [];
         $recent = false;
         $latest = null;
@@ -507,7 +517,7 @@ final class Search
         if ($provider === null) {
             if (($f['listing_source'] ?? '') === OpenWebNinja::ID) {
                 return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null,
-                    'notice' => 'Zillow data needs a connected key with requests remaining. Showing saved results.'];
+                    'notice' => OpenWebNinja::switchedOn() ? 'Zillow data needs a connected key with requests remaining. Showing saved results.' : 'Zillow data is turned off in Settings.'];
             }
             if ($loc['type'] === 'building') {
                 return ['snapshot' => $latest, 'fetched' => false, 'partial' => true,

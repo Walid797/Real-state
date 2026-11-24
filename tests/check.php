@@ -561,10 +561,21 @@ Db::run("DELETE FROM properties WHERE city = 'Askville'");
 
 /* ── Full listing fetched by the site itself, once per home ────────── */
 $hadOwn = App\Settings::get('openwebninja_key');
+$previousAutoOn = Settings::get('openwebninja_auto_on');
+$previousZillowOn = Settings::get('openwebninja_on');
+Settings::set('openwebninja_on', '1');
+Settings::set('openwebninja_auto_on', '0');
 App\Settings::set('openwebninja_key', 'check-only');
 App\Settings::set('openwebninja_auto', '60');
 $ld = PropertyRepo::upsert(['address' => '9 Auto Ln', 'city' => 'Autoville', 'state' => 'VA', 'zip' => '24980', 'status' => 'for_sale', 'list_price' => 200000], 'manual')['id'];
 $ldp = PropertyRepo::find($ld);
+$ok(!App\Services\ListingDetails::wanted($ldp), 'existing automatic request cap does not opt anyone into spending when opening a home');
+$eq(App\Services\ListingDetails::fetch($ldp, 'auto')['status'], 'none', 'direct automatic detail requests stop when disabled');
+Settings::set('openwebninja_on', '0');
+$off = App\Providers\OpenWebNinja::search(Address::parseLocation('22041'), 'sale', 'manual');
+$eq($off['error'], t('Zillow data is turned off in Settings.'), 'disabled Zillow stops search before transport even with a configured key');
+Settings::set('openwebninja_on', '1');
+Settings::set('openwebninja_auto_on', '1');
 $ok(App\Services\ListingDetails::wanted($ldp), 'a home without its listing is fetched when first opened');
 $ldp['details']['zillow'] = true;
 $ok(App\Services\ListingDetails::wanted($ldp), 'an older full listing can acquire its newly supported school data within the automatic cap');
@@ -585,6 +596,15 @@ Db::run("DELETE FROM api_log WHERE provider = 'openwebninja' AND context = 'auto
 Db::run("DELETE FROM properties WHERE city = 'Autoville'");
 App\Settings::set('openwebninja_auto', '60');
 App\Settings::set('openwebninja_key', $hadOwn);
+Settings::set('openwebninja_auto_on', $previousAutoOn);
+Settings::set('openwebninja_on', $previousZillowOn);
+$searchCard = (new ReflectionMethod(App\Providers\OpenWebNinja::class, 'mapItem'))->invoke(null, [
+    'zpid' => 71, 'address' => '7 Sample Rd, Fairfax, VA 22030', 'price' => 425000,
+    'miniCardPhotos' => [['url' => 'https://photos.zillowstatic.com/one.jpg'], ['url' => 'https://photos.zillowstatic.com/two.jpg']],
+    'schools' => [['name' => 'Sample School', 'rating' => 8]],
+], 'sale');
+$eq(count(App\Services\PropertyPhotos::gallery($searchCard)), 2, 'the opened property can display multiple photos already supplied by Zillow search');
+$eq(App\Providers\SchoolEvidence::forProperty($searchCard, [])[0]['rating'], 8.0, 'school ratings present in the search record can be read without a details request');
 
 /* ── Listing e-mails ───────────────────────────────────────────────── */
 $qp = "From: Zillow <instant-updates@mail.zillow.com>\r\nSubject: =?UTF-8?Q?New_listing_in_Fairfax?=\r\nAuthentication-Results: mx.hostinger.com; dkim=pass header.d=mail.zillow.com; dmarc=pass (p=reject) header.from=zillow.com\r\n"
@@ -1178,6 +1198,9 @@ try {
     $reportCount = (int)Db::val('SELECT COUNT(*) FROM property_analyses');
     $combined = Search::run(Search::fromRequest(['q'=>'24979']));
     $ok($combined['homes']['available'] && $combined['homes']['cached'] && $combined['total']>=1,'ordinary search automatically includes cached Homes.com alongside primary-provider results');
+    $homesOnly = Search::run(Search::fromRequest(['q' => '24979', 'listing_source' => 'homes']));
+    $ok($homesOnly['homes']['available'] && $homesOnly['needs'] === [] && $homesOnly['snapshot'] === null,
+        'explicit Homes.com search uses matching Homes.com data without scheduling a metered listing pull');
     $combinedRow = array_values(array_filter($combined['rows'],static fn($row)=>(int)$row['id']===$primaryId))[0];
     $eq(json_decode($combinedRow['homes_quote'],true)['url'],$homesPropertyUrl,'normal search projection exposes the source quote and link for its result badge');
     $eq($combinedRow['photo_url'],$homesItem['photo_url'],'RentCast search results prefer the matched Homes.com photo even when a primary photo exists');

@@ -30,13 +30,21 @@ final class OpenWebNinja
         'MANUFACTURED' => 'Manufactured', 'APARTMENT' => 'Apartment', 'LOT' => 'Land', 'LAND' => 'Land',
     ];
 
+    public static function switchedOn(): bool
+    {
+        return Settings::get('openwebninja_on', '1') === '1';
+    }
+
     public static function enabled(): bool
     {
-        return Settings::has('openwebninja_key');
+        return self::switchedOn() && Settings::has('openwebninja_key');
     }
 
     private static function call(string $path, array $params, string $ctx): array
     {
+        if (!self::switchedOn()) {
+            return ['ok' => false, 'data' => null, 'error' => t('Zillow data is turned off in Settings.')];
+        }
         if (!self::enabled()) {
             return ['ok' => false, 'data' => null, 'error' => 'Add your OpenWeb Ninja key in Settings first.'];
         }
@@ -190,6 +198,18 @@ final class OpenWebNinja
         return str_starts_with($u, 'http') ? $u : 'https://www.zillow.com' . $u;
     }
 
+    private static function photos(array $r): array
+    {
+        $photos = [$r['imgSrc'] ?? null];
+        foreach (['miniCardPhotos', 'responsivePhotos'] as $field) {
+            foreach ((array) ($r[$field] ?? []) as $photo) {
+                $photos[] = $photo['url'] ?? null;
+            }
+        }
+        $photos = array_filter($photos, static fn ($url) => is_string($url) && str_starts_with($url, 'https://'));
+        return array_slice(array_values(array_unique($photos)), 0, 40);
+    }
+
     private static function mapItem(array $r, string $mode): ?array
     {
         $p = self::addr($r);
@@ -199,6 +219,8 @@ final class OpenWebNinja
         $status = strtoupper((string) ($r['homeStatus'] ?? $r['listingStatus'] ?? ''));
         $sold = $mode === 'sold' || in_array($status, ['SOLD', 'RECENTLY_SOLD'], true);
         $price = $r['price'] ?? null;
+        $photos = self::photos($r);
+        $schools = SchoolEvidence::normalize((array) ($r['schools'] ?? []));
         $p += [
             'lat' => $r['latitude'] ?? null,
             'lng' => $r['longitude'] ?? null,
@@ -208,14 +230,21 @@ final class OpenWebNinja
             'sqft' => $r['livingArea'] ?? $r['livingAreaValue'] ?? null,
             'lot_sqft' => self::lotSqft($r),
             'year_built' => $r['yearBuilt'] ?? null,
-            'photo_url' => $r['imgSrc'] ?? ($r['miniCardPhotos'][0]['url'] ?? null),
+            'photo_url' => $photos[0] ?? null,
+            'description' => is_string($r['description'] ?? null) ? $r['description'] : null,
+            'hoa_fee' => $r['monthlyHoaFee'] ?? null,
             'source_id' => isset($r['zpid']) ? (string) $r['zpid'] : null,
             'source_url' => self::zillowUrl($r),
             'est_value' => $r['zestimate'] ?? null,
             'est_rent' => $r['rentZestimate'] ?? null,
             'est_source' => !empty($r['zestimate']) ? 'zestimate' : null,
             'est_at' => !empty($r['zestimate']) ? now() : null,
-            'details' => array_filter(['building_name' => self::text($r['buildingName'] ?? $r['apartmentName'] ?? null)]),
+            'details' => array_filter([
+                'building_name' => self::text($r['buildingName'] ?? $r['apartmentName'] ?? null),
+                'zillow_search_photos' => $photos,
+                'zillow_search_schools' => $schools,
+                'zillow_search_schools_at' => $schools ? now() : null,
+            ]),
         ];
         if ($sold) {
             $p['status'] = 'sold';
@@ -266,12 +295,7 @@ final class OpenWebNinja
                 $taxes[gmdate('Y', (int) ($t['time'] / 1000))] = ['total' => $t['taxPaid'] ?? null, 'value' => $t['value'] ?? null];
             }
         }
-        $photos = [];
-        foreach ((array) ($d['responsivePhotos'] ?? []) as $ph) {
-            if (!empty($ph['url']) && str_starts_with((string) $ph['url'], 'https://')) {
-                $photos[] = $ph['url'];
-            }
-        }
+        $photos = self::photos($d);
         $facts = (array) ($d['resoFacts'] ?? []);
         krsort($taxes);
         $latest = $taxes ? reset($taxes) : null;

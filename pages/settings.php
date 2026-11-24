@@ -22,6 +22,8 @@ if (is_post()) {
             Settings::set('homes_on', isset($_POST['homes_on']) ? '1' : '0');
             Settings::set('rentcast_limit', $int('rentcast_limit', 0, 100000, 50));
             Settings::set('rentcast_reserve', $int('rentcast_reserve', 0, 100000, 15));
+            Settings::set('openwebninja_on', isset($_POST['openwebninja_on']) ? '1' : '0');
+            Settings::set('openwebninja_auto_on', isset($_POST['openwebninja_auto_on']) ? '1' : '0');
             Settings::set('openwebninja_limit', $int('openwebninja_limit', 0, 1000000, 100));
             Settings::set('openwebninja_reserve', $int('openwebninja_reserve', 0, 1000000, 20));
             Settings::set('openwebninja_auto', $int('openwebninja_auto', 0, 1000000, 60));
@@ -163,11 +165,14 @@ View::header('Settings', 'settings');
     </div>
 
     <div class="card">
-      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('openwebninja_key') ? 'Connected' : 'Optional') ?></span><?= tip_open() ?><?= te('Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.') ?><?= tip_close() ?></h3>
+      <?php $zillowOn = App\Providers\OpenWebNinja::switchedOn(); ?>
+      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= App\Providers\OpenWebNinja::enabled() ? ' tag-live' : '' ?>"><?= te(!$zillowOn ? 'Off' : (Settings::has('openwebninja_key') ? 'Connected' : 'Optional')) ?></span></h3>
+      <label class="check"><input type="checkbox" name="openwebninja_on" value="1"<?= checked($zillowOn) ?>><?= te('Allow new Zillow API requests') ?></label>
+      <label class="check"><input type="checkbox" name="openwebninja_auto_on" value="1"<?= checked(Settings::get('openwebninja_auto_on', '0') === '1') ?>><?= te('Automatically fetch full Zillow details when homes are opened or saved') ?></label>
       <div class="form-grid">
         <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
         <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
-        <label class="field c4"><span><?= te('Fetched by themselves, per month') ?><?= tip_open(t('Fetched by themselves, per month')) ?><?= te('The first time a home is opened or added to favorites, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?><?= tip_close() ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric"></label>
+        <label class="field c4"><span><?= te('Fetched by themselves, per month') ?><?= tip_open(t('Fetched by themselves, per month')) ?><?= te('Monthly cap when automatic Zillow details are enabled.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?><?= tip_close() ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric"></label>
       </div>
     </div>
 

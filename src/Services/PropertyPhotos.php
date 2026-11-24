@@ -25,7 +25,7 @@ final class PropertyPhotos
         if ($homes) {
             return $homes;
         }
-        $photos = array_values(array_filter((array)($p['details']['photos']??[]),static fn($url)=>is_string($url)&&str_starts_with($url,'https://')));
+        $photos = array_values(array_filter((array)($p['details']['photos'] ?? $p['details']['zillow_search_photos'] ?? []),static fn($url)=>is_string($url)&&str_starts_with($url,'https://')));
         if (!$photos && str_starts_with((string)($p['photo_url']??''),'https://')) {
             $photos[] = $p['photo_url'];
         }
