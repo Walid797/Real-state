@@ -36,10 +36,9 @@ View::header('Reset password', '', ['bare' => true]);
   <a class="brand" href="/login">Plat</a>
   <form class="bare-form" method="post" action="/forgot">
     <?= csrf_field() ?>
-    <h1 class="display"><?= te('Reset password') ?></h1>
+    <h1 class="display"><?= te('Reset password') ?><?= tip_open() ?><?= te('Nothing arrived? Email must be set up by an admin, or an admin can give you a reset link from the Team page.') ?><?= tip_close() ?></h1>
     <?php if ($sent): ?>
       <p class="soft"><?= te('If that address has an account, a reset link is on its way. It works for one hour.') ?></p>
-      <p class="small muted"><?= te('Nothing arrived? Email must be set up by an admin, or an admin can give you a reset link from the Team page.') ?></p>
       <a class="btn" href="/login"><?= te('Back to sign in') ?></a>
     <?php else: ?>
       <p class="soft"><?= te('We’ll email you a link to choose a new one.') ?></p>

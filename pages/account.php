@@ -80,8 +80,7 @@ View::header('My account', 'account');
     <?= csrf_field() ?><input type="hidden" name="do" value="profile">
     <div class="form-grid">
       <label class="field c6"><span><?= te('Name the team sees') ?></span><input class="input" name="name" value="<?= e($me['name']) ?>" maxlength="80"></label>
-      <label class="field c6"><span><?= te('Your Telegram chat ID') ?></span><input class="input mono" name="telegram_chat" value="<?= e($me['telegram_chat']) ?>" placeholder="123456789">
-        <small><?= te('Your alerts go here. Open the team’s bot in Telegram and press Start, then get the number from @userinfobot. A group ID (starts with −) works too.') ?></small></label>
+      <label class="field c6"><span><?= te('Your Telegram chat ID') ?><?= tip_open(t('Your Telegram chat ID')) ?><?= te('Your alerts go here. Open the team’s bot in Telegram and press Start, then get the number from @userinfobot. A group ID (starts with −) works too.') ?><?= tip_close() ?></span><input class="input mono" name="telegram_chat" value="<?= e($me['telegram_chat']) ?>" placeholder="123456789"></label>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save') ?></button>
       <span class="small muted"><?= te('Email alerts go to') ?> <?= e($me['email']) ?>.</span></div>
@@ -96,8 +95,7 @@ View::header('My account', 'account');
 </section>
 
 <section class="section" id="whatsapp">
-  <div class="section-head"><h2><?= te('WhatsApp') ?></h2><span class="aside"><?= te($ready['whatsapp'] ? 'on for your alerts' : 'not set') ?></span></div>
-  <p class="small soft mt-s"><?= te('Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.') ?></p>
+  <div class="section-head"><h2><?= te('WhatsApp') ?><?= tip_open() ?><?= te('Free, through CallMeBot. It can only message the number that asked it for a key, so each person sets up their own.') ?><?= tip_close() ?></h2><span class="aside"><?= te($ready['whatsapp'] ? 'on for your alerts' : 'not set') ?></span></div>
   <ol class="steps mt-s mb-m">
     <li><?= te('Open') ?> <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/" target="_blank" rel="noopener noreferrer"><?= te('CallMeBot’s WhatsApp page') ?></a> <?= te('and save the bot’s number shown there in your phone’s contacts.') ?></li>
     <li><?= te('From your WhatsApp, send it exactly:') ?> <span class="mono">I allow callmebot to send me messages</span></li>
@@ -106,13 +104,11 @@ View::header('My account', 'account');
   <form method="post" action="/account" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="whatsapp">
     <div class="form-grid">
-      <label class="field c6"><span><?= te('Your WhatsApp number') ?></span><input class="input mono" name="whatsapp_phone" value="<?= e($me['whatsapp_phone'] ?? '') ?>" placeholder="+1 804 555 0123" inputmode="tel">
-        <small><?= te('With the country code. Leave empty to stop WhatsApp alerts.') ?></small></label>
-      <label class="field c6"><span><?= te('CallMeBot API key') ?></span><input class="input mono" name="callmebot_key" value="" placeholder="<?= !empty($me['callmebot_key']) ? 'saved — leave empty to keep' : '123456' ?>">
-        <small><?= te('Stored encrypted.') ?></small></label>
+      <label class="field c6"><span><?= te('Your WhatsApp number') ?><?= tip_open(t('Your WhatsApp number')) ?><?= te('With the country code. Leave empty to stop WhatsApp alerts.') ?><?= tip_close() ?></span><input class="input mono" name="whatsapp_phone" value="<?= e($me['whatsapp_phone'] ?? '') ?>" placeholder="+1 804 555 0123" inputmode="tel"></label>
+      <label class="field c6"><span><?= te('CallMeBot API key') ?><?= tip_open(t('CallMeBot API key')) ?><?= te('Stored encrypted.') ?><?= tip_close() ?></span><input class="input mono" name="callmebot_key" value="" placeholder="<?= !empty($me['callmebot_key']) ? 'saved — leave empty to keep' : '123456' ?>"></label>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save WhatsApp') ?></button>
-      <span class="small muted"><?= te('CallMeBot is free and sometimes slow; Telegram is the most reliable.') ?></span></div>
+      <?= tip_open() ?><?= te('CallMeBot is free and sometimes slow; Telegram is the most reliable.') ?><?= tip_close() ?></div>
   </form>
 </section>
 
@@ -136,7 +132,7 @@ View::header('My account', 'account');
   <form method="post" action="/account" class="mt-m" data-confirm="<?= te('Sign out on every device, including this one?') ?>">
     <?= csrf_field() ?><input type="hidden" name="do" value="everywhere">
     <button class="btn btn-danger" type="submit"><?= icon('log-out', 15) ?><?= te('Sign out everywhere') ?></button>
-    <span class="small muted"><?= te('Use this if you signed in on a computer that isn’t yours.') ?></span>
+    <?= tip_open() ?><?= te('Use this if you signed in on a computer that isn’t yours.') ?><?= tip_close() ?>
   </form>
 </section>
 </div>

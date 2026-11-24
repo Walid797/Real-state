@@ -18,7 +18,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
 ?>
 <section class="property-intelligence mt-l" id="property-intelligence" data-analysis-status="<?= e($status) ?>">
   <div class="section-head">
-    <h2><?= te('AI Property Report') ?></h2>
+    <h2><?= te('AI Property Report') ?><?= tip_open() ?><?= te('The final score requires all six components. Higher risk-score values mean lower measured risk. Age, family composition and education are descriptive and excluded from scoring.') ?><?= tip_close() ?></h2>
     <?php if (App\Auth::can('edit')): ?>
     <form method="post" action="/property/<?= (int) $p['id'] ?>/act" class="no-print">
       <?= csrf_field() ?><input type="hidden" name="do" value="analysis_refresh">
@@ -42,7 +42,6 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
     <?php endforeach; ?>
     <div><span><?= te('Final investment score') ?></span><strong><?= $packet['scores']['final_score'] === null ? '—' : (int) $packet['scores']['final_score'] . '/100' ?></strong><small><?= te('Evidence coverage %d%%', $packet['scores']['coverage']) ?></small></div>
   </div>
-  <p class="section-note"><?= te('The final score requires all six components. Higher risk-score values mean lower measured risk. Age, family composition and education are descriptive and excluded from scoring.') ?></p>
   <?php if($packet['scores']['final_score']===null): ?><p class="small muted"><?= te('The final score is unavailable until every component has verified evidence.') ?></p><?php endif; ?>
   <p class="analysis-recommendation mt-m"><strong><?= te($packet['recommendation'] ?? 'More verified evidence is needed') ?></strong></p>
   <p class="small mt-s"><?= te('Property financial verdict') ?> · <?= te(App\Services\Verdict::VERDICTS[$packet['financial_verdict']] ?? 'Not enough data to decide') ?></p>

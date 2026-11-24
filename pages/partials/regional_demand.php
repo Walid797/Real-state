@@ -3,10 +3,9 @@
 $regional = App\Services\RegionalDemand::for($p);
 ?>
 <div class="regional-demand mt-l" id="regional-demand">
-  <div class="section-head"><h2><?= te('Regional demand and resale outlook') ?></h2>
+  <div class="section-head"><h2><?= te('Regional demand and resale outlook') ?><?= tip_open() ?><?= te('Review the region alongside the purchase price, renovation budget and comparable sales.') ?><?= tip_close() ?></h2>
 
   </div>
-  <p class="small soft"><?= te('Review the region alongside the purchase price, renovation budget and comparable sales.') ?></p>
   <?php if ($regional['county']): ?><p class="small mt-s"><bdi><?= e($regional['county']) ?></bdi> · <?= te('ACS survey period %s', $regional['acs_period']) ?></p><?php endif; ?>
   <?php if (!$regional['has_coordinates']): ?><p class="note mt-s"><?= te('Add verified map coordinates to identify the county for public statistics.') ?></p><?php endif; ?>
   <div class="regional-summary">
@@ -17,14 +16,13 @@ $regional = App\Services\RegionalDemand::for($p);
   <div class="regional-groups">
     <?php foreach ($regional['groups'] as $group): ?>
     <article class="regional-group">
-      <header><h3><?= te($group['label']) ?></h3></header>
+      <header><h3><?= te($group['label']) ?><?php if (!empty($group['note'])): ?><?= tip(te($group['note']), t($group['label'])) ?><?php endif; ?></h3></header>
       <p class="regional-points"><?= $group['points'] === null ? te('Needs verification') : te('Score earned: %1$s/%2$d', trim_num($group['points']), $group['weight']) ?></p>
       <?php if ($group['metrics']): ?>
       <dl>
         <?php foreach ($group['metrics'] as $label => $value): ?><div><dt><?= te($label) ?></dt><dd><bdi><?= e($value) ?></bdi></dd></div><?php endforeach; ?>
       </dl>
       <?php else: ?><p class="small muted"><?= te('Verified figures are unavailable for this item.') ?></p><?php endif; ?>
-      <p class="small soft mt-s"><?= te($group['note']) ?></p>
       <p class="regional-sources small">
         <?php foreach ($group['links'] as $label => $link): ?>
         <a href="<?= e($link) ?>"<?= str_starts_with($link, '#') ? '' : ' target="_blank" rel="noopener noreferrer"' ?>><?= te($label) ?></a>

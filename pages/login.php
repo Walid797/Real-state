@@ -38,7 +38,7 @@ View::header('Sign in', '', ['bare' => true]);
   <form class="bare-form" method="post" action="/login" autocomplete="on">
     <?= csrf_field() ?>
     <input type="hidden" name="next" value="<?= e(input('next', '/', 300)) ?>">
-    <h1 class="display"><?= te('Sign in') ?></h1>
+    <h1 class="display"><?= te('Sign in') ?><?= tip_open() ?><?= te('Not indexed by search engines. Sessions end after 14 days. No account? Ask an admin for an invitation.') ?><?= tip_close() ?></h1>
     <p class="soft"><?= te('Private to your team.') ?></p>
     <?php if ($note): ?><p class="small down" role="status"><?= te($note['msg']) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="err" role="alert"><?= te($error) ?></p><?php endif; ?>
@@ -57,7 +57,6 @@ View::header('Sign in', '', ['bare' => true]);
     <a class="btn btn-google" href="<?= e(url('/auth/google', ['next' => input('next', '', 300) ?: null])) ?>"><?= icon('google', 16) ?><?= te('Continue with Google') ?></a>
     <?php endif; ?>
   </form>
-  <p class="small muted"><?= te('Not indexed by search engines. Sessions end after 14 days. No account? Ask an admin for an invitation.') ?></p>
 </section>
 <aside class="bare-art" aria-hidden="true">
   <svg class="plat" viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#3d4b47" stroke-width="1">

@@ -260,6 +260,35 @@ function icon(string $name, int $size = 16, string $class = ''): string
         . $inner . '</svg>';
 }
 
+/**
+ * An explanation behind a small ⓘ button: the text stays in the page (for screen readers and
+ * aria-describedby) but is shown only when the button is pressed. Wrap any HTML:
+ *   <?= tip_open('Bedrooms') ?>None ticked = any type.<?= tip_close() ?>
+ * $label names what the tip is about; $id lets an input point at the text with aria-describedby;
+ * $attrs are extra attributes for the wrapper (e.g. data-kind).
+ */
+function tip_open(string $label = '', string $id = '', string $attrs = ''): string
+{
+    static $n = 0;
+    $n++;
+    $id = $id !== '' ? $id : 'tip-' . $n;
+    $name = $label !== '' ? t('About: %s', $label) : t('More information');
+    return '<span class="tip"' . ($attrs !== '' ? ' ' . $attrs : '') . '><button type="button" class="tip-btn" aria-expanded="false" aria-controls="' . e($id)
+        . '" aria-label="' . e($name) . '" title="' . e($name) . '">' . icon('info', 16) . '</button>'
+        . '<span class="tip-body" id="' . e($id) . '" role="note">';
+}
+
+function tip_close(): string
+{
+    return '</span></span>';
+}
+
+/** tip_open() + already-escaped HTML + tip_close(). */
+function tip(string $html, string $label = '', string $id = '', string $attrs = ''): string
+{
+    return tip_open($label, $id, $attrs) . $html . tip_close();
+}
+
 function csrf_field(): string
 {
     return '<input type="hidden" name="_csrf" value="' . e(App\Auth::csrfToken()) . '">';

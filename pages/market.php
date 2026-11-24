@@ -149,7 +149,7 @@ if (isset($params['id'])) {
 
     <?php if ($data): ?>
     <section class="section">
-      <div class="section-head"><h2><?= te('Latest figures') ?></h2></div>
+      <div class="section-head"><h2><?= te('Latest figures') ?><?= tip_open() ?><?= te('Home values are Zillow’s Home Value Index (typical home, smoothed, seasonally adjusted). Metro figures cover the whole metropolitan area named after this city. Listing statistics come from RentCast and describe asking prices, not sales.') ?><?= tip_close() ?></h2></div>
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th><?= te('Measure') ?></th><th><?= te('Month') ?></th><th class="r"><?= te('Value') ?></th><th class="r"><?= te('12-month change') ?></th></tr></thead>
@@ -162,7 +162,6 @@ if (isset($params['id'])) {
           </tbody>
         </table>
       </div>
-      <p class="section-note"><?= te('Home values are Zillow’s Home Value Index (typical home, smoothed, seasonally adjusted). Metro figures cover the whole metropolitan area named after this city. Listing statistics come from RentCast and describe asking prices, not sales.') ?></p>
     </section>
     <?php endif; ?>
 
@@ -182,8 +181,7 @@ View::header('Market', 'market');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Market') ?></h1>
-    <p><?= te('Follow a ZIP or a city month by month: what a typical home is worth, how fast homes go, how many are for sale.') ?></p>
+    <h1 class="display"><?= te('Market') ?><?= tip_open() ?><?= te('Follow a ZIP or a city month by month: what a typical home is worth, how fast homes go, how many are for sale.') ?> <?= te('Refreshed automatically once a month by the scheduler.') ?><?= tip_close() ?></h1>
   </div>
   <form class="actions" method="post" action="/market">
     <?= csrf_field() ?><input type="hidden" name="do" value="add">
@@ -221,7 +219,6 @@ View::header('Market', 'market');
       </tbody>
     </table>
   </div>
-  <p class="section-note"><?= te('Refreshed automatically once a month by the scheduler.') ?></p>
 <?php endif; ?>
 <?php
 View::footer();

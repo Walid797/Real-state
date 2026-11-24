@@ -1691,4 +1691,8 @@ return [
     'profit %s+' => 'سود %s+',
     '%s%% under area $/sqft' => '%s٪ زیر قیمت هر فوت مربع منطقه',
     'Hvac' => 'HVAC',
+    'Requests' => 'درخواست‌ها',
+    'How these numbers are estimated' => 'این عددها چطور تخمین زده شده‌اند',
+    'About: %s' => 'دربارهٔ: %s',
+    'More information' => 'توضیح بیشتر',
 ];

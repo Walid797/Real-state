@@ -11,8 +11,7 @@ View::header('Reports', 'reports');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Reports') ?></h1>
-    <p><?= te('Where the homes are, what they cost, which ones look best — and how the team’s finished projects compared with the estimates.') ?></p>
+    <h1 class="display"><?= te('Reports') ?><?= tip_open() ?><?= te('Where the homes are, what they cost, which ones look best — and how the team’s finished projects compared with the estimates.') ?><?= tip_close() ?></h1>
   </div>
   <div class="actions no-print">
     <a class="btn" href="/export.xlsx?report=1"><?= icon('file-spreadsheet', 15) ?><?= te('Excel') ?></a>
@@ -27,7 +26,7 @@ View::header('Reports', 'reports');
 
 <?php foreach ($tables as $t): ?>
 <section class="section report" id="r-<?= $t['key'] ?>">
-  <div class="section-head"><h2><?= te($t['title']) ?></h2><span class="aside"><?= te($t['note']) ?></span></div>
+  <div class="section-head"><h2><?= te($t['title']) ?><?= tip_open() ?><?= te($t['note']) ?><?= tip_close() ?></h2></div>
   <?php if (!$t['rows']): ?>
     <p class="blank"><?= te('Nothing to show yet.') ?></p>
   <?php else: ?>

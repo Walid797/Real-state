@@ -11,7 +11,7 @@ foreach ($history as $h) {
 usort($timeline, static fn ($a, $b) => strcmp($b['t'], $a['t']));
 ?>
 <section class="section" id="notes">
-  <div class="section-head"><h2><?= te('Team notes') ?></h2><span class="aside"><?= te('everyone on the team sees these') ?></span></div>
+  <div class="section-head"><h2><?= te('Team notes') ?><?= tip_open() ?><?= te('everyone on the team sees these') ?><?= tip_close() ?></h2></div>
   <?php if ($canEdit): ?>
   <form method="post" action="/property/<?= $id ?>/act#notes" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="note">
@@ -42,7 +42,7 @@ usort($timeline, static fn ($a, $b) => strcmp($b['t'], $a['t']));
 </section>
 
 <section class="section" id="history">
-  <div class="section-head"><h2><?= te('History') ?></h2><span class="aside"><?= te('who changed what, newest first') ?></span></div>
+  <div class="section-head"><h2><?= te('History') ?><?= tip_open() ?><?= te('who changed what, newest first') ?><?= tip_close() ?></h2></div>
   <?php if ($timeline): ?>
   <ol class="timeline">
     <?php foreach (array_slice($timeline, 0, 40) as $t): ?>

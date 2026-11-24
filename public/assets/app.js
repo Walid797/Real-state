@@ -9,6 +9,48 @@
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+  /* ── ⓘ explanations: one open at a time; Esc or a press elsewhere closes; kept on screen ── */
+  document.documentElement.classList.add('js');
+  var openTip = null;
+  var placeTip = function (tip) {
+    var body = $('.tip-body', tip);
+    if (!body) return;
+    body.style.transform = '';
+    var r = body.getBoundingClientRect(), pad = 12, dx = 0;
+    if (r.right > window.innerWidth - pad) dx = window.innerWidth - pad - r.right;
+    if (r.left + dx < pad) dx = pad - r.left;
+    if (dx) body.style.transform = 'translateX(' + Math.round(dx) + 'px)';
+  };
+  var setTip = function (tip, on) {
+    tip.classList.toggle('open', on);
+    var btn = $('.tip-btn', tip);
+    if (btn) btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    if (on) { openTip = tip; placeTip(tip); } else if (openTip === tip) { openTip = null; }
+  };
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.tip-btn') : null;
+    if (btn) {
+      // Inside a <label> or <summary>: show the text, don't focus the field or toggle the panel.
+      e.preventDefault();
+      e.stopPropagation();
+      var tip = btn.parentNode, on = !tip.classList.contains('open');
+      if (openTip && openTip !== tip) setTip(openTip, false);
+      setTip(tip, on);
+      return;
+    }
+    var inBody = e.target.closest ? e.target.closest('.tip-body') : null;
+    // Text inside a tip that sits in a <summary>: reading it must not open or close the panel.
+    if (inBody && inBody.closest('summary') && !e.target.closest('a')) e.preventDefault();
+    if (openTip && !inBody) setTip(openTip, false);
+  }, true);
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || !openTip) return;
+    var b = $('.tip-btn', openTip);
+    setTip(openTip, false);
+    if (b) b.focus();
+  });
+  window.addEventListener('resize', function () { if (openTip) placeTip(openTip); });
+
   var readJson = function (id) {
     var el = document.getElementById(id);
     if (!el) return null;

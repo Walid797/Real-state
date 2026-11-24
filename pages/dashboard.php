@@ -86,7 +86,7 @@ View::header('Dashboard', 'dashboard');
 
 <div class="dash-grid">
   <section class="section">
-    <div class="section-head"><h2><?= te('Best opportunities now') ?></h2><a class="aside" href="/search?<?= e(http_build_query(['q' => $stateName, 'sort' => 'score'])) ?>"><?= te('All, by score') ?></a></div>
+    <div class="section-head"><h2><?= te('Best opportunities now') ?><?= tip_open() ?><?= te('Profit, ARV and scores are estimates from public data and your settings. They are not appraisals, inspections or advice.') ?><?= tip_close() ?></h2><a class="aside" href="/search?<?= e(http_build_query(['q' => $stateName, 'sort' => 'score'])) ?>"><?= te('All, by score') ?></a></div>
     <?php if ($top): ?>
     <ul class="plain-list opp-list">
       <?php foreach ($top as $r): $band = Score::band((int) $r['score']); ?>
@@ -157,6 +157,5 @@ View::header('Dashboard', 'dashboard');
     <?php endif; ?>
   </section>
 </div>
-<p class="section-note"><?= te('Profit, ARV and scores are estimates from public data and your settings. They are not appraisals, inspections or advice.') ?></p>
 <?php
 View::footer();

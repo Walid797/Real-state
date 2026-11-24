@@ -8,7 +8,7 @@ $aerialReady = Settings::has('cesium_key');
 $aerialLeft = $aerialReady ? Quota::left('cesium') : 0;
 ?>
 <section class="section aerial-sec" id="look-around">
-  <div class="section-head"><h2><?= te('Look around') ?></h2><span class="aside"><?= te('3D aerial view') ?></span></div>
+  <div class="section-head"><h2><?= te('Look around') ?><?= tip_open() ?><?= te('Imagery can be months or years old. Rural areas may only have flat satellite images, not 3D buildings.') ?><?= tip_close() ?></h2><span class="aside"><?= te('3D aerial view') ?></span></div>
   <?php if (!$hasGeo): ?>
     <p class="blank"><?= te('This address has no map position yet, so there is nothing to fly around.') ?></p>
   <?php elseif (!$aerialReady): ?>
@@ -36,6 +36,5 @@ $aerialLeft = $aerialReady ? Quota::left('cesium') : 0;
       </div>
       <p class="aerial-msg small" role="status" hidden></p>
     </div>
-    <p class="small muted mt-s"><?= te('Imagery can be months or years old. Rural areas may only have flat satellite images, not 3D buildings.') ?></p>
   <?php endif; ?>
 </section>

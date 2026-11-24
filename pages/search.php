@@ -51,43 +51,47 @@ $val = static fn (string $k) => isset($f[$k]) ? e(rtrim(rtrim(number_format((flo
 $money = static fn (string $k) => isset($f[$k]) ? e(number_format((float) $f[$k])) : '';
 $countyExample = 'Fairfax County, Loudoun County, VA';
 
+/** How to type a search, with examples to try — behind an ⓘ beside the search box. */
+$searchHelp = static function (): string {
+    $html = te('Type it any way: a full or partial address (with or without commas, ZIP or state), an apartment, a building name, a street, a city, a county or ZIP codes. Several places together: separate them with commas, “;” or “and”. Filters can be typed too; the boxes below always win.')
+        . '<ul class="search-examples" dir="ltr">';
+    foreach (['5501 Seminary Rd Apt 1703 S Falls Church VA 22041', '5501 Seminary Rd', 'Seminary Rd, Falls Church', 'Skyline Square, Falls Church, VA',
+        'Fairfax County, Loudoun County, VA', '22041 22042 22044', 'Fairfax County; Arlington; 22041', '3 bed townhouse in Falls Church under 500k',
+        '۳ خوابه زیر ۵۰۰ هزار در Fairfax County'] as $example) {
+        $html .= '<li><a href="' . e(url('/search', ['q' => $example])) . '"><bdi>' . e($example) . '</bdi></a></li>';
+    }
+    return tip($html . '</ul>', t('Search'), 'search-area-help');
+};
+
 /** The full filter form — used on the landing page and in the results drawer. */
-$filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefault, $countyExample): void {
+$filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefault, $countyExample, $searchHelp): void {
     $types = $f['types'];
     $pair = static function (string $label, string $min, string $max, string $hint = '', bool $isMoney = false) use ($val, $money): void {
         $v = $isMoney ? $money : $val;
-        echo '<div class="field"><span>' . te($label) . '</span><div class="pair">'
+        echo '<div class="field"><span>' . te($label) . ($hint ? tip(te($hint), t($label)) : '') . '</span><div class="pair">'
             . '<input class="input" name="' . $min . '" inputmode="decimal" placeholder="' . te('Min') . '" value="' . $v($min) . '" aria-label="' . te('%s minimum', t($label)) . '">'
             . '<input class="input" name="' . $max . '" inputmode="decimal" placeholder="' . te('Max') . '" value="' . $v($max) . '" aria-label="' . te('%s maximum', t($label)) . '">'
-            . '</div>' . ($hint ? '<small>' . te($hint) . '</small>' : '') . '</div>';
+            . '</div></div>';
     };
     ?>
     <div class="filters">
       <fieldset class="fgroup">
         <legend><?= te($landing ? 'Area' : 'Type') ?></legend>
         <?php if ($landing): ?>
-        <label class="field"><span><?= te('Where') ?></span>
-          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('Address, building, street, city, county or ZIP — add “3 bed under 500k” if you like') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
-          <small id="search-area-help"><?= te('Type it any way: a full or partial address (with or without commas, ZIP or state), an apartment, a building name, a street, a city, a county or ZIP codes. Several places together: separate them with commas, “;” or “and”. Filters can be typed too; the boxes below always win.') ?></small>
-          <ul class="search-examples small" dir="ltr">
-            <?php foreach (['5501 Seminary Rd Apt 1703 S Falls Church VA 22041', '5501 Seminary Rd', 'Seminary Rd, Falls Church', 'Skyline Square, Falls Church, VA',
-                'Fairfax County, Loudoun County, VA', '22041 22042 22044', 'Fairfax County; Arlington; 22041', '3 bed townhouse in Falls Church under 500k',
-                '۳ خوابه زیر ۵۰۰ هزار در Fairfax County'] as $example): ?>
-            <li><a href="<?= e(url('/search', ['q' => $example])) ?>"><bdi><?= e($example) ?></bdi></a></li>
-            <?php endforeach; ?>
-          </ul></label>
+        <div class="field"><span><label for="search-q"><?= te('Where') ?></label><?= $searchHelp() ?></span>
+          <input class="input" id="search-q" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('Address, building, street, city, county or ZIP — add “3 bed under 500k” if you like') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help"></div>
         <div class="field"><span><?= te('Listings') ?></span>
           <span class="seg" role="group" aria-label="<?= te('For sale or sold') ?>">
             <label><input type="radio" name="mode" value="sale"<?= checked($f['mode'] === 'sale') ?>><span><?= te('For sale') ?></span></label>
             <label><input type="radio" name="mode" value="sold"<?= checked($f['mode'] === 'sold') ?>><span><?= te('Sold') ?></span></label>
           </span></div>
         <?php endif; ?>
-        <div class="field"><span><?= te('Property type') ?></span>
+        <div class="field"><span><?= te('Property type') ?><?= tip(te('None ticked = any type.'), t('Property type')) ?></span>
           <div class="checks-row">
             <?php foreach (PropertyRepo::TYPES as $t): ?>
             <label class="check"><input type="checkbox" name="types[]" value="<?= e($t) ?>"<?= checked(in_array($t, $types, true)) ?>><?= te($t) ?></label>
             <?php endforeach; ?>
-          </div><small><?= te('None ticked = any type.') ?></small></div>
+          </div></div>
       </fieldset>
 
       <fieldset class="fgroup">
@@ -113,23 +117,22 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
       </fieldset>
 
       <fieldset class="fgroup">
-        <legend><?= te('Listing status') ?></legend>
+        <legend><?= te('Listing status') ?><?= tip(te('None ticked = all active listings. Ticked ones are combined with “or”.'), t('Listing status')) ?></legend>
         <div class="checks">
           <?php foreach (PropertyRepo::LISTING as $k => $label): ?>
           <label class="check"><input type="checkbox" name="listing[]" value="<?= $k ?>"<?= checked(in_array($k, $f['listing'], true)) ?>><?= te($label) ?></label>
           <?php endforeach; ?>
         </div>
-        <small class="hint"><?= te('None ticked = all active listings. Ticked ones are combined with “or”.') ?></small>
       </fieldset>
 
       <fieldset class="fgroup">
-        <legend><?= te('Renovation & condition') ?></legend>
-        <div class="field"><span><?= te('Overall condition') ?></span>
+        <legend><?= te('Renovation & condition') ?><?= tip(te('Read from the listing text. Anything not mentioned is “not disclosed”, never assumed fine.'), t('Renovation & condition')) ?></legend>
+        <div class="field"><span><?= te('Overall condition') ?><?= tip(te('None ticked = all conditions.'), t('Overall condition')) ?></span>
           <div class="checks">
             <?php foreach (Condition::OVERALL as $k => $label): ?>
             <label class="check"><input type="checkbox" name="cond[]" value="<?= $k ?>"<?= checked(in_array($k, $f['cond'], true)) ?>><?= te($label) ?></label>
             <?php endforeach; ?>
-          </div><small><?= te('None ticked = all conditions.') ?></small></div>
+          </div></div>
         <?php foreach (['kitchen' => 'Kitchen', 'bathroom' => 'Bathroom', 'roof' => 'Roof', 'hvac' => 'HVAC'] as $part => $label): ?>
         <div class="field row-field"><span><?= te($label) ?></span>
           <span class="seg seg-sm" role="group" aria-label="<?= te($label) ?>">
@@ -138,7 +141,6 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
             <?php endforeach; ?>
           </span></div>
         <?php endforeach; ?>
-        <small class="hint"><?= te('Read from the listing text. Anything not mentioned is “not disclosed”, never assumed fine.') ?></small>
       </fieldset>
 
       <fieldset class="fgroup">
@@ -171,8 +173,7 @@ if ($f['q'] === '' && $f['scope'] !== 'saved') {
     ?>
     <header class="page-head">
       <div>
-        <h1 class="display"><?= te('Find the next deal') ?></h1>
-        <p><?= te('Search all of') ?> <?= e($stateName) ?> <?= te('or any part of it. Every filter takes a minimum and a maximum; leave a box empty for “any”.') ?></p>
+        <h1 class="display"><?= te('Find the next deal') ?><?= tip(te('Search all of') . ' ' . e($stateName) . ' ' . te('or any part of it. Every filter takes a minimum and a maximum; leave a box empty for “any”.'), t('Search')) ?></h1>
       </div>
       <div class="actions">
         <a class="btn" href="<?= e(url('/search', ['q' => $stateName, 'types' => $typesDefault, 'sort' => 'score'])) ?>"><?= icon('trophy', 15) ?><?= te('Statewide best opportunities') ?></a>
@@ -184,12 +185,12 @@ if ($f['q'] === '' && $f['scope'] !== 'saved') {
       <div class="form-foot sticky-foot">
         <button class="btn btn-primary" type="submit"><?= icon('search', 15) ?><?= te('Search') ?></button>
         <a class="btn btn-ghost" href="/search"><?= te('Reset') ?></a>
-        <span class="small muted"><?= te('Already-pulled areas cost nothing. A new area uses one request; several areas ask first.') ?></span>
+        <?= tip(te('Already-pulled areas cost nothing. A new area uses one request; several areas ask first.'), t('Requests')) ?>
       </div>
     </form>
 
     <section class="section">
-      <div class="section-head"><h2><?= te('My search profiles') ?></h2><span class="aside"><?= te('each can have its own alert') ?></span></div>
+      <div class="section-head"><h2><?= te('My search profiles') ?><?= tip(te('each can have its own alert'), t('My search profiles')) ?></h2></div>
       <?php if ($saved): $bulk = ['type' => 'profiles', 'form' => 'bulk-profiles', 'back' => '/search', 'all' => 'Delete all my profiles', 'count' => count($saved)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
       <ul class="plain-list">
         <?php foreach ($saved as $s): $p = json_decode($s['params'], true) ?: []; ?>
@@ -257,6 +258,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
   <div class="sbar-row">
     <label class="q"><span class="sr"><?= te('Area') ?></span><?= icon('search', 16) ?>
       <input class="input" type="search" name="q" value="<?= e($f['scope']==='saved' ? $loc['label'] : $f['q']) ?>" placeholder="<?= te('Address, building, street, city, county or ZIP — add “3 bed under 500k” if you like') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" <?= $f['scope']==='saved' ? 'readonly' : 'required' ?> aria-describedby="search-area-help"></label>
+    <?= $f['scope']==='saved' ? tip(te('Showing saved homes across all areas. This view does not call external data sources.') . ' <a href="/search">' . te('Search a new area') . '</a>', t('Search'), 'search-area-help') : $searchHelp() ?>
     <?php if ($f['scope']!=='saved'): ?><span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
@@ -275,16 +277,13 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       </select></label>
     <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </div>
-  <?php if ($f['scope']==='saved'): ?>
-  <p class="sbar-desc" id="search-area-help"><?= te('Showing saved homes across all areas. This view does not call external data sources.') ?> <a href="/search"><?= te('Search a new area') ?></a></p>
-  <?php else: ?><p class="sbar-desc" id="search-area-help"><?= te('Type it any way: a full or partial address (with or without commas, ZIP or state), an apartment, a building name, a street, a city, a county or ZIP codes. Several places together: separate them with commas, “;” or “and”. Filters can be typed too; the boxes below always win.') ?></p><?php endif; ?>
   <?php if ($loc && $loc['type']!=='saved'): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas','street'=>'Street','address'=>'Address']; ?>
   <p class="sbar-desc search-detected" data-detected="<?= e($loc['type']) ?>"><?= te('Detected automatically: %s',t($typeLabels[$loc['type']]??'Address')) ?>
     <?php if ($loc['type'] === 'multi'): ?><span class="detected-parts"><?php foreach ($loc['parts'] as $part): ?><span class="chip"><?= te($typeLabels[$part['type']] ?? 'Address') ?>: <bdi><?= e($part['label']) ?></bdi></span><?php endforeach; ?></span><?php endif; ?></p>
   <?php endif; ?>
   <?php if (!empty($f['understood'])): ?>
   <p class="sbar-desc search-understood"><?= te('Filters understood from your search:') ?> <?php foreach ($f['understood'] as $u): ?><span class="chip chip-good"><?= e($u) ?></span><?php endforeach; ?>
-    <span class="muted"><?= te('Change them under Filters.') ?></span></p>
+    <?= tip(te('Change them under Filters.'), t('Filters understood from your search:')) ?></p>
   <?php endif; ?>
   <?php if ($activeFilters): ?><p class="sbar-desc"><?= e(Search::describe($f)) ?></p><?php endif; ?>
 </form>
@@ -319,8 +318,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <div class="homes-search-status note mt-s" role="status">
         <strong>Homes.com</strong>
         <?php if ($homes['available']): ?>
-          <span><?= te('%d listings verified for the requested location.', $homes['count']) ?> <?= te('First-page coverage; this is not the complete market.') ?></span>
-          <small><?= te($homes['cached'] ? 'Using cached source pages.' : 'Source pages checked now.') ?> <?= te('Source checked') ?> <bdi><?= e($homes['observed_at']) ?> UTC</bdi></small>
+          <span><?= te('%d listings verified for the requested location.', $homes['count']) ?><?= tip(te('First-page coverage; this is not the complete market.') . ' ' . te($homes['cached'] ? 'Using cached source pages.' : 'Source pages checked now.') . ' ' . te('Source checked') . ' <bdi>' . e($homes['observed_at']) . ' UTC</bdi>', 'Homes.com') ?></span>
         <?php else: ?><span><?= te('Homes.com did not return verified listings for this search. Other sources and saved results remain available.') ?></span><?php endif; ?>
         <?php if ($homes['limited']): ?><small><?= te('Only part of the requested areas was checked within this search time limit.') ?></small><?php endif; ?>
         <?php foreach ($homes['errors'] as $error): ?><small><?= te($error) ?></small><?php endforeach; ?>
@@ -329,8 +327,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
 
       <?php if ($loc['type'] === 'building'): ?>
       <section class="building-matches callout mt-s">
-        <div><h2><?= te('Building address matches') ?></h2>
-          <p class="small soft"><?= te('Map addresses identify the building, not an individual apartment or a current sale. Open the correct building or search its full address with the unit number.') ?></p>
+        <div><h2><?= te('Building address matches') ?><?= tip(te('Map addresses identify the building, not an individual apartment or a current sale. Open the correct building or search its full address with the unit number.'), t('Building address matches')) ?></h2>
           <?php foreach ($loc['buildings'] as $building): ?>
           <article class="building-match">
             <strong><bdi><?= e($building['name']) ?></bdi></strong><span><bdi><?= e(Address::full($building)) ?></bdi></span>
@@ -372,8 +369,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       ?>
       <div class="cost-card sales-card">
         <div>
-          <strong><?= te('ARV and profit here come from asking prices.') ?></strong>
-          <p class="small soft"><?= te('Pull the last 12 months of recorded sales in') ?> <?= e($loc['label']) ?> <?= te('and every home here is valued against what actually sold.') ?></p>
+          <strong><?= te('ARV and profit here come from asking prices.') ?><?= tip(te('Pull the last 12 months of recorded sales in') . ' ' . e($loc['label']) . ' ' . te('and every home here is valued against what actually sold.'), t('Pull recorded sales')) ?></strong>
         </div>
         <form method="post" action="/search/act" class="inline">
           <?= csrf_field() ?><input type="hidden" name="do" value="area_sales"><input type="hidden" name="params" value="<?= e(json_encode($query)) ?>">

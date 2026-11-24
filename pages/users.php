@@ -104,22 +104,21 @@ View::header('Team', 'users');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Team') ?></h1>
-    <p><?= te('Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.') ?></p>
+    <h1 class="display"><?= te('Team') ?><?= tip_open() ?><?= te('Everyone here shares the same homes, statuses, deal numbers and notes. Each person keeps their own alerts.') ?><?= tip_close() ?></h1>
   </div>
 </header>
 
 <?php if ($link): ?>
 <div class="card">
-  <h3><?= te('Invitation link for') ?> <?= e($link['email']) ?></h3>
-  <p class="small soft mb-m"><?= te($link['mailed'] ? 'It was also emailed to them.' : 'Email isn’t set up, so send this link yourself (WhatsApp, text, email).') ?> <?= te('Anyone with the link can claim the account, so send it only to them.') ?></p>
+  <h3><?= te('Invitation link for') ?> <?= e($link['email']) ?><?= tip(te('Anyone with the link can claim the account, so send it only to them.'), t('Invitation link for')) ?></h3>
+  <p class="small soft mb-m"><?= te($link['mailed'] ? 'It was also emailed to them.' : 'Email isn’t set up, so send this link yourself (WhatsApp, text, email).') ?></p>
   <code class="block"><?= e($link['link']) ?></code>
   <button class="btn btn-sm mt-m" type="button" data-copy="<?= e($link['link']) ?>"><?= icon('copy', 14) ?><?= te('Copy link') ?></button>
 </div>
 <?php endif; ?>
 
 <section class="section">
-  <div class="section-head"><h2><?= te('Members') ?></h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
+  <div class="section-head"><h2><?= te('Members') ?><?= tip_open() ?><?= te('Online means activity within the last 90 seconds. Last activity updates when someone visits or uses a visible page.') ?><?= tip_close() ?></h2><span class="aside"><?= plural(count($users), 'person', 'people') ?></span></div>
   <?php $bulk = ['type' => 'users', 'form' => 'bulk-users', 'back' => '/users', 'all' => 'Delete everyone but you', 'count' => max(0, count($users) - 1)]; include APP_ROOT . '/pages/partials/bulk_bar.php'; ?>
   <div class="table-wrap">
     <table class="table" data-presence-users>
@@ -154,7 +153,6 @@ View::header('Team', 'users');
       <?php endforeach; ?>
       </tbody>
     </table>
-    <p class="small muted mt-s"><?= te('Online means activity within the last 90 seconds. Last activity updates when someone visits or uses a visible page.') ?></p>
   </div>
 </section>
 
@@ -171,7 +169,7 @@ View::header('Team', 'users');
         </select></label>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= icon('send', 15) ?><?= te('Create invite link') ?></button>
-      <span class="small muted"><?= te('They set their own password, or sign in with Google using this same email.') ?></span></div>
+      <?= tip_open() ?><?= te('They set their own password, or sign in with Google using this same email.') ?><?= tip_close() ?></div>
   </form>
   <dl class="kv mt-l">
     <div><dt><?= te('Admin') ?></dt><dd><?= te('Everything, including team, data sources and settings') ?></dd></div>

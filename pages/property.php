@@ -223,7 +223,7 @@ if (count($series) >= 2) {
     <?php include APP_ROOT . '/pages/partials/condition.php'; ?>
 
     <section class="section" id="comps">
-      <div class="section-head"><h2><?= te('Comparable sales') ?></h2>
+      <div class="section-head"><h2><?= te('Comparable sales') ?><?= tip_open() ?><?= te('Same property type, living area within 35%. Sale prices are public-record figures; Texas, Utah and a few other states don’t disclose them.') ?><?= tip_close() ?></h2>
         <span class="aside"><?= te('within') ?> <?= e(trim_num($comps['radius'])) ?> <?= te('mi · last') ?> <?= (int) $comps['months'] ?> <?= te('months') ?><?= $comps['widened'] ? ' (widened)' : '' ?></span></div>
 
       <?php if (!$hasGeo): ?>
@@ -270,13 +270,12 @@ if (count($series) >= 2) {
         </select>
         <a class="small" href="<?= e(url('/add', ['near' => $id])) ?>"><?= te('Add a sale by hand') ?></a>
       </form>
-      <p class="section-note"><?= te('Same property type, living area within 35%. Sale prices are public-record figures; Texas, Utah and a few other states don’t disclose them.') ?></p>
       <?php endif; ?>
     </section>
 
     <?php if (!empty($d['rc_comps'])): ?>
     <section class="section">
-      <div class="section-head"><h2><?= te('Comparable listings') ?></h2><span class="aside"><?= te('asking prices RentCast used for its estimate') ?></span></div>
+      <div class="section-head"><h2><?= te('Comparable listings') ?><?= tip_open() ?><?= te('asking prices RentCast used for its estimate') ?><?= tip_close() ?></h2></div>
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th><?= te('Address') ?></th><th><?= te('Status') ?></th><th class="r"><?= te('Asking') ?></th><th class="r"><?= te('Size') ?></th><th class="r"><?= te('Away') ?></th><th class="r"><?= te('Match') ?></th></tr></thead>
@@ -431,8 +430,7 @@ if (count($series) >= 2) {
 
     <?php if ($canEdit): ?>
     <div class="card">
-      <h3><?= te('Pull more on this home') ?></h3>
-      <p class="small muted mb-m"><?= te('Each button spends one request and keeps the result for good.') ?></p>
+      <h3><?= te('Pull more on this home') ?><?= tip_open() ?><?= te('Each button spends one request and keeps the result for good.') ?><?= tip_close() ?></h3>
       <div class="pulls">
         <?php if ($rcReady): ?>
           <?= $pull('record', 'Public record & past sales', '1 request', $rcLeft > 0) ?>

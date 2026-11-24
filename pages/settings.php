@@ -143,41 +143,35 @@ View::header('Settings', 'settings');
 
 <div class="narrow">
 <section class="section" id="sources">
-  <div class="section-head"><h2><?= te('Data sources') ?></h2></div>
+  <div class="section-head"><h2><?= te('Data sources') ?><?= tip_open() ?><?= te('Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).') ?><?= tip_close() ?></h2></div>
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="sources">
     <div class="card">
       <?php $rcProblem = App\Providers\RentCast::problem(); ?>
-      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('rentcast_key') ? 'Connected' : 'Not connected') ?></span><?php endif; ?></h3>
+      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('rentcast_key') ? 'Connected' : 'Not connected') ?></span><?php endif; ?><?= tip_open() ?><?= te('Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.') ?><?= tip_close() ?></h3>
       <?php if ($rcProblem && Settings::has('rentcast_key')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($rcProblem['why']) ?></strong>
         <span class="small soft"><?= te('Last refused') ?> <?= e(ago($rcProblem['at'])) ?><?= te('. Refused requests are not counted against your 50.') ?></span>
         <a class="btn btn-sm mt-s" href="<?= e(App\Providers\RentCast::DASHBOARD) ?>" target="_blank" rel="noopener noreferrer"><?= icon('external-link', 14) ?><?= te('Open the RentCast API dashboard') ?></a></div></div>
       <?php endif; ?>
-      <p class="small soft mb-m"><?= te('Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.') ?></p>
       <div class="form-grid">
-        <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="rentcast_limit" value="<?= $s('rentcast_limit') ?>" inputmode="numeric">
-          <small><?= te('Keep at 50 on the free plan — RentCast bills past it.') ?></small></label>
-        <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="rentcast_reserve" value="<?= $s('rentcast_reserve') ?>" inputmode="numeric">
-          <small><?= te('Alerts never touch these.') ?></small></label>
+        <label class="field c4"><span><?= te('Requests per month') ?><?= tip_open(t('Requests per month')) ?><?= te('Keep at 50 on the free plan — RentCast bills past it.') ?><?= tip_close() ?></span><input class="input" name="rentcast_limit" value="<?= $s('rentcast_limit') ?>" inputmode="numeric"></label>
+        <label class="field c4"><span><?= te('Kept for searching by hand') ?><?= tip_open(t('Kept for searching by hand')) ?><?= te('Alerts never touch these.') ?><?= tip_close() ?></span><input class="input" name="rentcast_reserve" value="<?= $s('rentcast_reserve') ?>" inputmode="numeric"></label>
       </div>
     </div>
 
     <div class="card">
-      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('openwebninja_key') ? 'Connected' : 'Optional') ?></span></h3>
-      <p class="small soft mb-m"><?= te('Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.') ?></p>
+      <h3><?= te('Zillow data, through OpenWeb Ninja') ?> <span class="tag<?= Settings::has('openwebninja_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('openwebninja_key') ? 'Connected' : 'Optional') ?></span><?= tip_open() ?><?= te('Adds photos, the listing description, full price and tax history, Zestimates and Zillow’s own sold comparables. Free plan: 100 requests a month, hard-capped.') ?><?= tip_close() ?></h3>
       <div class="form-grid">
         <label class="field c4"><span><?= te('Requests per month') ?></span><input class="input" name="openwebninja_limit" value="<?= $s('openwebninja_limit') ?>" inputmode="numeric"></label>
         <label class="field c4"><span><?= te('Kept for searching by hand') ?></span><input class="input" name="openwebninja_reserve" value="<?= $s('openwebninja_reserve') ?>" inputmode="numeric"></label>
-        <label class="field c4"><span><?= te('Fetched by themselves, per month') ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric">
-          <small><?= te('The first time a home is opened or added to favorites, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?></small></label>
+        <label class="field c4"><span><?= te('Fetched by themselves, per month') ?><?= tip_open(t('Fetched by themselves, per month')) ?><?= te('The first time a home is opened or added to favorites, its full listing is fetched once. 0 turns this off.') ?> <?= App\Services\ListingDetails::autoUsed() ?> <?= te('used this month.') ?><?= tip_close() ?></span><input class="input" name="openwebninja_auto" value="<?= $s('openwebninja_auto') ?>" inputmode="numeric"></label>
       </div>
     </div>
 
     <div class="card">
-      <h3>Homes.com</h3>
+      <h3>Homes.com<?= tip_open() ?><?= te('Reads the first public search page for up to three areas within a short time limit. Pages are cached for one hour. No RentCast request is used for this source. Access and coverage depend on Homes.com.') ?><?= tip_close() ?></h3>
       <label class="check"><input type="checkbox" name="homes_on" value="1"<?= checked(App\Providers\HomesCom::enabled()) ?>><?= te('Add public Homes.com listings alongside RentCast') ?></label>
-      <p class="small soft mt-s"><?= te('Reads the first public search page for up to three areas within a short time limit. Pages are cached for one hour. No RentCast request is used for this source. Access and coverage depend on Homes.com.') ?></p>
     </div>
 
     <div class="card">
@@ -189,13 +183,11 @@ View::header('Settings', 'settings');
             <option value="rentcast"<?= selected(Settings::get('search_provider'), 'rentcast') ?>><?= te('RentCast only') ?></option>
             <option value="openwebninja"<?= selected(Settings::get('search_provider'), 'openwebninja') ?>><?= te('Zillow data only') ?></option>
           </select></label>
-        <label class="field c6"><span><?= te('Reuse a pulled area for, hours') ?></span><input class="input" name="snapshot_hours" value="<?= $s('snapshot_hours') ?>" inputmode="numeric">
-          <small><?= te('Within this time the same area is answered from your own database, free.') ?></small></label>
+        <label class="field c6"><span><?= te('Reuse a pulled area for, hours') ?><?= tip_open(t('Reuse a pulled area for, hours')) ?><?= te('Within this time the same area is answered from your own database, free.') ?><?= tip_close() ?></span><input class="input" name="snapshot_hours" value="<?= $s('snapshot_hours') ?>" inputmode="numeric"></label>
       </div>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save data sources') ?></button></div>
   </form>
-  <p class="section-note"><?= te('Always free and already on: map position (U.S. Census geocoder), flood zones (FEMA), market trends (Zillow Research), maps (OpenStreetMap).') ?></p>
 </section>
 
 <?php
@@ -205,12 +197,11 @@ $mailbox = (string) (Settings::get('smtp_user') ?? '');
 $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_%' ORDER BY v DESC LIMIT 12");
 ?>
 <section class="section" id="free">
-  <div class="section-head"><h2><?= te('Free sources') ?></h2><span class="aside"><?= te('no keys, no monthly limit') ?></span></div>
+  <div class="section-head"><h2><?= te('Free sources') ?><?= tip_open() ?><?= te('no keys, no monthly limit') ?><?= tip_close() ?></h2></div>
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="free">
     <div class="card">
-      <h3><?= te('Listing e-mails') ?> <?= $mailOn ? '<span class="tag tag-live">' . te('On') . '</span>' : '<span class="tag">' . te('Off') . '</span>' ?></h3>
-      <p class="small soft mb-m"><?= te('New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.') ?></p>
+      <h3><?= te('Listing e-mails') ?> <?= $mailOn ? '<span class="tag tag-live">' . te('On') . '</span>' : '<span class="tag">' . te('Off') . '</span>' ?><?= tip_open() ?><?= te('New homes from the saved-search e-mails you already get from Zillow, Redfin, Homes.com, Realtor.com and others — or from your agent’s MLS. They are sent to this site’s mailbox; every ten minutes the site reads the new ones, takes each home’s address from its link, and the price, beds, baths and size printed next to it. Then the home is scored and checked against your alerts like any other. Nothing is downloaded from those sites.') ?><?= tip_close() ?></h3>
       <?php if (Settings::get('mail_last_error')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e((string) Settings::get('mail_last_error')) ?></strong><span class="small soft"><?= te('Check the mailbox settings on the server.') ?></span></div></div>
       <?php endif; ?>
@@ -223,8 +214,7 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       </ol>
       <div class="form-grid">
         <label class="check c12"><input type="checkbox" name="mail_listings_on"<?= Settings::get('mail_listings_on') === '1' ? ' checked' : '' ?>><?= te('Read listing e-mails from this mailbox') ?></label>
-        <label class="field c12"><span><?= te('More sender domains to trust') ?></span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com">
-          <small><?= te('Already trusted:') ?> <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?><?= te('. Only mail the mail server confirms came from these domains is read; other mail is left alone.') ?></small></label>
+        <label class="field c12"><span><?= te('More sender domains to trust') ?><?= tip_open(t('More sender domains to trust')) ?><?= te('Already trusted:') ?> <?= e(implode(', ', array_keys(App\Services\MailListings::SENDERS))) ?><?= te('. Only mail the mail server confirms came from these domains is read; other mail is left alone.') ?><?= tip_close() ?></span><input class="input" name="mail_senders_extra" value="<?= $s('mail_senders_extra') ?>" placeholder="e.g. myagentsbrokerage.com"></label>
       </div>
       <?php if ($mailLog): ?>
       <ul class="plain-list mt-m">
@@ -238,23 +228,19 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     </div>
 
     <div class="card mt-l">
-      <h3><?= te('County and state public records') ?> <span class="tag tag-live"><?= te('On') ?></span></h3>
-      <p class="small soft mb-m"><?= te('Official open data from the assessors, for every home in the places below: assessed value, tax, year built, size, lot and the recorded sales (beds and baths where the assessor publishes them). Looked up the first time a home is opened, and hourly for homes for sale. Each ZIP’s fair-market sales of the last 12 months are brought in every two weeks, so ARV and profit rest on real sale prices. Elsewhere the paid sources and listing e-mails fill in; more places are added as their records are checked.') ?></p>
+      <h3><?= te('County and state public records') ?> <span class="tag tag-live"><?= te('On') ?></span><?= tip_open() ?><?= te('Official open data from the assessors, for every home in the places below: assessed value, tax, year built, size, lot and the recorded sales (beds and baths where the assessor publishes them). Looked up the first time a home is opened, and hourly for homes for sale. Each ZIP’s fair-market sales of the last 12 months are brought in every two weeks, so ARV and profit rest on real sale prices. Elsewhere the paid sources and listing e-mails fill in; more places are added as their records are checked.') ?><br><br><?= te('DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.') ?><?= tip_close() ?></h3>
       <ul class="plain-list mb-m">
         <?php foreach (App\Services\CountyRecords::SOURCES as $src): ?>
         <li><span><strong><?= e($src::area()) ?></strong><span class="sub"><?= e($src::name()) ?></span></span><span class="end"><span class="tag tag-live"><?= te('Connected') ?></span></span></li>
         <?php endforeach; ?>
       </ul>
       <div class="form-grid">
-        <label class="field c4"><span><?= te('Fairfax County tax rate, $ per $100') ?></span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal">
-          <small><?= te('FY 2027, adopted May 5, 2026: $1.12.') ?></small></label>
-        <label class="field c4"><span><?= te('Arlington County tax rate, $ per $100') ?></span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal">
-          <small><?= te('2026, adopted April 22, 2026: $1.053.') ?></small></label>
+        <label class="field c4"><span><?= te('Fairfax County tax rate, $ per $100') ?><?= tip_open(t('Fairfax County tax rate, $ per $100')) ?><?= te('FY 2027, adopted May 5, 2026: $1.12.') ?><?= tip_close() ?></span><input class="input" name="fairfax_tax_rate" value="<?= $s('fairfax_tax_rate') ?>" inputmode="decimal"></label>
+        <label class="field c4"><span><?= te('Arlington County tax rate, $ per $100') ?><?= tip_open(t('Arlington County tax rate, $ per $100')) ?><?= te('2026, adopted April 22, 2026: $1.053.') ?><?= tip_close() ?></span><input class="input" name="arlington_tax_rate" value="<?= $s('arlington_tax_rate') ?>" inputmode="decimal"></label>
       </div>
       <?php $missingCounties = App\Services\CountyRecords::missing(); ?>
-      <h3 class="mt-l"><?= te('Counties without a source yet') ?></h3>
+      <h3 class="mt-l"><?= te('Counties without a source yet') ?><?= tip_open() ?><?= te('Places with homes for sale on file whose assessor records aren’t connected yet, most homes first. Each week this list is checked: counties that publish their records openly are added after a live test; those that don’t are noted here.') ?><?= tip_close() ?></h3>
       <?php if ($missingCounties): ?>
-      <p class="small soft mb-m"><?= te('Places with homes for sale on file whose assessor records aren’t connected yet, most homes first. Each week this list is checked: counties that publish their records openly are added after a live test; those that don’t are noted here.') ?></p>
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th><?= te('County') ?></th><th><?= te('State') ?></th><th class="r"><?= te('Homes for sale') ?></th><th><?= te('ZIP codes') ?></th></tr></thead>
@@ -268,7 +254,6 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <?php else: ?>
       <p class="small soft"><?= te('Every county with homes for sale on file has its records connected.') ?></p>
       <?php endif; ?>
-      <p class="small muted mt-m"><?= te('DC uses the rate on each property’s own record. Maryland rates differ by county and town, so no tax is computed there.') ?></p>
       <?php if ($countyZips): ?>
       <p class="small soft mt-m"><?= te('Recorded sales brought in:') ?> <?php foreach ($countyZips as $i => $z): ?><?= $i ? ', ' : '' ?><span class="mono"><?= e(substr($z['k'], 13)) ?></span> (<?= e(ago($z['v'])) ?>)<?php endforeach; ?>.</p>
       <?php endif; ?>
@@ -291,12 +276,11 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
   <form method="post" action="/settings" class="mt-m" autocomplete="off">
     <?= csrf_field() ?><input type="hidden" name="do" value="aerial">
     <div class="card">
-      <h3><?= te('Look around in 3D, through Cesium ion') ?>
+      <h3><?= te('Look around in 3D, through Cesium ion') ?><?= tip_open() ?><?= te('Each press of “Open 3D view” counts as one. The free Community plan is meant for personal and early-stage use; Cesium asks companies with more than $50K a year in revenue to use a paid plan. Imagery belongs to Google and can be months or years old.') ?><?= tip_close() ?>
         <?php if (!Settings::has('cesium_key')): ?><span class="tag"><?= te('Off') ?></span>
         <?php elseif ($aerialCheck && !$aerialCheck['ok'] && !empty($aerialCheck['unreachable'])): ?><span class="tag tag-warn"><?= te('Not checked') ?></span>
         <?php elseif ($aerialCheck && !$aerialCheck['ok']): ?><span class="tag tag-bad"><?= te('Token refused') ?></span>
-        <?php else: ?><span class="tag tag-live"><?= te('On') ?></span><?php endif; ?></h3>
-      <p class="small soft mb-m"><?= te('Every home’s page gets a “Look around” panel: a slow flight around the house over Google’s photorealistic 3D map — roof, yard, driveway, street and neighbours. Cesium ion passes Google’s 3D tiles through its free plan, so no Google account or bank card is needed here.') ?></p>
+        <?php else: ?><span class="tag tag-live"><?= te('On') ?></span><?php endif; ?><?= tip_open() ?><?= te('Every home’s page gets a “Look around” panel: a slow flight around the house over Google’s photorealistic 3D map — roof, yard, driveway, street and neighbours. Cesium ion passes Google’s 3D tiles through its free plan, so no Google account or bank card is needed here.') ?><?= tip_close() ?></h3>
       <?php if ($aerialCheck && !$aerialCheck['ok'] && Settings::has('cesium_key')): ?>
       <?php if (!empty($aerialCheck['unreachable'])): ?>
       <div class="callout mb-m" role="status"><?= icon('info', 16) ?><div><strong><?= e($aerialCheck['why']) ?></strong><span class="small soft"><?= te('The 3D view may well work — open a home to see. Save again later to re-check.') ?></span></div></div>
@@ -305,17 +289,15 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
       <?php endif; ?>
       <?php endif; ?>
       <div class="form-grid">
-        <label class="field c4"><span><?= te('3D views per month') ?></span><input class="input" name="cesium_limit" value="<?= $s('cesium_limit') ?>" inputmode="numeric">
-          <small><?= te('The free plan allows 1,000 openings of Google’s 3D tiles a month; 900 leaves a margin.') ?></small></label>
+        <label class="field c4"><span><?= te('3D views per month') ?><?= tip_open(t('3D views per month')) ?><?= te('The free plan allows 1,000 openings of Google’s 3D tiles a month; 900 leaves a margin.') ?><?= tip_close() ?></span><input class="input" name="cesium_limit" value="<?= $s('cesium_limit') ?>" inputmode="numeric"></label>
       </div>
-      <p class="small muted mt-m"><?= te('Each press of “Open 3D view” counts as one. The free Community plan is meant for personal and early-stage use; Cesium asks companies with more than $50K a year in revenue to use a paid plan. Imagery belongs to Google and can be months or years old.') ?></p>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save 3D view') ?></button></div>
   </form>
 </section>
 
 <section class="section" id="usage">
-  <div class="section-head"><h2><?= te('Usage this month') ?></h2><span class="aside"><?= te('resets in') ?> <?= plural(Quota::resetsIn(), 'day') ?></span></div>
+  <div class="section-head"><h2><?= te('Usage this month') ?><?= tip_open() ?><?= te('Every answered request is counted, including ones that find nothing, so the meter can only run ahead of the provider’s own count — never behind it.') ?><?= tip_close() ?></h2><span class="aside"><?= te('resets in') ?> <?= plural(Quota::resetsIn(), 'day') ?></span></div>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th><?= te('Source') ?></th><th class="r"><?= te('Used') ?></th><th class="r"><?= te('Allowance') ?></th><th class="r"><?= te('Left for you') ?></th><th class="r"><?= te('Left for alerts') ?></th></tr></thead>
@@ -345,7 +327,6 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     </table>
   </div>
   <?php endif; ?>
-  <p class="section-note"><?= te('Every answered request is counted, including ones that find nothing, so the meter can only run ahead of the provider’s own count — never behind it.') ?></p>
 </section>
 
 <section class="section" id="notify">
@@ -353,21 +334,18 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="notify">
     <div class="card">
-      <h3><?= te('Email') ?> <span class="tag<?= $ready['email'] ? ' tag-live' : '' ?>"><?= te($ready['email'] ? 'Ready' : 'Not set') ?></span></h3>
-      <p class="small soft mb-m"><?= te('Sent through a mailbox on your own domain, so it lands in the inbox instead of spam.') ?></p>
+      <h3><?= te('Email') ?> <span class="tag<?= $ready['email'] ? ' tag-live' : '' ?>"><?= te($ready['email'] ? 'Ready' : 'Not set') ?></span><?= tip_open() ?><?= te('Sent through a mailbox on your own domain, so it lands in the inbox instead of spam.') ?><?= tip_close() ?></h3>
       <div class="form-grid">
         <label class="field c6"><span><?= te('Send alerts to') ?></span><input class="input" type="email" name="notify_email" value="<?= $s('notify_email') ?>" placeholder="you@gmail.com"></label>
       </div>
     </div>
 
     <div class="card">
-      <h3><?= te('Telegram') ?> <span class="tag<?= $ready['telegram'] ? ' tag-live' : '' ?>"><?= te($ready['telegram'] ? 'Ready' : 'Not set') ?></span></h3>
-      <p class="small soft"><?= te('Free, instant and the most dependable of the three.') ?></p>
+      <h3><?= te('Telegram') ?> <span class="tag<?= $ready['telegram'] ? ' tag-live' : '' ?>"><?= te($ready['telegram'] ? 'Ready' : 'Not set') ?></span><?= tip_open() ?><?= te('Free, instant and the most dependable of the three.') ?><?= tip_close() ?></h3>
     </div>
 
     <div class="card">
-      <h3><?= te('WhatsApp') ?> <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= te($ready['whatsapp'] ? 'Yours is ready' : 'Per person') ?></span></h3>
-      <p class="small soft"><?= te('CallMeBot can only message the number that asked it for a key, so each person turns WhatsApp on for themselves under') ?> <a href="/account#whatsapp"><?= te('My account → WhatsApp') ?></a><?= te('. It takes about three minutes.') ?></p>
+      <h3><?= te('WhatsApp') ?> <span class="tag<?= $ready['whatsapp'] ? ' tag-live' : '' ?>"><?= te($ready['whatsapp'] ? 'Yours is ready' : 'Per person') ?></span><?= tip_open() ?><?= te('CallMeBot can only message the number that asked it for a key, so each person turns WhatsApp on for themselves under') ?> <a href="/account#whatsapp"><?= te('My account → WhatsApp') ?></a><?= te('. It takes about three minutes.') ?><?= tip_close() ?></h3>
     </div>
     <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save delivery settings') ?></button></div>
   </form>
@@ -390,11 +368,10 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
 </section>
 
 <section class="section" id="schedule">
-  <div class="section-head"><h2><?= te('Schedule') ?></h2><span class="aside"><?= $lastRun ? 'last ran ' . e(ago($lastRun)) : 'has not run yet' ?></span></div>
-  <p class="section-note"><?= te('Alerts, county records and market data are refreshed on the server every hour.') ?></p>
+  <div class="section-head"><h2><?= te('Schedule') ?><?= tip_open() ?><?= te('Alerts, county records and market data are refreshed on the server every hour.') ?><?= tip_close() ?></h2><span class="aside"><?= $lastRun ? 'last ran ' . e(ago($lastRun)) : 'has not run yet' ?></span></div>
   <form method="post" action="/settings" class="actions mt-m"><?= csrf_field() ?><input type="hidden" name="do" value="run">
     <button class="btn btn-sm" type="submit"><?= icon('refresh-cw', 14) ?><?= te('Run it once now') ?></button>
-    <span class="small muted"><?= te('Run by hand it may use your own requests rather than the alerts’ share.') ?></span></form>
+    <?= tip_open() ?><?= te('Run by hand it may use your own requests rather than the alerts’ share.') ?><?= tip_close() ?></form>
 </section>
 
 <section class="section" id="site">
@@ -403,20 +380,18 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     <?= csrf_field() ?><input type="hidden" name="do" value="site">
     <div class="form-grid">
       <label class="field c4"><span><?= te('Site name') ?></span><input class="input" name="site_name" value="<?= $s('site_name') ?>" maxlength="30"></label>
-      <label class="field c4"><span><?= te('Home state') ?></span><input class="input" name="default_state" value="<?= $s('default_state') ?>" maxlength="20">
-        <small><?= te('“Entire state” searches and county names use this.') ?></small></label>
+      <label class="field c4"><span><?= te('Home state') ?><?= tip_open(t('Home state')) ?><?= te('“Entire state” searches and county names use this.') ?><?= tip_close() ?></span><input class="input" name="default_state" value="<?= $s('default_state') ?>" maxlength="20"></label>
     </div>
 
     <div class="card">
-      <h3><?= te('Deal calculator defaults') ?></h3>
-      <p class="small soft mb-m"><?= te('Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.') ?></p>
+      <h3><?= te('Deal calculator defaults') ?><?= tip_open() ?><?= te('Used until someone types the real figure for a home. Renovation is estimated from the home’s condition × its square footage.') ?><?= tip_close() ?></h3>
       <div class="form-grid">
         <?php foreach (App\Services\Deal::SETTINGS as $k => [$label, $def, $unit]): ?>
         <label class="field c4"><span><?= te($label) ?></span><input class="input" name="<?= $k ?>" value="<?= e((string) (Settings::get($k) ?? '')) ?>" placeholder="<?= e($def . ' ' . t($unit)) ?>" inputmode="decimal"></label>
         <?php endforeach; ?>
       </div>
     </div>
-    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save') ?></button><span class="small muted"><?= te('Your own name, password and Telegram are on') ?> <a href="/account"><?= te('My account') ?></a>.</span></div>
+    <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save') ?></button><?= tip_open() ?><?= te('Your own name, password and Telegram are on') ?> <a href="/account"><?= te('My account') ?></a>.<?= tip_close() ?></div>
   </form>
 </section>
 
@@ -432,16 +407,15 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
     <?= csrf_field() ?><input type="hidden" name="do" value="cache">
     <button class="linkbtn small" type="submit"><?= te('Clear caches and force fresh pulls') ?></button>
   </form>
-  <h3 class="eyebrow mt-l"><?= te('Recent log') ?></h3>
+  <h3 class="eyebrow mt-l"><?= te('Recent log') ?><?= tip_open() ?><?= te('Newest first. Errors are marked red, slow pages amber; each data pull writes one line with how long each step took.') ?><?= tip_close() ?></h3>
   <?php $tail = App\Diagnostics::logTail(20); ?>
   <?php if ($tail): ?>
   <pre class="logtail"><?php foreach (array_reverse($tail) as $line): ?><span class="<?= preg_match('/\[(fatal|uncaught)\]|PHP (Fatal|Warning)/', $line) ? 'is-bad' : (str_contains($line, '[slow]') ? 'is-warn' : '') ?>"><?= e(mb_substr($line, 0, 500)) ?></span>
 <?php endforeach; ?></pre>
-  <p class="section-note"><?= te('Newest first. Errors are marked red, slow pages amber; each data pull writes one line with how long each step took.') ?></p>
   <?php else: ?>
   <p class="blank"><?= te('Nothing logged — no errors so far.') ?></p>
   <?php endif; ?>
-  <h3 class="eyebrow mt-l"><?= te('Backups') ?></h3>
+  <h3 class="eyebrow mt-l"><?= te('Backups') ?><?= tip_open() ?><?= te('A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. It holds no API keys or passwords: those stay only on the server.') ?><?= tip_close() ?></h3>
   <?php $backups = App\Backup::list(); ?>
   <?php if ($backups): ?>
   <ul class="plain-list">
@@ -452,7 +426,6 @@ $countyZips = Db::all("SELECT k, v FROM settings WHERE k LIKE 'county\\_sales\\_
   <?php else: ?>
   <p class="blank"><?= te('The scheduler writes one every day and keeps the last 14.') ?></p>
   <?php endif; ?>
-  <p class="section-note"><?= te('A backup is written daily by the scheduler (the last 14 are kept on the server, closed to the web). Download one now and then and keep it somewhere else too. It holds no API keys or passwords: those stay only on the server.') ?></p>
 </section>
 </div>
 <?php

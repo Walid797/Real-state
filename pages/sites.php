@@ -73,13 +73,12 @@ View::header('Sites', 'sites');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Sites') ?></h1>
-    <p><?= te('The other places you check. Each one becomes a link on every home and every search, already pointed at the same address or area.') ?></p>
+    <h1 class="display"><?= te('Sites') ?><?= tip_open() ?><?= te('The other places you check. Each one becomes a link on every home and every search, already pointed at the same address or area.') ?><?= tip_close() ?></h1>
   </div>
 </header>
 
 <section class="section">
-  <div class="section-head"><h2><?= te('Your list') ?></h2><span class="aside"><?= plural(count($sites), 'site') ?> <?= te('· lower order shows first') ?></span></div>
+  <div class="section-head"><h2><?= te('Your list') ?><?= tip(te('· lower order shows first'), t('Your list')) ?></h2><span class="aside"><?= plural(count($sites), 'site') ?></span></div>
   <?php foreach ($sites as $s): ?>
   <form class="site-row" method="post" action="/sites">
     <?= csrf_field() ?><input type="hidden" name="id" value="<?= (int) $s['id'] ?>">
@@ -123,8 +122,7 @@ View::header('Sites', 'sites');
     </div>
   </form>
 
-  <h3 class="eyebrow mt-l"><?= te('Placeholders') ?></h3>
-  <p class="section-note"><?= te('Open the site, search for a home, and copy the address from your browser. Replace the part that changes with one of these. The example values are for') ?> <?= e(App\Address::full($sample)) ?>.</p>
+  <h3 class="eyebrow mt-l"><?= te('Placeholders') ?><?= tip_open() ?><?= te('Open the site, search for a home, and copy the address from your browser. Replace the part that changes with one of these. The example values are for') ?> <?= e(App\Address::full($sample)) ?>.<br><br><?= te('A link that needs something the page doesn’t have — a ZIP on a city-wide search, say — is simply left out there. Sites such as Redfin and Realtor.com hide each home behind an internal number, so their home links go through a Google search limited to that site.') ?><?= tip_close() ?></h3>
   <div class="table-wrap">
     <table class="table">
       <thead><tr><th><?= te('Write') ?></th><th><?= te('Becomes') ?></th><th><?= te('Use it when the site wants') ?></th></tr></thead>
@@ -140,7 +138,6 @@ View::header('Sites', 'sites');
       </tbody>
     </table>
   </div>
-  <p class="section-note"><?= te('A link that needs something the page doesn’t have — a ZIP on a city-wide search, say — is simply left out there. Sites such as Redfin and Realtor.com hide each home behind an internal number, so their home links go through a Google search limited to that site.') ?></p>
 
   <form method="post" action="/sites" class="mt-l" data-confirm="<?= te('Replace your list with the original ten sites?') ?>">
     <?= csrf_field() ?><input type="hidden" name="do" value="reset">

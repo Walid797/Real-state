@@ -126,9 +126,8 @@ View::header($alert ? $alert['name'] : t('New alert'), 'alerts');
         <select class="select" name="kind" data-kind-switch>
           <?php foreach (Alerts::KINDS as $k => $label): ?><option value="<?= $k ?>"<?= selected($form['kind'], $k) ?>><?= te($label) ?></option><?php endforeach; ?>
         </select></label>
-      <label class="field c6"><span><?= te('Area') ?></span>
-        <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Virginia · Fairfax County · Richmond · 22030, 20176">
-        <small data-kind="price_drop"><?= te('Leave blank to include all favorite homes.') ?></small></label>
+      <label class="field c6"><span><?= te('Area') ?><?= tip_open(t('Area'), '', 'data-kind="price_drop"') ?><?= te('Leave blank to include all favorite homes.') ?><?= tip_close() ?></span>
+        <input class="input" name="location" value="<?= e($form['location']) ?>" placeholder="Virginia · Fairfax County · Richmond · 22030, 20176"></label>
 
       <?php foreach ([['Price ($)', 'price'], ['Bedrooms', 'beds'], ['Bathrooms', 'baths'], ['Living area (sqft)', 'sqft'], ['Year built', 'year'], ['Lot (sqft)', 'lot']] as [$label, $k]): ?>
       <div class="field c4" data-kind="new_listing new_sale"><span><?= te($label) ?></span><div class="pair">
@@ -139,33 +138,30 @@ View::header($alert ? $alert['name'] : t('New alert'), 'alerts');
       <label class="field c4" data-kind="new_listing"><span><?= te('Opportunity score, at least') ?></span><input class="input" name="score_min" inputmode="numeric" value="<?= $v('score_min') ?>" placeholder="e.g. 60"></label>
       <label class="field c4" data-kind="new_listing"><span><?= te('Est. profit, at least ($)') ?></span><input class="input" name="profit_min" inputmode="numeric" value="<?= $v('profit_min') ?>" placeholder="e.g. 35,000"></label>
 
-      <div class="field c12" data-kind="new_listing"><span><?= te('Listing status') ?></span>
+      <div class="field c12" data-kind="new_listing"><span><?= te('Listing status') ?><?= tip(te('None ticked = any active listing.'), t('Listing status')) ?></span>
         <div class="actions">
           <?php foreach (PropertyRepo::LISTING as $k => $label): ?>
           <label class="check"><input type="checkbox" name="listing[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['listing'] ?? []), true)) ?>><?= te($label) ?></label>
           <?php endforeach; ?>
-        </div><small><?= te('None ticked = any active listing.') ?></small></div>
-      <div class="field c12" data-kind="new_listing"><span><?= te('Condition') ?></span>
+        </div></div>
+      <div class="field c12" data-kind="new_listing"><span><?= te('Condition') ?><?= tip(te('None ticked = any condition.'), t('Condition')) ?></span>
         <div class="actions">
           <?php foreach (App\Services\Condition::OVERALL as $k => $label): ?>
           <label class="check"><input type="checkbox" name="cond[]" value="<?= $k ?>"<?= checked(in_array($k, (array) ($crit['cond'] ?? []), true)) ?>><?= te($label) ?></label>
           <?php endforeach; ?>
-        </div><small><?= te('None ticked = any condition.') ?></small></div>
+        </div></div>
 
-      <div class="field c12" data-kind="new_listing new_sale"><span><?= te('Property type') ?></span>
+      <div class="field c12" data-kind="new_listing new_sale"><span><?= te('Property type') ?><?= tip(te('None ticked means any type.'), t('Property type')) ?></span>
         <div class="actions">
           <?php foreach (PropertyRepo::TYPES as $t): ?>
           <label class="check"><input type="checkbox" name="types[]" value="<?= e($t) ?>"<?= checked(in_array($t, (array) ($crit['types'] ?? []), true)) ?>><?= te($t) ?></label>
           <?php endforeach; ?>
-        </div>
-        <small><?= te('None ticked means any type.') ?></small></div>
+        </div></div>
 
-      <label class="field c6" data-kind="new_listing"><span><?= te('Only if priced under the area by') ?></span>
-        <input class="input" name="below_median" inputmode="decimal" value="<?= $v('below_median') ?>" placeholder="e.g. 10 (%)">
-        <small><?= te('Compares the home’s $/sqft with the median of everything for sale in the area. Leave empty to skip.') ?></small></label>
-      <label class="field c6" data-kind="price_drop"><span><?= te('Only cuts of at least') ?></span>
-        <input class="input" name="min_drop_pct" inputmode="decimal" value="<?= e((string) ($crit['min_drop_pct'] ?? '')) ?>" placeholder="e.g. 3 (%)">
-        <small><?= te('Leave empty to hear about every cut.') ?></small></label>
+      <label class="field c6" data-kind="new_listing"><span><?= te('Only if priced under the area by') ?><?= tip_open(t('Only if priced under the area by')) ?><?= te('Compares the home’s $/sqft with the median of everything for sale in the area. Leave empty to skip.') ?><?= tip_close() ?></span>
+        <input class="input" name="below_median" inputmode="decimal" value="<?= $v('below_median') ?>" placeholder="e.g. 10 (%)"></label>
+      <label class="field c6" data-kind="price_drop"><span><?= te('Only cuts of at least') ?><?= tip_open(t('Only cuts of at least')) ?><?= te('Leave empty to hear about every cut.') ?><?= tip_close() ?></span>
+        <input class="input" name="min_drop_pct" inputmode="decimal" value="<?= e((string) ($crit['min_drop_pct'] ?? '')) ?>" placeholder="e.g. 3 (%)"></label>
 
       <label class="field c6"><span><?= te('Check') ?></span>
         <select class="select" name="every_hours">
@@ -176,17 +172,16 @@ View::header($alert ? $alert['name'] : t('New alert'), 'alerts');
           <label><input type="radio" name="delivery" value="instant"<?= checked($form['delivery'] !== 'daily') ?>><span><?= te('As soon as found') ?></span></label>
           <label><input type="radio" name="delivery" value="daily"<?= checked($form['delivery'] === 'daily') ?>><span><?= te('Daily summary') ?></span></label>
         </span></div>
-      <div class="field c6"><span><?= te('Send to') ?></span>
+      <div class="field c6"><span><?= te('Send to') ?><?php if (in_array(false, $ready, true)): ?><?= tip(te('Greyed-out ones aren’t set up.') . ' <a href="/account">' . te('Add your Telegram') . '</a> ' . te('· email needs an admin to set up the mailbox.'), t('Send to')) ?><?php endif; ?></span>
         <div class="actions">
           <?php foreach (Notifier::CHANNELS as $ch => $label): ?>
           <label class="check<?= empty($ready[$ch]) ? ' is-off' : '' ?>"><input type="checkbox" name="channels[]" value="<?= $ch ?>"<?= checked(in_array($ch, $form['channels'], true) && !empty($ready[$ch])) ?><?= empty($ready[$ch]) ? ' disabled' : '' ?>><?= te($label) ?></label>
           <?php endforeach; ?>
         </div>
-        <?php if (in_array(false, $ready, true)): ?><small><?= te('Greyed-out ones aren’t set up.') ?> <a href="/account"><?= te('Add your Telegram') ?></a> <?= te('· email needs an admin to set up the mailbox.') ?></small><?php endif; ?></div>
+      </div>
 
       <div class="field c12">
-        <label class="check"><input type="checkbox" name="use_quota"<?= checked($form['use_quota']) ?>><?= te('Pull fresh data for this area on each check') ?></label>
-        <small><?= te('Uses one request per check. Unticked, the alert only looks at what your own searches have already saved.') ?></small>
+        <span class="check-row"><label class="check"><input type="checkbox" name="use_quota"<?= checked($form['use_quota']) ?>><?= te('Pull fresh data for this area on each check') ?></label><?= tip(te('Uses one request per check. Unticked, the alert only looks at what your own searches have already saved.'), t('Pull fresh data for this area on each check')) ?></span>
       </div>
       <div class="field c12">
         <label class="check"><input type="checkbox" name="enabled"<?= checked($form['enabled']) ?>><?= te('Alert is on') ?></label>

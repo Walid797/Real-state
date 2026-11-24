@@ -1298,5 +1298,13 @@ $fx = [];
 PropertyRepo::locSql(Address::parseLocation('Fairfax'), $fx);
 $ok(count($fc) === 3 && count($fx) === 2, 'an independent city also matches its county-level name; a plain city does not take in the county');
 
+
+/* ⓘ explanations */
+$t1 = tip_open('Bedrooms') . 'None ticked = any type.' . tip_close();
+$t2 = tip(e('Second <b>'), '', 'my-help');
+$ok(preg_match('/<button type="button" class="tip-btn" aria-expanded="false" aria-controls="(tip-\d+)" aria-label="[^"]+"/', $t1, $tm) === 1
+    && str_contains($t1, 'id="' . $tm[1] . '" role="note">None ticked = any type.</span></span>'), 'an explanation sits behind a labelled button that controls it');
+$ok(str_contains($t2, 'id="my-help"') && str_contains($t2, 'Second &lt;b&gt;') && !str_contains($t1, 'my-help'), 'an explanation can carry a fixed id for aria-describedby; content is passed already escaped');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

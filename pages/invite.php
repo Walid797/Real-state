@@ -47,19 +47,17 @@ View::header($kind === 'invite' ? 'Join' : 'New password', '', ['bare' => true])
   <span class="brand">Plat</span>
   <form class="bare-form" method="post" action="/<?= $kind ?>?token=<?= e(rawurlencode($token)) ?>">
     <?= csrf_field() ?>
-    <h1 class="display"><?= te($kind === 'invite' ? 'Join the team' : 'New password') ?></h1>
+    <h1 class="display"><?= te($kind === 'invite' ? 'Join the team' : 'New password') ?><?= tip_open() ?><?= te('This link works once.') ?><?= tip_close() ?></h1>
     <p class="soft"><?= e($user['email']) ?></p>
     <?php foreach ($errors as $err): ?><p class="err" role="alert"><?= te($err) ?></p><?php endforeach; ?>
     <?php if ($kind === 'invite'): ?>
     <label class="field"><span><?= te('Your name') ?></span><input class="input" name="name" value="<?= e($name) ?>" autocomplete="name" required autofocus></label>
     <?php endif; ?>
-    <label class="field"><span><?= te('Password') ?></span>
-      <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" required<?= $kind === 'invite' ? '' : ' autofocus' ?>>
-      <small><?= te('At least 12 characters.') ?></small></label>
+    <label class="field"><span><?= te('Password') ?><?= tip_open(t('Password')) ?><?= te('At least 12 characters.') ?><?= tip_close() ?></span>
+      <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" required<?= $kind === 'invite' ? '' : ' autofocus' ?>></label>
     <label class="field"><span><?= te('Password again') ?></span><input class="input" type="password" name="password2" autocomplete="new-password" minlength="12" required></label>
     <button class="btn btn-primary" type="submit"><?= te($kind === 'invite' ? 'Create my sign-in' : 'Save password') ?></button>
   </form>
-  <p class="small muted"><?= te('This link works once.') ?></p>
 </section>
 <aside class="bare-art" aria-hidden="true">
   <blockquote><?= te('Every home, status and note is shared with the team. Alerts stay yours.') ?></blockquote>

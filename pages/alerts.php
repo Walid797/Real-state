@@ -34,8 +34,7 @@ View::header('Alerts', 'alerts');
 ?>
 <header class="page-head">
   <div>
-    <h1 class="display"><?= te('Alerts') ?></h1>
-    <p><?= te('Tell it what you’re after. When a match turns up you get the price, the facts and the links by email, WhatsApp or Telegram.') ?></p>
+    <h1 class="display"><?= te('Alerts') ?><?= tip_open() ?><?= te('Tell it what you’re after. When a match turns up you get the price, the facts and the links by email, WhatsApp or Telegram.') ?><?= tip_close() ?></h1>
   </div>
   <div class="actions"><a class="btn btn-primary" href="/alerts/new"><?= icon('plus', 15) ?><?= te('New alert') ?></a></div>
 </header>

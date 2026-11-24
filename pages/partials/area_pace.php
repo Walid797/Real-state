@@ -13,7 +13,8 @@ if ($fl['count'] === 0 && $mk['active'] === 0 && $mk['sold'] === 0) {
 }
 ?>
 <section class="section" id="pace">
-  <div class="section-head"><h2><?= te('How fast homes sell here') ?></h2><span class="aside"><?= te('ZIP %s', e((string) $p['zip'])) ?></span></div>
+  <div class="section-head"><h2><?= te('How fast homes sell here') ?><?= tip_open() ?><?= te('A flip here is a home bought and sold again within 18 months for at least 20% more, from the county’s recorded sales of the last 3 years. The time includes renovation, listing and closing. Gross gain is before renovation and selling costs.') ?>
+    <?php if ($fl['count'] < AreaPace::MIN_FLIPS): ?><?= te('Too few flips to set the calculator’s months held — it keeps the default.') ?><?php endif; ?><br><br><?= te('Days on market come from the listings on file, so they cover only homes the site has seen listed.') ?><?= tip_close() ?></h2><span class="aside"><?= te('ZIP %s', e((string) $p['zip'])) ?></span></div>
   <?php if ($fl['count'] > 0): ?>
   <div class="kpis kpis-sm">
     <div class="kpi"><span><?= te('Flips: purchase to resale') ?></span><b><?= te('%s months', e(trim_num((float) $fl['months']))) ?></b>
@@ -21,8 +22,6 @@ if ($fl['count'] === 0 && $mk['active'] === 0 && $mk['sold'] === 0) {
     <div class="kpi"><span><?= te('Flip resale over purchase') ?></span><b>+<?= (int) $fl['gain_pct'] ?>%</b><small><?= te('median resale %s', e(money($fl['resale']))) ?></small></div>
     <div class="kpi"><span><?= te('Flips found') ?></span><b><?= (int) $fl['count'] ?></b><small><?= te('%d in the last 12 months', (int) $fl['last_year']) ?></small></div>
   </div>
-  <p class="section-note"><?= te('A flip here is a home bought and sold again within 18 months for at least 20% more, from the county’s recorded sales of the last 3 years. The time includes renovation, listing and closing. Gross gain is before renovation and selling costs.') ?>
-    <?php if ($fl['count'] < AreaPace::MIN_FLIPS): ?><?= te('Too few flips to set the calculator’s months held — it keeps the default.') ?><?php endif; ?></p>
   <?php if ($fl['examples']): ?>
   <div class="table-wrap mt-m">
     <table class="table sale-table">
@@ -49,6 +48,5 @@ if ($fl['count'] === 0 && $mk['active'] === 0 && $mk['sold'] === 0) {
     <?php if ($mk['renovated'] >= 3): ?><div><dt><?= te('…of those, renovated or move-in ready') ?></dt><dd><?= te('%1$d days (median of %2$d)', (int) $mk['renovated_days'], (int) $mk['renovated']) ?></dd></div><?php endif; ?>
     <?php if ($mk['other'] >= 3): ?><div><dt><?= te('…of those, needing work') ?></dt><dd><?= te('%1$d days (median of %2$d)', (int) $mk['other_days'], (int) $mk['other']) ?></dd></div><?php endif; ?>
   </dl>
-  <p class="section-note"><?= te('Days on market come from the listings on file, so they cover only homes the site has seen listed.') ?></p>
   <?php endif; ?>
 </section>

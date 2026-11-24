@@ -16,7 +16,7 @@ $field = static function (string $name, string $label, mixed $estimate, string $
 };
 ?>
 <section class="section" id="deal">
-  <div class="section-head"><h2><?= te('Deal analysis') ?></h2><span class="aside"><?= te('estimates in grey · type to override · shared with the team') ?></span></div>
+  <div class="section-head"><h2><?= te('Deal analysis') ?><?= tip_open() ?><?= te('estimates in grey · type to override · shared with the team') ?><br><br><?= te('Cautious: ARV −8%, renovation +25%, two extra months. Hopeful: ARV +5%, renovation −10%, a month faster. Estimates, not appraisals or inspections — check them before an offer.') ?><?= tip_close() ?></h2></div>
 
   <?php if ($deal['ok']): $b = $deal['base']; ?>
   <div class="deal-sum">
@@ -51,13 +51,13 @@ $field = static function (string $name, string $label, mixed $estimate, string $
       </tbody>
     </table>
   </div>
-  <p class="section-note"><?= te('Cautious: ARV −8%, renovation +25%, two extra months. Hopeful: ARV +5%, renovation −10%, a month faster. Estimates, not appraisals or inspections — check them before an offer.') ?></p>
   <?php else: ?>
   <p class="note mt-m"><?= icon('info', 16) ?><span><?= te('Not enough to run the numbers yet:') ?> <?= e(implode(', ', $deal['missing'] ?? [])) ?><?= te('. Type them below, or pull this home’s record and nearby sales.') ?></span></p>
   <?php endif; ?>
 
   <details class="deal-edit"<?= $deal['ok'] ? '' : ' open' ?>>
-    <summary><?= icon('calculator', 15) ?><?= te($canEdit ? 'Change the numbers' : 'Show the inputs') ?></summary>
+    <summary><?= icon('calculator', 15) ?><?= te($canEdit ? 'Change the numbers' : 'Show the inputs') ?><?= tip_open(t('How these numbers are estimated')) ?><?= te('Renovation estimate:') ?> <?= te(App\Services\Condition::OVERALL[$deal['condition']] ?? '') ?> × <?= $p['sqft'] ? te('%s sqft', number_format((int) $p['sqft'])) : te('unknown size') ?> <?= te('(rates under Settings). Holding = insurance & utilities + property tax + HOA.') ?>
+        <?php if (($deal['months_from'] ?? '') === 'flips'): ?> <?= te('Months held: the median of %1$d flips in %2$s (county records), purchase to resale.', (int) $deal['months_flips'], (string) $p['zip']) ?><?php elseif (($deal['months_from'] ?? '') === 'default'): ?> <?= te('Months held: the default under Settings — too few flips on file in %s to use theirs.', (string) $p['zip']) ?><?php endif; ?><?= tip_close() ?></summary>
     <form method="post" action="/property/<?= $id ?>/act#deal">
       <?= csrf_field() ?><input type="hidden" name="do" value="deal">
       <div class="deal-grid">
@@ -75,8 +75,6 @@ $field = static function (string $name, string $label, mixed $estimate, string $
         $field('loan_points_pct', 'Lender points', $in['points'], '%');
         ?>
       </div>
-      <p class="hint"><?= te('Renovation estimate:') ?> <?= te(App\Services\Condition::OVERALL[$deal['condition']] ?? '') ?> × <?= $p['sqft'] ? te('%s sqft', number_format((int) $p['sqft'])) : te('unknown size') ?> <?= te('(rates under Settings). Holding = insurance & utilities + property tax + HOA.') ?>
-        <?php if (($deal['months_from'] ?? '') === 'flips'): ?> <?= te('Months held: the median of %1$d flips in %2$s (county records), purchase to resale.', (int) $deal['months_flips'], (string) $p['zip']) ?><?php elseif (($deal['months_from'] ?? '') === 'default'): ?> <?= te('Months held: the default under Settings — too few flips on file in %s to use theirs.', (string) $p['zip']) ?><?php endif; ?></p>
       <?php if (in_array($p['watch_stage'] ?? '', ['purchased', 'sold'], true)): ?>
       <h4 class="eyebrow mt-l"><?= te('Actual results') ?></h4>
       <div class="deal-grid">
@@ -85,13 +83,13 @@ $field = static function (string $name, string $label, mixed $estimate, string $
       <?php if (isset($deal['actual'])): ?><p class="small"><?= te('Actual profit') ?> <b class="<?= $deal['actual'] < 0 ? 'up' : 'down' ?>"><?= e(money(abs($deal['actual']))) ?></b> <?= te('vs') ?> <?= e(money($deal['base']['profit'] ?? 0)) ?> <?= te('predicted.') ?></p><?php endif; ?>
       <?php endif; ?>
       <?php if ($canEdit): ?>
-      <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save and recalculate') ?></button><span class="small muted"><?= te('Leave a box empty to go back to the estimate.') ?><?= $saved ? ' ' . te('Last changed %s.', ago($saved['updated_at'])) : '' ?></span></div>
+      <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Save and recalculate') ?></button><?= tip_open() ?><?= te('Leave a box empty to go back to the estimate.') ?><?= $saved ? ' ' . te('Last changed %s.', ago($saved['updated_at'])) : '' ?><?= tip_close() ?></div>
       <?php endif; ?>
     </form>
   </details>
 
   <details class="deal-edit">
-    <summary><?= icon('gauge', 15) ?><?= te('How the score of %s is made', $sc['score'] !== null ? (int) $sc['score'] : '—') ?></summary>
+    <summary><?= icon('gauge', 15) ?><?= te('How the score of %s is made', $sc['score'] !== null ? (int) $sc['score'] : '—') ?><?= tip_open(t('Risk')) ?><?= te('Risk') ?> <?= (int) $sc['risk'] ?><?= te('/100 is separate: it rises with undisclosed condition, thin margins, few comparable sales, old construction, distressed sales and flood zones.') ?><?= tip_close() ?></summary>
     <div class="table-wrap">
       <table class="table">
         <thead><tr><th><?= te('Factor') ?></th><th class="r"><?= te('Points') ?></th><th class="r"><?= te('Out of') ?></th></tr></thead>
@@ -102,6 +100,5 @@ $field = static function (string $name, string $label, mixed $estimate, string $
         </tbody>
       </table>
     </div>
-    <p class="section-note"><?= te('Risk') ?> <?= (int) $sc['risk'] ?><?= te('/100 is separate: it rises with undisclosed condition, thin margins, few comparable sales, old construction, distressed sales and flood zones.') ?></p>
   </details>
 </section>

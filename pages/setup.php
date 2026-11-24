@@ -58,21 +58,18 @@ View::header('Set up', '', ['bare' => true]);
   <span class="brand">Plat</span>
   <form class="bare-form" method="post" action="/setup?token=<?= e(rawurlencode($given)) ?>">
     <?= csrf_field() ?>
-    <h1 class="display"><?= te('Set up') ?></h1>
-    <p class="soft"><?= te('Creates the database tables and your sign-in. This page closes afterwards.') ?></p>
+    <h1 class="display"><?= te('Set up') ?><?= tip_open(t('Set up')) ?><?= te('Creates the database tables and your sign-in. This page closes afterwards.') ?><br><br><?= te('Alerts go to this email until you change it in Settings.') ?><?= tip_close() ?></h1>
     <?php foreach ($errors as $err): ?><p class="err" role="alert"><?= te($err) ?></p><?php endforeach; ?>
     <label class="field"><span><?= te('Your name') ?></span>
       <input class="input" name="name" autocomplete="name" required></label>
     <label class="field"><span><?= te('Your email') ?></span>
       <input class="input" type="email" name="email" value="<?= e($email) ?>" autocomplete="username" required></label>
-    <label class="field"><span><?= te('Password') ?></span>
-      <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" required>
-      <small><?= te('At least 12 characters. A sentence works well.') ?></small></label>
+    <label class="field"><span><?= te('Password') ?><?= tip_open(t('Password')) ?><?= te('At least 12 characters. A sentence works well.') ?><?= tip_close() ?></span>
+      <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" required></label>
     <label class="field"><span><?= te('Password again') ?></span>
       <input class="input" type="password" name="password2" autocomplete="new-password" minlength="12" required></label>
     <button class="btn btn-primary" type="submit"><?= te('Create my account') ?></button>
   </form>
-  <p class="small muted"><?= te('Alerts go to this email until you change it in Settings.') ?></p>
 </section>
 <aside class="bare-art" aria-hidden="true">
   <blockquote><?= te('Three steps left: sign in, paste a free API key, run your first search.') ?></blockquote>

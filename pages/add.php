@@ -215,8 +215,7 @@ View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
 <div class="narrow">
   <header class="page-head">
     <div>
-      <h1 class="display"><?= te($edit ? 'Edit facts & price' : ($near ? 'Add a sale nearby' : 'Add a home')) ?></h1>
-      <p><?php if ($edit): ?><?= te('Change the asking price here and the old one is kept in the price history.') ?><?php elseif ($near): ?><?= te('A sale you found elsewhere, close to') ?> <?= e($near['address']) ?><?= te('. It joins the comparable sales straight away.') ?><?php else: ?><?= te('Found something on Zillow, Redfin or a yard sign? Enter it once — it shows up in searches, comps and alerts like any other home.') ?><?php endif; ?></p>
+      <h1 class="display"><?= te($edit ? 'Edit facts & price' : ($near ? 'Add a sale nearby' : 'Add a home')) ?><?= tip_open() ?><?php if ($edit): ?><?= te('Change the asking price here and the old one is kept in the price history.') ?><?php elseif ($near): ?><?= te('A sale you found elsewhere, close to') ?> <?= e($near['address']) ?><?= te('. It joins the comparable sales straight away.') ?><?php else: ?><?= te('Found something on Zillow, Redfin or a yard sign? Enter it once — it shows up in searches, comps and alerts like any other home.') ?><?php endif; ?><?= tip_close() ?></h1>
     </div>
   </header>
 
@@ -228,8 +227,7 @@ View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
 
   <?php if (!$edit && !$near): ?>
   <section class="card link-card">
-    <h3><?= icon('link-2', 16) ?> <?= te('Add from a listing link') ?></h3>
-    <p class="small soft mb-m"><?= te('Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. Its address is read from the link, and the home is added to favorites with a button to view the original listing.') ?></p>
+    <h3><?= icon('link-2', 16) ?> <?= te('Add from a listing link') ?><?= tip_open() ?><?= te('Paste a home’s page from Homes.com, Zillow, Realtor.com, Redfin or Trulia. Its address is read from the link, and the home is added to favorites with a button to view the original listing.') ?><?= tip_close() ?></h3>
     <?php if ($linkError): ?><p class="err" role="alert"><?= e($linkError) ?></p><?php endif; ?>
     <form method="post" action="/add">
       <?= csrf_field() ?><input type="hidden" name="do" value="link">
@@ -282,16 +280,15 @@ View::header($edit ? t('Edit %s', $edit['address']) : 'Add a home', 'add');
     <div class="form-foot">
       <button class="btn btn-primary" type="submit"><?= te($edit ? 'Save changes' : 'Add home') ?></button>
       <a class="btn btn-ghost" href="<?= $edit ? '/property/' . $editId : '/' ?>"><?= te('Cancel') ?></a>
-      <?php if (!$edit): ?><span class="small muted"><?= te('The map position is looked up for you (U.S. Census geocoder).') ?></span><?php endif; ?>
+      <?php if (!$edit): ?><?= tip_open() ?><?= te('The map position is looked up for you (U.S. Census geocoder).') ?><?= tip_close() ?><?php endif; ?>
     </div>
   </form>
 
   <?php if (!$edit): ?>
   <section class="section">
-    <div class="section-head"><h2><?= te('Import a spreadsheet of sales') ?></h2></div>
-    <p class="section-note"><?= te('A CSV with a header row. County recorder exports and the Kaggle “USA Real Estate” dataset both work once the columns are named like this:') ?></p>
-    <code class="block">address,city,state,zip,sale_price,sale_date,beds,baths,sqft,lot_sqft,year_built,property_type,lat,lng</code>
-    <p class="section-note"><?= te('Only') ?> <b>address</b> <?= te('and') ?> <b>zip</b> <?= te('(or city + state) are required. Rows need') ?> <b>lat</b> <?= te('and') ?> <b>lng</b> <?= te('to count as comparable sales. Up to 5,000 rows and 3 MB per file.') ?></p>
+    <div class="section-head"><h2><?= te('Import a spreadsheet of sales') ?><?= tip_open(t('Import a spreadsheet of sales')) ?><?= te('A CSV with a header row. County recorder exports and the Kaggle “USA Real Estate” dataset both work once the columns are named like this:') ?>
+      <code class="block" dir="ltr">address,city,state,zip,sale_price,sale_date,beds,baths,sqft,lot_sqft,year_built,property_type,lat,lng</code>
+      <?= te('Only') ?> <b>address</b> <?= te('and') ?> <b>zip</b> <?= te('(or city + state) are required. Rows need') ?> <b>lat</b> <?= te('and') ?> <b>lng</b> <?= te('to count as comparable sales. Up to 5,000 rows and 3 MB per file.') ?><?= tip_close() ?></h2></div>
     <form method="post" action="/add" enctype="multipart/form-data" class="actions mt-m">
       <?= csrf_field() ?><input type="hidden" name="do" value="import">
       <label><span class="sr"><?= te('CSV file') ?></span><input type="file" name="csv" accept=".csv,text/csv" required></label>

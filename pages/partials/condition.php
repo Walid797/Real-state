@@ -9,7 +9,7 @@ $stateClass = static fn (string $s) => match ($s) { 'new', 'updated' => 'chip-go
     <span class="aside"><?= te($cond['source'] === 'manual' ? 'set by the team' : 'read from the listing text') ?><?= $cond['renovated_year'] ? ' · ' . te('renovated %d', (int) $cond['renovated_year']) : '' ?></span></div>
   <div class="cond-head">
     <span class="cond-overall cond-<?= e($cond['overall']) ?>"><?= te(Condition::OVERALL[$cond['overall']]) ?></span>
-    <?php if ($cond['overall'] === 'not_disclosed'): ?><span class="small muted"><?= te('The listing doesn’t say. Treat it as unknown until someone sees the house.') ?></span><?php endif; ?>
+    <?php if ($cond['overall'] === 'not_disclosed'): ?><?= tip_open() ?><?= te('The listing doesn’t say. Treat it as unknown until someone sees the house.') ?><?= tip_close() ?><?php endif; ?>
   </div>
   <div class="cond-grid">
     <?php foreach (Condition::PARTS as $k => $label): ?>
@@ -39,7 +39,7 @@ $stateClass = static fn (string $s) => match ($s) { 'new', 'updated' => 'chip-go
         <?php if ($cond['source'] === 'manual'): ?>
         <button class="btn btn-ghost" type="submit" name="reset_auto" value="1"><?= te('Go back to reading the listing') ?></button>
         <?php endif; ?>
-        <span class="small muted"><?= te('Saved by hand, it is no longer overwritten by the listing text.') ?></span></div>
+        <?= tip_open() ?><?= te('Saved by hand, it is no longer overwritten by the listing text.') ?><?= tip_close() ?></div>
     </form>
   </details>
   <?php endif; ?>

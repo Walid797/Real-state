@@ -15,7 +15,7 @@ $tone = ['buy' => 'good', 'offer' => 'mid', 'lower' => 'warn', 'pass' => 'bad', 
 $confLabel = ['high' => 'High confidence', 'medium' => 'Medium confidence', 'low' => 'Low confidence'][$v['confidence']];
 ?>
 <section class="section verdict verdict-<?= $tone ?>" id="verdict">
-  <div class="section-head"><h2><?= te('Should we buy it?') ?></h2><span class="aside"><?= te($confLabel) ?></span></div>
+  <div class="section-head"><h2><?= te('Should we buy it?') ?><?= tip_open() ?><?= te('This weighs everything on this page — the deal, comparable sales, the assessment, the seller’s position, flips and values in the area, flood zone, neighbourhood, the building and the land. It is an analysis of the data on file, not an appraisal or an inspection.') ?><?= tip_close() ?></h2><span class="aside"><?= te($confLabel) ?></span></div>
   <div class="verdict-head">
     <span class="verdict-badge"><?= te(Verdict::VERDICTS[$v['verdict']]) ?></span>
     <?php if ($v['offer'] && $v['verdict'] !== 'pass'): ?><span class="verdict-offer"><?= te('Offer up to') ?> <b><?= e(money($v['offer'])) ?></b></span><?php endif; ?>
@@ -43,5 +43,4 @@ $confLabel = ['high' => 'High confidence', 'medium' => 'Medium confidence', 'low
     <?php $report = App\Services\PropertyAnalysis::publicReport((int) $p['id']); include APP_ROOT . '/pages/partials/intelligence.php'; ?>
   </div>
   <?php include APP_ROOT . '/pages/partials/regional_demand.php'; ?>
-  <p class="section-note"><?= te('This weighs everything on this page — the deal, comparable sales, the assessment, the seller’s position, flips and values in the area, flood zone, neighbourhood, the building and the land. It is an analysis of the data on file, not an appraisal or an inspection.') ?></p>
 </section>
