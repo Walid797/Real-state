@@ -40,6 +40,17 @@ final class HomesCom
         };
     }
 
+    /** Official collection page for a browser visit, including when the host is cooling down. */
+    public static function browserPage(array $scope): ?string
+    {
+        if ($scope['type'] === 'zip' && empty($scope['city'])) {
+            $postal = self::postal($scope['zip'], 2);
+            if (!$postal) return null;
+            $scope = array_replace($scope, $postal);
+        }
+        return self::pageUrl($scope);
+    }
+
     /** @return array{ok:bool, items:array, observed_at:string, cached:bool, error:?string, url:?string} */
     public static function search(array $loc, string $ctx = 'manual', float $budget = 10): array
     {

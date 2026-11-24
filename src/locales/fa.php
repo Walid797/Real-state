@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'View listings on Homes.com'=>'مشاهدهٔ آگهی‌ها در Homes.com',
+    'Import Homes.com saved-search email alerts'=>'تنظیم دریافت آگهی‌های Homes.com از طریق ایمیل جستجوی ذخیره‌شده',
     'Tampa Bay uses the four-county Florida metro definition: Hernando, Hillsborough, Pasco and Pinellas.'=>'تامپا بی بر اساس محدودهٔ کلان‌شهری چهار شهرستان فلوریدا جستجو می‌شود: Hernando، Hillsborough، Pasco و Pinellas.',
     'Homes.com needs the PHP DOM/XML extension enabled on this host.'=>'برای خواندن Homes.com باید افزونهٔ DOM/XML در تنظیمات PHP هاست فعال باشد.',
     'Homes.com refused access from this hosting server (HTTP 403).'=>'Homes.com دسترسی از سرور این هاست را رد کرد (خطای ۴۰۳).',
