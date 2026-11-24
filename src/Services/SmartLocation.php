@@ -24,7 +24,7 @@ final class SmartLocation
 
     public static function key(string $q): string
     {
-        return Cache::key('smart_location', 'v2', ['q'=>mb_strtolower(self::normalize($q)), 'state'=>Address::homeState()]);
+        return Cache::key('smart_location', 'v3', ['q'=>mb_strtolower(self::normalize($q)), 'state'=>Address::homeState()]);
     }
 
     public static function resolve(string $query, bool $fetch = false): ?array
@@ -51,19 +51,22 @@ final class SmartLocation
         if (!$fetch || !self::$network) {
             return $parsed;
         }
-        [$state] = self::stateAndHead($q);
+        [$state,,,$explicitState] = self::stateAndHead($q);
         $lookup = $q;
         // Unit identifiers are retained for the subject but omitted from the building's map lookup.
         if (preg_match('/^\d/', $q)) {
             $lookup = preg_replace('/\b(?:apartment|apt|unit|suite|ste)\.?\s*[a-z0-9-]+(?:\s+[NSEW]\b)?|\#\s*[a-z0-9-]+(?:\s+[NSEW]\b)?/i', '', $lookup) ?? $lookup;
         }
-        $r = Http::get('https://photon.komoot.io/api/?' . http_build_query(['q'=>$lookup . ', ' . $state,'limit'=>10,'lang'=>'en']), [], 6);
+        $nationalCity = ($parsed['type']??'')==='city' && !$explicitState;
+        $params=['q'=>$nationalCity?$lookup:$lookup.', '.$state,'limit'=>10,'lang'=>'en'];
+        if ($nationalCity) $params['osm_tag']='place';
+        $r = Http::get('https://photon.komoot.io/api/?' . http_build_query($params), [], 6);
         $features = json_decode($r['body'], true)['features'] ?? [];
         $location = $r['status'] === 200 ? self::fromFeatures($q, (array) $features) : null;
         // Explicit city/state text retains the old city-search fallback when the public geocoder is down.
         $looksLikeBuilding = preg_match('/\b(?:tower|towers|apartments|condominiums?|condos|residences|building|lofts|flats)\b/i', $q)
             || ($parsed === null && substr_count($q, ',') >= 2);
-        if (!$location && !$looksLikeBuilding && ($parsed === null || empty($parsed['partial']))) {
+        if (!$location && !$nationalCity && !$looksLikeBuilding && ($parsed === null || empty($parsed['partial']))) {
             $location = $parsed;
         }
         Cache::put(self::key($q), 'smart_location', ['location'=>$location], $location && $r['status'] === 200 ? 86400 * 7 : 900);
@@ -95,38 +98,44 @@ final class SmartLocation
             $head = rtrim(substr($head, 0, -strlen($m[0])), ', ');
         }
         if (preg_match('/^(.*?)[,\s]+([a-z]{2})$/i', $head, $m) && ($st = Address::stateAbbr($m[2]))) {
-            return [$st,trim($m[1], ', '),$zip];
+            return [$st,trim($m[1], ', '),$zip,true];
         }
         foreach (Address::STATES as $st=>$name) {
             if (preg_match('/^(.*?)[,\s]+' . preg_quote($name,'/') . '$/i', $head, $m)) {
-                return [$st,trim($m[1], ', '),$zip];
+                return [$st,trim($m[1], ', '),$zip,true];
             }
         }
-        return [Address::homeState(),$head,$zip];
+        return [Address::homeState(),$head,$zip,false];
     }
 
     public static function fromFeatures(string $query, array $features): ?array
     {
         $q = self::normalize($query);
-        [$state,$head,$zip] = self::stateAndHead($q);
+        [$state,$head,$zip,$explicitState] = self::stateAndHead($q);
         $parsed = Address::parseLocation($q);
         $isAddress = preg_match('/^\d/', $q) === 1;
+        $nationalCity = ($parsed['type']??'')==='city' && !$explicitState;
         $valid = [];
         foreach ($features as $feature) {
             $p = $feature['properties'] ?? [];
-            if (is_array($p) && strtoupper((string)($p['countrycode']??'')) === 'US' && Address::stateAbbr((string)($p['state']??'')) === $state
+            if (is_array($p) && strtoupper((string)($p['countrycode']??'')) === 'US' && ($candidateState=Address::stateAbbr((string)($p['state']??'')))
+                && ($nationalCity || $candidateState === $state)
                 && (!$zip || ($p['postcode']??'') === $zip)) {
                 $valid[] = $feature;
             }
         }
         if (!$isAddress && ($parsed['type']??'') === 'city') {
+            $cities=[];
             foreach ($valid as $feature) {
                 $p = $feature['properties'];
                 if (($p['osm_key']??'') === 'place' && in_array($p['osm_value']??'', ['city','town','village'],true)
                     && strcasecmp((string)($p['name']??''),$parsed['city']) === 0) {
-                    return $parsed;
+                    $cityState=Address::stateAbbr((string)$p['state']);
+                    $cities[$cityState]=Address::parseLocation($p['name'].', '.$cityState);
                 }
             }
+            if (count($cities)===1) return array_values($cities)[0];
+            if (count($cities)>1) return null; // ask for a state rather than choose a namesake city
         }
         $addresses = [];
         foreach ($valid as $feature) {

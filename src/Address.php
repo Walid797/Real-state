@@ -142,6 +142,16 @@ final class Address
         if ($q === '') {
             return null;
         }
+        // Tampa Bay is a metropolitan area, not a city in the user's default state.
+        // OMB/Census CBSA 45300 (July 2023 delineation): these four Florida counties.
+        if (preg_match('/^Tampa\s+Bay(?:\s+(?:Area|metro|metropolitan\s+area))?(?:[,\s]+(Florida|[A-Za-z]{2}))?$/i', $q, $metro)) {
+            if (!empty($metro[1]) && self::stateAbbr($metro[1]) !== 'FL') return null;
+            $location = self::parseLocation('Hernando County, FL; Hillsborough County, FL; Pasco County, FL; Pinellas County, FL');
+            $location['label'] = 'Tampa–St. Petersburg–Clearwater metro, FL';
+            $location['metro_counties'] = ['Hernando','Hillsborough','Pasco','Pinellas'];
+            $location['geography_source'] = 'https://www.census.gov/programs-surveys/metro-micro/about/delineation-files.html';
+            return $location;
+        }
         // A pasted postal address keeps its lines together (street / apartment / ZIP city state).
         if (str_contains($q, "\n") && preg_match('/^\d/', $q) && ($a = self::parseFullAddress($q)) !== null) {
             return self::addressLoc($a);

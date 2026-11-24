@@ -278,6 +278,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
     <button class="btn btn-primary" type="submit"><?= te('Search') ?></button>
   </div>
   <?php if ($loc && $loc['type']!=='saved'): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas','street'=>'Street','address'=>'Address']; ?>
+  <?php if (!empty($loc['metro_counties'])): ?><p class="sbar-desc"><?= te('Tampa Bay uses the four-county Florida metro definition: Hernando, Hillsborough, Pasco and Pinellas.') ?></p><?php endif; ?>
   <p class="sbar-desc search-detected" data-detected="<?= e($loc['type']) ?>"><?= te('Detected automatically: %s',t($typeLabels[$loc['type']]??'Address')) ?>
     <?php if ($loc['type'] === 'multi'): ?><span class="detected-parts"><?php foreach ($loc['parts'] as $part): ?><span class="chip"><?= te($typeLabels[$part['type']] ?? 'Address') ?>: <bdi><?= e($part['label']) ?></bdi></span><?php endforeach; ?></span><?php endif; ?></p>
   <?php endif; ?>

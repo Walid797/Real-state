@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Tampa Bay uses the four-county Florida metro definition: Hernando, Hillsborough, Pasco and Pinellas.'=>'تامپا بی بر اساس محدودهٔ کلان‌شهری چهار شهرستان فلوریدا جستجو می‌شود: Hernando، Hillsborough، Pasco و Pinellas.',
     'Homes.com needs the PHP DOM/XML extension enabled on this host.'=>'برای خواندن Homes.com باید افزونهٔ DOM/XML در تنظیمات PHP هاست فعال باشد.',
     'Homes.com refused access from this hosting server (HTTP 403).'=>'Homes.com دسترسی از سرور این هاست را رد کرد (خطای ۴۰۳).',
     'Homes.com has temporarily limited requests (HTTP 429).'=>'Homes.com تعداد درخواست‌ها را موقتاً محدود کرده است (خطای ۴۲۹).',
