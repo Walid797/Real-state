@@ -18,7 +18,7 @@ final class HomesCom
 {
     public const ID = 'homes';
     public const TTL = 3600;
-    public const CACHE_VERSION = 'public-search-v3';
+    public const CACHE_VERSION = 'public-search-v4';
     public const COOLDOWN_KEY = 'host-cooldown-v2';
 
     public static function enabled(): bool
@@ -31,10 +31,11 @@ final class HomesCom
     {
         $state = strtolower((string) ($loc['state'] ?? ''));
         $slug = static fn (string $s): string => Address::slug($s, '-', true);
+        $division = $state === 'la' ? 'parish' : 'county';
         return match ($loc['type']) {
             'zip' => !empty($loc['city']) && $state !== '' ? 'https://www.homes.com/' . $slug($loc['city']) . '-' . $state . '/' . $loc['zip'] . '/' : null,
             'city' => 'https://www.homes.com/' . $slug($loc['city']) . '-' . $state . '/',
-            'county' => 'https://www.homes.com/' . $slug($loc['county']) . '-county-' . $state . '/',
+            'county' => 'https://www.homes.com/' . $slug($loc['county']) . '-' . $division . '-' . $state . '/',
             'state' => isset(Address::STATES[strtoupper($state)]) ? 'https://www.homes.com/' . $slug(Address::STATES[strtoupper($state)]) . '/' : null,
             default => null,
         };
@@ -82,6 +83,13 @@ final class HomesCom
             $loc = array_replace($loc, $postal);
         }
         $url = self::pageUrl($loc);
+        $zipAlias = null;
+        if ($loc['type'] === 'zip' && preg_match('/^(St|Ste|Saint|Sainte)\.?\s+(.+)$/i', $loc['city'], $name)) {
+            $alternate = match (strtolower($name[1])) {
+                'st' => 'Saint', 'ste' => 'Sainte', 'saint' => 'St', 'sainte' => 'Ste',
+            };
+            $zipAlias = self::pageUrl(array_replace($loc, ['city' => $alternate . ' ' . $name[2]]));
+        }
         $remaining = $budget - (microtime(true) - $started);
         if (!$url || $remaining < 1) {
             $out['error'] = 'Homes.com could not resolve this area within the search time limit.';
@@ -95,7 +103,12 @@ final class HomesCom
             $failure=self::failure($r);
             // One retry for a network or temporary gateway failure, inside the original budget.
             // Refusals, rate limits and explicit Retry-After instructions are never retried here.
-            if (!$failure['retryable'] || $budget-(microtime(true)-$started)<2) break;
+            if ($attempt > 0 || $budget - (microtime(true) - $started) < 2) break;
+            if ($r['status'] === 404 && $zipAlias && $zipAlias !== $url) {
+                $out['url'] = $url = $zipAlias;
+            } elseif (!$failure['retryable']) {
+                break;
+            }
         }
         $out['http_status']=$r['status'];
         if ($r['status'] !== 200) {
@@ -107,6 +120,7 @@ final class HomesCom
         } else {
             $parsed = self::parse($r['body'], $loc, $url, $out['observed_at']);
             $out['ok'] = $parsed['ok'];
+            $out['url'] = $parsed['url'] ?? $url;
             $out['items'] = $parsed['items'];
             $out['error'] = $parsed['ok'] ? null : 'Homes.com page data could not be verified; its listings were not imported.';
             $out['error_code']=$parsed['ok']?null:'unverified_page';
@@ -182,7 +196,15 @@ final class HomesCom
         }
         $xp = new DOMXPath($dom);
         $canonical = $xp->query('//link[@rel="canonical"]')->item(0)?->getAttribute('href');
-        // Redirected or unrelated area pages must never be attributed to the requested area.
+        // A ZIP is independent of the spelling of its postal city. Both URLs must identify
+        // the same ZIP and state. City and county searches still require an exact page match.
+        if ($canonical !== $requestedUrl && $loc['type'] === 'zip' && !empty($loc['state'])) {
+            $suffix = preg_quote(strtolower($loc['state']) . '/' . $loc['zip'] . '/', '#');
+            $pattern = '#^https://www\.homes\.com/[a-z0-9-]+-' . $suffix . '$#D';
+            if (preg_match($pattern, $requestedUrl) && preg_match($pattern, (string) $canonical)) {
+                $requestedUrl = $canonical;
+            }
+        }
         if ($canonical !== $requestedUrl || !str_starts_with($requestedUrl, 'https://www.homes.com/') || str_contains($requestedUrl, '/sold/')) {
             return $bad;
         }
@@ -290,7 +312,7 @@ final class HomesCom
                 }
             }
         }
-        return ['ok' => $found, 'items' => array_values($items)];
+        return ['ok' => $found, 'items' => array_values($items), 'url' => $found ? $canonical : null];
     }
 
     private static function address(array $a): ?array

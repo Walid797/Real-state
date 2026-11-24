@@ -31,8 +31,10 @@ final class HomesSearch
             $out['cached'] = $out['cached'] && $r['cached'];
             if (!$r['ok']) {
                 $out['errors'][] = $r['error'];
-                $page = $r['url'] ?? HomesCom::browserPage($scope);
-                if ($page) $out['source_pages'][$page] = $scope['label'];
+                if (($r['http_status'] ?? null) !== 404) {
+                    $page = $r['url'] ?? HomesCom::browserPage($scope);
+                    if ($page) $out['source_pages'][$page] = $scope['label'];
+                }
                 if (!empty($r['retry_at'])) $out['retry_at']=max($out['retry_at']??'', $r['retry_at']);
                 continue;
             }

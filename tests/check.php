@@ -1078,6 +1078,17 @@ $homesHtml = static function (array $rows, string $url, string $card) : string {
 };
 $homesParsed = App\Providers\HomesCom::parse($homesHtml([$homesRecord],$homesUrl,$homesCard),$homesLoc,$homesUrl,now());
 $eq([$homesParsed['ok'],count($homesParsed['items'])],[true,1],'public Homes.com collection requires a matching visible for-sale card');
+$zipScope = $homesLoc + ['state'=>'VA'];
+$alternateZipPage = 'https://www.homes.com/alternate-spelling-va/24979/';
+$aliasResult = App\Providers\HomesCom::parse($homesHtml([$homesRecord], $alternateZipPage, $homesCard), $zipScope, $homesUrl, now());
+$eq([$aliasResult['url'] ?? null, count($aliasResult['items'])], [$alternateZipPage, 1], 'Homes.com may canonicalize the postal city while retaining the requested ZIP and state');
+foreach (['alternate-spelling-wv/24979', 'alternate-spelling-va/24978', 'alternate-spelling-va'] as $wrongPath) {
+    $wrongPage = 'https://www.homes.com/' . $wrongPath . '/';
+    $ok(!App\Providers\HomesCom::parse($homesHtml([$homesRecord], $wrongPage, $homesCard), $zipScope, $homesUrl, now())['ok'],
+        'a redirect with a different or missing ZIP or state cannot supply Homes.com results');
+}
+$eq(App\Providers\HomesCom::pageUrl(Address::parseLocation('Orleans Parish, LA')),
+    'https://www.homes.com/orleans-parish-la/', 'Louisiana parish searches use the Homes.com parish path');
 $homesItem = $homesParsed['items'][0];
 $eq([$homesItem['property_type'],$homesItem['beds'],$homesItem['baths'],$homesItem['sqft']],['Condo',3.0,2.5,1500.0],'visible fractional bathrooms override rounded source schema');
 $eq([$homesItem['photo_url'],$homesItem['source_url']],['https://images.homes.com/listings/test-house.jpg',$homesPropertyUrl],'photo and property link remain attached to the same home');
