@@ -53,7 +53,7 @@ if ($do === 'area_sales') {
         flash($r['message'] . ($r['ok'] ? ' ARV and profit now come from real sales; the rest of the area is re-scored within minutes.' : ''), $r['ok'] && $r['sales'] ? 'ok' : 'warn');
         redirect($back);
     }
-    $fs = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types']]);
+    $fs = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types'], 'listing_source' => $f['listing_source']]);
     $r = Search::run($fs, ['confirm' => true]);
     $sold = App\PropertyRepo::search(['loc' => $loc, 'mode' => 'sold', 'sold_days' => 365, 'limit' => 1])['total'];
     // Re-score the area's listings against the new sales: the cheapest per sqft now, the rest by the scheduler.

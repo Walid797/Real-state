@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Listing source'=>'منبع آگهی',
+    'Default sources'=>'منابع پیش‌فرض',
+    'Search with Zillow data'=>'جستجو با داده‌های Zillow',
+    'Zillow returns one page for the area. Filters apply to the listings already retrieved and saved.'=>'سایت یک صفحه از نتایج Zillow را برای این منطقه می‌گیرد و فیلترها را روی آگهی‌های دریافت‌شده و ذخیره‌شده اعمال می‌کند.',
+    'Zillow data needs a connected key with requests remaining. Showing saved results.'=>'داده‌های Zillow به کلید فعال و سهمیهٔ باقی‌مانده نیاز دارد. نتایج ذخیره‌شده نمایش داده می‌شوند.',
     'Allow new RentCast API requests'=>'اجازهٔ ارسال درخواست تازه به RentCast',
     'Allow new searches on Homes.com'=>'اجازهٔ جستجوی تازه در Homes.com',
     'RentCast is turned off in Settings.'=>'RentCast در تنظیمات غیرفعال است.',

@@ -15,6 +15,15 @@ use App\Services\Score;
 use App\View;
 
 $f = Search::fromRequest($_GET);
+$sourceField = static function () use ($f): void { ?>
+    <label><span class="sr"><?= te('Listing source') ?></span>
+      <select class="select" name="listing_source">
+        <option value=""><?= te('Default sources') ?></option>
+        <option value="openwebninja"<?= selected($f['listing_source'], 'openwebninja') ?>><?= te('Search with Zillow data') ?></option>
+      </select>
+    </label>
+<?php };
+
 $state = Address::homeState();
 $stateName = Address::STATES[$state] ?? $state;
 
@@ -22,7 +31,7 @@ $stateName = Address::STATES[$state] ?? $state;
 if ($f['q'] !== '') {
     $loc = Search::location($f, true);
     if ($loc && $loc['type'] === 'address') {
-        if (Auth::can('edit') && empty($loc['partial'])) {
+        if (Auth::can('edit') && empty($loc['partial']) && empty($f['listing_source'])) {
             App\Services\HomesSearch::run($loc);
             $loc = Search::withHomes(array_diff_key($loc, ['ids' => 1]));
         }
@@ -182,6 +191,7 @@ if ($f['q'] === '' && $f['scope'] !== 'saved') {
 
     <form method="get" action="/search" role="search" class="filter-page">
       <?php $filterForm(true); ?>
+      <?php $sourceField(); ?>
       <div class="form-foot sticky-foot">
         <button class="btn btn-primary" type="submit"><?= icon('search', 15) ?><?= te('Search') ?></button>
         <a class="btn btn-ghost" href="/search"><?= te('Reset') ?></a>
@@ -245,10 +255,10 @@ if ($areaLoc && $res['rows']) {
 }
 $elsewhere = $areaLoc ? ExternalSites::forArea($areaLoc) : [];
 $snap = $res['snapshot'];
-$provider = $loc ? Search::locationProvider($loc) : null;
+$provider = $loc ? Search::locationProvider($loc, 'manual', $f['listing_source']) : null;
 $needs = $res['needs'];
 $left = $provider ? Quota::left($provider) : 0;
-$activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort', 'scope', 'view'])));
+$activeFilters = count(array_diff_key($query, array_flip(['q', 'mode', 'sort', 'scope', 'view', 'listing_source'])));
 
 View::header($mode === 'sold' ? t('%s — sold', $loc['label'] ?? t('Search')) : ($loc['label'] ?? 'Search'), 'search', ['wide' => true, 'map' => true]);
 View::script('/assets/vendor/leaflet/leaflet.js');
@@ -263,12 +273,13 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
     </span><?php endif; ?>
+    <?php if ($f['scope'] !== 'saved') $sourceField(); ?>
     <details class="drop drop-wide"<?= isset($_GET['open']) ? ' open' : '' ?>>
       <summary class="btn"><?= icon('filter', 14) ?><?= te('Filters') ?><?php if ($activeFilters): ?><span class="count"><?= $activeFilters ?></span><?php endif; ?></summary>
       <div class="drop-panel drop-panel-wide">
         <?php $filterForm(false); ?>
         <div class="form-foot"><button class="btn btn-primary" type="submit"><?= te('Apply') ?></button>
-          <a class="btn btn-ghost" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode'])))) ?>"><?= te('Clear all') ?></a></div>
+          <a class="btn btn-ghost" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode','listing_source'])))) ?>"><?= te('Clear all') ?></a></div>
       </div>
     </details>
     <label><span class="sr"><?= te('Sort') ?></span>
@@ -314,6 +325,10 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           <?php if ($waiting): ?> <span class="wait-note"><?= plural($waiting, 'home') ?> <?= te('on this page still being scored — reload in a few minutes.') ?></span><?php endif; ?>
         </p>
       </header>
+
+      <?php if (($snap['provider'] ?? '') === App\Providers\OpenWebNinja::ID): ?>
+        <p class="small muted"><?= te('Zillow returns one page for the area. Filters apply to the listings already retrieved and saved.') ?></p>
+      <?php endif; ?>
 
       <?php if ($res['homes'] !== null): $homes = $res['homes']; ?>
       <div class="homes-search-status note mt-s" role="status">
@@ -372,7 +387,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
       $ffxZip = $areaSales === 0 && $loc['type'] === 'zip' && App\Services\CountyRecords::zipSource($loc['zip']) !== null;
       ?>
       <?php if ($areaSales === 0 && Auth::can('edit')):
-          $salesFilters = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types']]);
+          $salesFilters = Search::fromRequest(['q' => $f['q'], 'mode' => 'sold', 'sold_days' => 365, 'types' => $f['types'], 'listing_source' => $f['listing_source']]);
           $salesRequests = $ffxZip ? 0 : count(Search::plan($loc, $salesFilters)['needs']);
       ?>
       <div class="cost-card sales-card">
@@ -436,7 +451,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
           if ($any > 0): ?>
             <h2 class="display"><?= te('Nothing matches those filters.') ?></h2>
             <p><?= plural($any, 'home') ?> <?= te($mode === 'sold' ? 'sold in %s' : 'are for sale in %s', $loc['label']) ?> <?= te('without them. Condition and investment filters only match homes whose listing text was read or analysed.') ?></p>
-            <p><a class="btn" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode'])))) ?>"><?= te('Clear filters') ?></a></p>
+            <p><a class="btn" href="<?= e(url('/search', array_intersect_key($query,array_flip(['q','scope','view','mode','listing_source'])))) ?>"><?= te('Clear filters') ?></a></p>
           <?php elseif ($loc['type']==='saved'): ?>
             <h2 class="display"><?= te('No saved homes match these filters.') ?></h2>
             <p><a href="/search"><?= te('Search a new area') ?></a></p>

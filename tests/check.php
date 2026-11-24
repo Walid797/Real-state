@@ -159,6 +159,18 @@ $refreshSample = Db::insert('snapshots', ['provider'=>'rentcast', 'mode'=>'sale'
     'filter_sig'=>'', 'filter_json'=>'[]', 'result_count'=>1, 'truncated'=>0, 'fetched_at'=>now()]);
 try {
     $eq(Search::plan($refreshArea, $refreshFilters)['needs'], [], 'ordinary repeated search reuses a covering snapshot');
+    $zillowSearch = Search::fromRequest(['q'=>'99946', 'listing_source'=>'openwebninja', 'beds_min'=>3]);
+    $eq(Search::compact($zillowSearch)['listing_source'], 'openwebninja', 'Zillow source survives query links and refresh forms');
+    $eq(array_column(Search::plan($refreshArea, $zillowSearch)['needs'], 'key'), [$refreshArea['key']],
+        'explicit Zillow search does not mistake a RentCast snapshot for a Zillow search');
+    $zillowSample = Db::insert('snapshots', ['provider'=>'openwebninja', 'mode'=>'sale', 'loc_key'=>$refreshArea['key'],
+        'filter_sig'=>'own', 'filter_json'=>'{"partial":true}', 'result_count'=>1, 'truncated'=>1, 'fetched_at'=>now()]);
+    try {
+        $eq(Search::plan($refreshArea, $zillowSearch)['needs'], [], 'Zillow reuses its saved first page across local filters');
+    } finally {
+        Db::run('DELETE FROM snapshots WHERE id=?', [$zillowSample]);
+    }
+
     $eq(array_column(Search::plan($refreshArea, $refreshFilters, 'manual', true)['needs'], 'key'), [$refreshArea['key']],
         'explicit refresh schedules a provider pull even with a covering snapshot');
 } finally {

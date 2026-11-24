@@ -35,7 +35,7 @@ final class Search
     ];
 
     /** Request fields that describe a search (also what a saved profile / alert stores). */
-    public const FIELDS = ['q', 'scope', 'view', 'search_kind', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
+    public const FIELDS = ['q', 'scope', 'view', 'search_kind', 'listing_source', 'mode', 'sold_days', 'types', 'listing', 'cond', 'c_kitchen', 'c_bathroom', 'c_roof', 'c_hvac', 'sort'];
 
     public static function fromRequest(array $src): array
     {
@@ -45,6 +45,7 @@ final class Search
         $f['scope'] = ($src['scope']??'') === 'saved' ? 'saved' : 'area';
         $f['view'] = $f['scope']==='saved' && ($src['view']??'')==='opportunities' ? 'opportunities' : 'all';
         $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'auto';
+        $f['listing_source'] = $f['scope'] === 'area' && ($src['listing_source'] ?? '') === OpenWebNinja::ID ? OpenWebNinja::ID : '';
         $f['mode'] = ($src['mode'] ?? '') === 'sold' ? 'sold' : 'sale';
         foreach (self::NUMERIC as $k) {
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
@@ -236,10 +237,10 @@ final class Search
         return ['id' => $id, 'placed' => $geo !== null];
     }
 
-    public static function locationProvider(array $loc, string $ctx = 'manual'): ?string
+    public static function locationProvider(array $loc, string $ctx = 'manual', string $source = ''): ?string
     {
         if ($loc['type']==='saved') return null;
-        return $loc['type'] === 'building'
+        return $loc['type'] === 'building' || $source === OpenWebNinja::ID
             ? (OpenWebNinja::enabled() && Quota::can(OpenWebNinja::ID, $ctx) ? OpenWebNinja::ID : null)
             : self::provider($ctx);
     }
@@ -323,7 +324,7 @@ final class Search
             $out['snapshot'] = $loc['type']==='saved' ? null : self::latestSnapshot($loc, $f['mode'] ?? 'sale');
         }
 
-        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved' && ($f['mode'] ?? 'sale') === 'sale') {
+        if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved' && ($f['mode'] ?? 'sale') === 'sale' && empty($f['listing_source'])) {
             $out['homes'] = HomesSearch::run($loc, $ctx);
             if (!empty($out['homes']['available']) && !RentCast::enabled() && !OpenWebNinja::enabled()) {
                 $out['notice'] = 'Results include public Homes.com listings. RentCast and Zillow data are not connected.';
@@ -430,9 +431,18 @@ final class Search
         ksort($pushed);
         $sig = $pushed ? md5(json_encode($pushed)) : '';
         $fresh = gmdate('Y-m-d H:i:s', time() - max(1, $maxAgeHours ?? Settings::int('snapshot_hours', 24)) * 3600);
+        $parameters = [$loc['key'], $mode, $fresh];
+        $providerScope = '';
+        if (($f['listing_source'] ?? '') === OpenWebNinja::ID) {
+            // Zillow's first page is fetched by area. The listing filters are applied locally.
+            $sig = 'own';
+            $pushed = ['partial' => true];
+            $providerScope = ' AND provider = ?';
+            $parameters[] = OpenWebNinja::ID;
+        }
         $recent = Db::all(
-            'SELECT * FROM snapshots WHERE loc_key = ? AND mode = ? AND fetched_at > ? ORDER BY fetched_at DESC',
-            [$loc['key'], $mode, $fresh]
+            'SELECT * FROM snapshots WHERE loc_key = ? AND mode = ? AND fetched_at > ?' . $providerScope . ' ORDER BY fetched_at DESC',
+            $parameters
         );
         foreach ($recent as $snap) {
             // the very same request — or a complete pull that was at least as wide
@@ -492,9 +502,13 @@ final class Search
             }
         }
 
-        $provider = self::locationProvider($loc, $ctx);
+        $provider = self::locationProvider($loc, $ctx, $f['listing_source'] ?? '');
         $latest = self::latestSnapshot($loc, $mode);
         if ($provider === null) {
+            if (($f['listing_source'] ?? '') === OpenWebNinja::ID) {
+                return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null,
+                    'notice' => 'Zillow data needs a connected key with requests remaining. Showing saved results.'];
+            }
             if ($loc['type'] === 'building') {
                 return ['snapshot' => $latest, 'fetched' => false, 'partial' => true,
                     'notice' => 'Building addresses and saved homes are shown below. Live building listings need a connected Zillow-data source with requests remaining.'];
