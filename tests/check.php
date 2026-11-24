@@ -39,6 +39,7 @@ if (!str_contains((string) App\Config::get('base_url', ''), '127.0.0.1')) {
 $homesWasOn = Settings::get('homes_on', '1');
 Settings::set('homes_on','0'); // Offline checks must never read public listing pages.
 App\Services\SmartLocation::$network = false;
+App\Providers\CountyArea::$network = false;
 
 $fail = 0;
 $n = 0;
@@ -289,7 +290,7 @@ $eq(array_column($mix['parts'] ?? [], 'type'), ['county', 'city', 'zip'], 'mixed
 $plan = Search::plan($mix, Search::fromRequest(['q' => 'x']));
 $eq(array_column($plan['needs'], 'key'), ['state:VA', 'city:VA:richmond', 'zip:22030'], 'a county is pulled through its state; one pull per area');
 $a2 = [];
-$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 8, 'several areas search with OR');
+$ok(str_contains(PropertyRepo::locSql($mix, $a2), ' OR ') && count($a2) === 9, 'several areas search with OR (a city also matches its independent-city county)');
 $counties = Address::parseLocation('Fairfax County, Loudoun County, VA');
 $eq(array_column(Address::areas($counties), 'key'), ['county:VA:fairfax', 'county:VA:loudoun'], 'county list shares a trailing state');
 $eq(array_column(Address::areas(Address::parseLocation('Fairfax County, VA, Montgomery County, MD')), 'key'), ['county:VA:fairfax', 'county:MD:montgomery'], 'commas preserve each explicit county state');
@@ -1228,5 +1229,68 @@ $ok($complete['coverage']===100&&is_int($complete['final_score']),'real market a
 $incomplete=$scorer->invoke(null,['ok'=>false],$testRegion,['score'=>92],['places'=>$accessPlaces],['risk'=>'low'],[]);
 $eq($incomplete['final_score'],null,'missing financial evidence is never replaced by an invented final score');
 Settings::set('homes_on',$homesWasOn);
+
+/* ── Smart search: typed filters, any address shape, streets, mixed lists ── */
+$u = App\Services\SearchQuery::understand('3 bed townhouse in Falls Church under 500k');
+$eq([$u['q'], $u['filters']['beds_min'] ?? null, $u['filters']['price_max'] ?? null, $u['filters']['types'] ?? null], ['Falls Church', 3.0, 500000.0, ['Townhouse']], 'typed beds, type and price become filters; the rest is the place');
+$u = App\Services\SearchQuery::understand('۳ خوابه زیر ۵۰۰ هزار در Fairfax County');
+$eq([$u['q'], $u['filters']['beds_min'] ?? null, $u['filters']['price_max'] ?? null], ['Fairfax County', 3.0, 500000.0], 'Persian filters and digits are understood');
+$u = App\Services\SearchQuery::understand('3-4 bedrooms 2 bath condos near Reston $300k-$450k');
+$eq([$u['q'], $u['filters']['beds_min'], $u['filters']['beds_max'], $u['filters']['baths_min'], $u['filters']['price_min'], $u['filters']['price_max'], $u['filters']['types']],
+    ['Reston', 3.0, 4.0, 2.0, 300000.0, 450000.0, ['Condo']], 'ranges for beds and price');
+foreach (['5501 Seminary Rd', '3 Bath St, Bath, ME 04530', '22041 22042', 'Park Place Condominiums', 'Fairfax County, Loudoun County'] as $kept) {
+    $eq(App\Services\SearchQuery::understand($kept)['filters'], [], 'left alone: ' . $kept);
+}
+$eq(App\Services\SearchQuery::understand('sold homes in 22041 built after 1990')['filters'], ['year_min' => 1990.0, 'mode' => 'sold'], 'sold and year built are understood');
+$typedF = Search::fromRequest(['q' => '3 bed under 500k Fairfax County', 'beds_min' => '2', 'price_min' => '600,000', 'price_max' => '400000']);
+$eq([$typedF['q'], $typedF['beds_min'], $typedF['price_min'], $typedF['price_max']], ['Fairfax County', 2.0, 400000.0, 600000.0], 'the form wins over typed filters; a reversed price range is swapped');
+$ok(!isset(Search::compact($typedF)['understood']) && Search::compact($typedF)['q'] === 'Fairfax County', 'saved searches keep the clean place and the filters');
+
+$pl = static fn (string $q) => Address::parseLocation($q);
+$eq([$pl('Seminary Rd')['type'], $pl('Seminary Road Falls Church')['city'] ?? null, $pl('Columbia Pike, Arlington')['street'] ?? null],
+    ['street', 'Falls Church', 'Columbia Pike'], 'street searches, with or without the town');
+$loose = $pl('5501 seminary road falls church va');
+$eq([$loose['type'], $loose['address'], $loose['city'], $loose['state']], ['address', '5501 Seminary Road', 'Falls Church', 'VA'], 'an address without commas or ZIP');
+$eq([$pl('5501 Seminary Rd')['type'], $pl('5501 Seminary Rd')['partial']], ['address', true], 'a house number and street with no town is a partial address');
+$eq($pl('123 Main St St Petersburg FL')['city'], 'St Petersburg', '"St" before a town name is Saint');
+$eq($pl('123 Oak Ct')['state'], '', 'a street type that is also a state code is not taken as the state');
+$eq(array_column($pl('Falls Church, Arlington, Alexandria')['parts'], 'type'), ['city', 'city', 'city'], 'several cities separated by commas');
+$eq(array_column($pl('Fairfax County and Arlington County')['parts'], 'key'), ['county:VA:fairfax', 'county:VA:arlington'], '"and" separates places');
+$eq($pl('King and Queen County')['type'], 'county', 'a county named with "and" stays one county');
+$eq($pl('Fairfax, VA 22030')['key'], 'zip:22030', 'a town with its ZIP searches the ZIP');
+$eq($pl('22041 Falls Church VA')['key'], 'zip:22041', 'ZIP before the town');
+$eq($pl('City of Fairfax')['city'], 'Fairfax City', 'independent city spelled "City of"');
+$mixAddr = $pl('5501 Seminary Rd, Falls Church, VA 22041; 1600 Pennsylvania Ave NW, Washington, DC 20500; Fairfax County');
+$eq(array_column($mixAddr['parts'], 'type'), ['address', 'address', 'county'], 'several addresses and an area together');
+$eq(Address::parseLocation('Skyline Square, Falls Church, VA')['type'], 'street', 'a name ending in a street word in a town reads as a street until a building is found');
+$ok(App\Services\SmartLocation::ambiguous(Address::parseLocation('Skyline Square')) && !App\Services\SmartLocation::ambiguous(Address::parseLocation('Seminary Rd')), 'names like "Square" still get a building lookup');
+
+// Street, partial address and mixed lists against the database.
+$stIds = [];
+foreach ([['8801 Testhill Rd Unit 1', 450000, 3, 2], ['8801 Testhill Road Unit 2', 520000, 2, 1], ['8803 Testhill Rd', 610000, 4, 3], ['17 Elsewhere Ln', 300000, 3, 2]] as [$line, $price, $bd, $ba]) {
+    $stIds[] = PropertyRepo::upsert(['address' => $line, 'city' => 'Testville', 'state' => 'VA', 'zip' => '99908', 'status' => 'for_sale', 'list_price' => $price, 'beds' => $bd, 'baths' => $ba, 'property_type' => 'Condo'], 'manual')['id'];
+}
+$soldId = PropertyRepo::upsert(['address' => '9 Gone Ct', 'city' => 'Testville', 'state' => 'VA', 'zip' => '99908', 'status' => 'off_market', 'list_price' => 0], 'manual')['id'];
+$street = PropertyRepo::search(['loc' => Address::parseLocation('Testhill Road, Testville'), 'limit' => 50]);
+$eq($street['total'], 3, 'a street search finds every home on it, whichever way "Road" was written');
+$eq(PropertyRepo::search(['loc' => Address::parseLocation('Testhill Rd Testville'), 'beds_min' => 3, 'limit' => 50])['total'], 2, 'filters narrow a street search');
+$partial = Search::location(Search::fromRequest(['q' => '8801 Testhill Rd']));
+$eq(count($partial['ids'] ?? []), 2, 'a house number with no town finds every unit at that address on file');
+$unit = Search::location(Search::fromRequest(['q' => '8801 Testhill Rd #2 Testville VA 99908']));
+$eq($unit['ids'] ?? null, [$stIds[1]], 'a unit typed differently ("#2" for "Unit 2") still finds that one apartment');
+$mixed = Search::location(Search::fromRequest(['q' => '9 Gone Ct, Testville, VA 99908; 8803 Testhill Rd, Testville, VA 99908']));
+$mixedRes = PropertyRepo::search(Search::fromRequest(['q' => 'x', 'beds_min' => 5]) + ['loc' => $mixed, 'limit' => 50]);
+$eq(count($mixedRes['rows']), 2, 'homes asked for by address are listed even when off the market or outside the filters');
+$eq(PropertyRepo::findAddress(['address' => '8803 Testhill Rd', 'city' => '', 'state' => '', 'zip' => '99908']), $stIds[2], 'an address with only a ZIP is found (and the check no longer mixes SQL collations)');
+Db::run('DELETE FROM properties WHERE zip = ?', ['99908']);
+
+$circle = App\Providers\CountyArea::pick([['NAME' => 'Fairfax city', 'AREALAND' => 16e6, 'INTPTLAT' => '+38.85', 'INTPTLON' => '-077.30'],
+    ['NAME' => 'Fairfax County', 'AREALAND' => 1.0e9, 'INTPTLAT' => '+38.84', 'INTPTLON' => '-077.27']], false);
+$ok($circle && $circle['name'] === 'Fairfax County' && $circle['radius'] > 10 && $circle['radius'] < 20 && abs($circle['lat'] - 38.84) < 0.001, 'a county becomes a circle of about its own size, not its same-named city');
+$eq(App\Providers\CountyArea::pick([['NAME' => 'Huge County', 'AREALAND' => 2.0e10, 'INTPTLAT' => '40', 'INTPTLON' => '-110']], false), null, 'a very large county falls back to the state pull');
+
+$eq(Search::fetchArea(Address::parseLocation('Fairfax City'))['key'], 'city:VA:fairfax', 'an independent city is pulled by its postal name');
+$eq(Search::fetchArea(Address::parseLocation('Kansas City, MO'))['key'], 'city:MO:kansas city', 'a city whose name ends in "City" keeps it');
+
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

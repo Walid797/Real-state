@@ -26,7 +26,7 @@ if ($all && $type === 'homes') {
     $raw = json_decode((string) ($_POST['params'] ?? ''), true);
     $f = Search::fromRequest(is_array($raw) ? $raw : []);
     $loc = Search::location($f);
-    if ($loc && $loc['type'] !== 'address') {
+    if ($loc) {
         $allIds = array_map('intval', array_column(Search::run($f, ['fetch' => false, 'limit' => 5000])['rows'], 'id'));
     }
     if (!$allIds) {

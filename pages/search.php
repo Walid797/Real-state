@@ -22,32 +22,27 @@ $stateName = Address::STATES[$state] ?? $state;
 if ($f['q'] !== '') {
     $loc = Search::location($f, true);
     if ($loc && $loc['type'] === 'address') {
-        if (Auth::can('edit')) {
+        if (Auth::can('edit') && empty($loc['partial'])) {
             App\Services\HomesSearch::run($loc);
+            $loc = Search::withHomes(array_diff_key($loc, ['ids' => 1]));
         }
-        $id = PropertyRepo::findAddress($loc);
-        if (!$id && Auth::can('edit')) {
-            $geo = Census::geocode(Address::full($loc)); // free; gives coordinates, ZIP and county
-            $matched = $geo ? Address::parseFullAddress($geo['matched']) : null;
-            if (!$matched || !Address::sameProperty($loc, $matched, true)) {
-                $geo = null;
+        $ids = $loc['ids'] ?? [];
+        if (count($ids) === 1) {
+            redirect('/property/' . $ids[0]);
+        }
+        if (!$ids) {
+            if (!empty($loc['partial'])) {
+                flash(t('No home at %s is on file yet. Add the town or ZIP code so it can be found.', $loc['address']), 'warn');
+            } elseif (!Auth::can('edit')) {
+                flash('That address isn’t on file yet.', 'warn');
+                redirect('/search');
+            } else {
+                $added = Search::addAddress($loc);
+                flash($added['placed'] ? 'New address. Nothing is known about it yet — pull its record below.' : 'Saved the address, but the Census geocoder couldn’t place it on the map. Check the spelling.', $added['placed'] ? 'ok' : 'warn');
+                redirect('/property/' . $added['id']);
             }
-            $loc['zip'] = $loc['zip'] ?: ($geo['zip'] ?? '');
-            $id = PropertyRepo::findAddress($loc);
         }
-        if (!$id && Auth::can('edit')) {
-            $id = PropertyRepo::upsert([
-                'address' => $loc['address'], 'city' => $loc['city'], 'state' => $loc['state'],
-                'zip' => $loc['zip'] ?: ($geo['zip'] ?? ''), 'lat' => $geo['lat'] ?? null, 'lng' => $geo['lng'] ?? null,
-                'county' => $geo['county'] ?? null,
-            ], 'manual')['id'];
-            flash($geo ? 'New address. Nothing is known about it yet — pull its record below.' : 'Saved the address, but the Census geocoder couldn’t place it on the map. Check the spelling.', $geo ? 'ok' : 'warn');
-        }
-        if ($id) {
-            redirect('/property/' . $id);
-        }
-        flash('That address isn’t on file yet.', 'warn');
-        redirect('/search');
+        // Several homes at this address (units of one building): listed below.
     }
 }
 
@@ -72,10 +67,15 @@ $filterForm = static function (bool $landing) use ($f, $val, $money, $typesDefau
         <legend><?= te($landing ? 'Area' : 'Type') ?></legend>
         <?php if ($landing): ?>
         <label class="field"><span><?= te('Where') ?></span>
-          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
-          <small id="search-area-help"><?= te('Type an address, apartment number, building name, city, county or ZIP. Search detects the type automatically; add city and state for an ambiguous name.') ?></small>
-          <small><bdi>5501 Seminary Rd, Apt 1703 S, Falls Church, VA 22041</bdi><br><bdi>Skyline Square, Falls Church, VA</bdi></small>
-          <small><?= te('Include “County” in each name and separate the names with commas. To combine a county with a city or ZIP code, use a semicolon.') ?></small></label>
+          <input class="input" type="search" name="q" value="<?= e($f['q']) ?>" placeholder="<?= te('Address, building, street, city, county or ZIP — add “3 bed under 500k” if you like') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" required autocomplete="off" aria-describedby="search-area-help">
+          <small id="search-area-help"><?= te('Type it any way: a full or partial address (with or without commas, ZIP or state), an apartment, a building name, a street, a city, a county or ZIP codes. Several places together: separate them with commas, “;” or “and”. Filters can be typed too; the boxes below always win.') ?></small>
+          <ul class="search-examples small" dir="ltr">
+            <?php foreach (['5501 Seminary Rd Apt 1703 S Falls Church VA 22041', '5501 Seminary Rd', 'Seminary Rd, Falls Church', 'Skyline Square, Falls Church, VA',
+                'Fairfax County, Loudoun County, VA', '22041 22042 22044', 'Fairfax County; Arlington; 22041', '3 bed townhouse in Falls Church under 500k',
+                '۳ خوابه زیر ۵۰۰ هزار در Fairfax County'] as $example): ?>
+            <li><a href="<?= e(url('/search', ['q' => $example])) ?>"><bdi><?= e($example) ?></bdi></a></li>
+            <?php endforeach; ?>
+          </ul></label>
         <div class="field"><span><?= te('Listings') ?></span>
           <span class="seg" role="group" aria-label="<?= te('For sale or sold') ?>">
             <label><input type="radio" name="mode" value="sale"<?= checked($f['mode'] === 'sale') ?>><span><?= te('For sale') ?></span></label>
@@ -256,7 +256,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
   <?php if ($f['scope']==='saved'): ?><input type="hidden" name="scope" value="saved"><input type="hidden" name="view" value="<?= e($f['view']) ?>"><?php endif; ?>
   <div class="sbar-row">
     <label class="q"><span class="sr"><?= te('Area') ?></span><?= icon('search', 16) ?>
-      <input class="input" type="search" name="q" value="<?= e($f['scope']==='saved' ? $loc['label'] : $f['q']) ?>" placeholder="<?= te('County, ZIP, street address or building name') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" <?= $f['scope']==='saved' ? 'readonly' : 'required' ?> aria-describedby="search-area-help"></label>
+      <input class="input" type="search" name="q" value="<?= e($f['scope']==='saved' ? $loc['label'] : $f['q']) ?>" placeholder="<?= te('Address, building, street, city, county or ZIP — add “3 bed under 500k” if you like') ?>" maxlength="<?= Search::AREA_MAX_LENGTH ?>" autocomplete="off" <?= $f['scope']==='saved' ? 'readonly' : 'required' ?> aria-describedby="search-area-help"></label>
     <?php if ($f['scope']!=='saved'): ?><span class="seg" role="group" aria-label="<?= te('Listing type') ?>">
       <label><input type="radio" name="mode" value="sale"<?= checked($mode === 'sale') ?> data-autosubmit><span><?= te('For sale') ?></span></label>
       <label><input type="radio" name="mode" value="sold"<?= checked($mode === 'sold') ?> data-autosubmit><span><?= te('Sold') ?></span></label>
@@ -277,9 +277,14 @@ View::script('/assets/vendor/leaflet/leaflet.js');
   </div>
   <?php if ($f['scope']==='saved'): ?>
   <p class="sbar-desc" id="search-area-help"><?= te('Showing saved homes across all areas. This view does not call external data sources.') ?> <a href="/search"><?= te('Search a new area') ?></a></p>
-  <?php else: ?><p class="sbar-desc" id="search-area-help"><?= te('Type an address, apartment number, building name, city, county or ZIP. Search detects the type automatically; add city and state for an ambiguous name.') ?></p><?php endif; ?>
-  <?php if ($loc && $loc['type']!=='saved'): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas']; ?>
-  <p class="sbar-desc search-detected" data-detected="<?= e($loc['type']) ?>"><?= te('Detected automatically: %s',t($typeLabels[$loc['type']]??'Address')) ?></p>
+  <?php else: ?><p class="sbar-desc" id="search-area-help"><?= te('Type it any way: a full or partial address (with or without commas, ZIP or state), an apartment, a building name, a street, a city, a county or ZIP codes. Several places together: separate them with commas, “;” or “and”. Filters can be typed too; the boxes below always win.') ?></p><?php endif; ?>
+  <?php if ($loc && $loc['type']!=='saved'): $typeLabels=['building'=>'Building name','city'=>'City','county'=>'County','state'=>'State','zip'=>'ZIP','multi'=>'Multiple areas','street'=>'Street','address'=>'Address']; ?>
+  <p class="sbar-desc search-detected" data-detected="<?= e($loc['type']) ?>"><?= te('Detected automatically: %s',t($typeLabels[$loc['type']]??'Address')) ?>
+    <?php if ($loc['type'] === 'multi'): ?><span class="detected-parts"><?php foreach ($loc['parts'] as $part): ?><span class="chip"><?= te($typeLabels[$part['type']] ?? 'Address') ?>: <bdi><?= e($part['label']) ?></bdi></span><?php endforeach; ?></span><?php endif; ?></p>
+  <?php endif; ?>
+  <?php if (!empty($f['understood'])): ?>
+  <p class="sbar-desc search-understood"><?= te('Filters understood from your search:') ?> <?php foreach ($f['understood'] as $u): ?><span class="chip chip-good"><?= e($u) ?></span><?php endforeach; ?>
+    <span class="muted"><?= te('Change them under Filters.') ?></span></p>
   <?php endif; ?>
   <?php if ($activeFilters): ?><p class="sbar-desc"><?= e(Search::describe($f)) ?></p><?php endif; ?>
 </form>

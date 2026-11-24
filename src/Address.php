@@ -90,71 +90,197 @@ final class Address
         }
     }
 
+    /** Street-type words used to tell a street ("Seminary Rd") from a place ("Falls Church"). Search only; never hashed. */
+    private const STREET_WORDS = [
+        'st' => 'street', 'rd' => 'road', 'ave' => 'avenue', 'av' => 'avenue', 'blvd' => 'boulevard', 'dr' => 'drive', 'ln' => 'lane',
+        'ct' => 'court', 'pl' => 'place', 'ter' => 'terrace', 'cir' => 'circle', 'hwy' => 'highway', 'pkwy' => 'parkway', 'trl' => 'trail',
+        'sq' => 'square', 'way' => 'way', 'pike' => 'pike', 'tpke' => 'turnpike', 'plz' => 'plaza', 'loop' => 'loop', 'row' => 'row',
+        'cv' => 'cove', 'aly' => 'alley', 'xing' => 'crossing', 'walk' => 'walk', 'bnd' => 'bend', 'run' => 'run', 'pass' => 'pass',
+    ];
+    /** Street words that are just as often part of a building's name. */
+    private const NAME_WORDS = ['square', 'sq', 'plaza', 'plz', 'place', 'pl', 'court', 'ct', 'walk', 'row'];
+    private const DIRECTIONS = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw', 'north', 'south', 'east', 'west', 'northeast', 'northwest', 'southeast', 'southwest'];
+
+    /** Persian / Arabic digits and punctuation → ASCII; one space between words. */
+    public static function clean(string $q): string
+    {
+        $q = strtr($q, [
+            '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+            '،' => ',', '؛' => ';', "\u{200C}" => ' ', "\u{00A0}" => ' ',
+        ]);
+        $q = preg_replace('/[ \t]+/u', ' ', $q) ?? $q;
+        return trim(preg_replace('/\s*,\s*(?:USA|United States(?: of America)?|US)\.?$/i', '', trim($q)) ?? $q);
+    }
+
+    /** Is this word a street type ("rd", "Road", "Pike")? */
+    public static function isStreetWord(string $w): bool
+    {
+        $w = strtolower(rtrim($w, '.'));
+        return isset(self::STREET_WORDS[$w]) || in_array($w, self::STREET_WORDS, true);
+    }
+
     /**
-     * Understands, case-insensitively:
-     *   "78704"                       one ZIP
-     *   "22030, 20176 22102"          several ZIPs
-     *   "Virginia", "VA", "all of VA" the whole state
-     *   "Fairfax County, VA"          a county (state optional: home state assumed)
-     *   "Fairfax County, Loudoun County, VA"   several counties in one state
-     *   "Fairfax County, VA, Montgomery County, MD"   counties in different states
-     *   "Austin, TX", "Richmond"      a city (state optional: home state assumed)
-     *   "Fairfax County; Richmond"    several areas, separated by ";"
-     *   "5500 Grand Lake Dr, San Antonio, TX 78244"   one street address
+     * Understands, case-insensitively, any mix of:
+     *   "78704" · "22030, 20176 22102"              ZIP codes
+     *   "Virginia", "VA", "all of VA"                 the whole state
+     *   "Fairfax County", "Fairfax County, VA"        a county (state optional: home state assumed)
+     *   "Fairfax County, Loudoun County, VA"          several counties; a trailing state applies to all
+     *   "Austin, TX", "Richmond", "Fairfax City"      a city or independent city
+     *   "Falls Church, Arlington, Alexandria"         several cities
+     *   "Seminary Rd", "Columbia Pike, Arlington"     every home on a street
+     *   "5500 Grand Lake Dr, San Antonio, TX 78244"   one home, with or without commas, ZIP or state
+     *   "5501 Seminary Rd"                            one home, city unknown (looked up)
+     *   "Fairfax County; Richmond; 5501 Seminary Rd…" several of the above: ";", "|", a new line or "and"
      *
      * @return array{type:string, key:string, label:string, ...}|null
-     *   type: zip | city | county | state | multi | address. "multi" carries "parts".
+     *   type: zip | city | county | state | street | address | multi. "multi" carries "parts".
      */
     public static function parseLocation(string $q): ?array
     {
-        $q = strtr($q, ['،' => ',', '؛' => ';']);
-        $q = trim(preg_replace('/\s+/', ' ', $q) ?? '');
+        $q = self::clean(strtr($q, ["\r\n" => "\n", "\r" => "\n"]));
         if ($q === '') {
             return null;
         }
-        // Several ZIPs, separated by commas and/or spaces.
-        if (preg_match('/^\d{5}(?:[\s,;]+\d{5})+$/', $q)) {
-            $zips = array_values(array_unique(preg_split('/[\s,;]+/', $q) ?: []));
-            return self::multi(array_map(static fn ($z) => self::parseOne($z), array_slice($zips, 0, 40)));
+        // A pasted postal address keeps its lines together (street / apartment / ZIP city state).
+        if (str_contains($q, "\n") && preg_match('/^\d/', $q) && ($a = self::parseFullAddress($q)) !== null) {
+            return self::addressLoc($a);
         }
-        if (str_contains($q, ';')) {
-            $parts = [];
-            foreach (explode(';', $q) as $chunk) {
-                $chunk = trim($chunk);
-                $areas = self::countyList($chunk) ?: [self::parseOne($chunk)];
-                foreach ($areas as $area) {
-                    if ($area && $area['type'] !== 'address') {
-                        $parts[] = $area;
+        $parts = [];
+        foreach (preg_split('/\s*(?:;|\||\n)\s*/', $q) ?: [] as $chunk) {
+            foreach (self::parseChunk($chunk) as $part) {
+                $parts[] = $part;
+            }
+        }
+        return self::multi($parts);
+    }
+
+    /** One ";"-separated piece: an address, a ZIP list, or a comma / "and" list of places. @return list<array> */
+    private static function parseChunk(string $chunk): array
+    {
+        $chunk = trim($chunk, " \t,");
+        if ($chunk === '') {
+            return [];
+        }
+        if (preg_match('/^\d{5}(?:[\s,]+\d{5})*$/', $chunk)) {
+            return array_map(static fn ($z) => self::parseOne($z), array_slice(array_values(array_unique(preg_split('/[\s,]+/', $chunk) ?: [])), 0, 40));
+        }
+        if (preg_match('/^\d+[a-z]?(?:-\d+)?\s+\D/i', $chunk) && !preg_match('/^\d{5}\s/', $chunk)) {
+            $one = self::parseOne($chunk);
+            return $one ? [$one] : [];
+        }
+        // "Fairfax County and Arlington County", "Reston & Herndon"
+        if (!preg_match('/king\s+and\s+queen/i', $chunk)) {
+            $chunk = preg_replace('/\s+(?:and|&|و)\s+/iu', ', ', $chunk) ?? $chunk;
+        }
+        // Commas: a state (or "ST 12345") belongs to the place before it.
+        $groups = [];
+        foreach (array_values(array_filter(array_map('trim', explode(',', $chunk)), 'strlen')) as $piece) {
+            $isStateTail = self::stateAbbr($piece) !== null || (preg_match('/^([A-Za-z]{2})\s+\d{5}(?:-\d{4})?$/', $piece, $m) && self::stateAbbr($m[1]));
+            if ($groups && $isStateTail && !self::endsWithState($groups[count($groups) - 1])) {
+                $groups[count($groups) - 1] .= ', ' . $piece;
+            } else {
+                $groups[] = $piece;
+            }
+        }
+        if (count($groups) === 1) {
+            $one = self::parseOne($groups[0]);
+            return $one ? [$one] : [];
+        }
+        // "Seminary Rd, Falls Church, VA" or "Skyline Square, Falls Church": a street or name in a city.
+        if (count($groups) === 2 && self::looksLikeStreet($groups[0]) && !preg_match('/\b(?:county|parish|borough)\b|^\d{5}$/i', $groups[1])) {
+            $place = self::parseOne($groups[1]);
+            if ($place && $place['type'] === 'city') {
+                return [self::streetLoc($groups[0], $place['city'], $place['state'])];
+            }
+        }
+        $parts = array_map(self::parseOne(...), $groups);
+        // A single state written at the end applies to the earlier places that have none.
+        $last = count($groups) - 1;
+        if (self::endsWithState($groups[$last]) && ($parts[$last]['state'] ?? null)) {
+            foreach ($groups as $i => $g) {
+                if ($i < $last && !self::endsWithState($g) && !preg_match('/^\d{5}$/', $g)) {
+                    $parts[$i] = self::parseOne($g . ', ' . $parts[$last]['state']);
+                }
+            }
+        }
+        return array_values(array_filter($parts));
+    }
+
+    /** "Fairfax County, VA", "Austin TX", "Richmond, Virginia 23220" */
+    private static function endsWithState(string $s): bool
+    {
+        $s = trim(preg_replace('/\s+\d{5}(?:-\d{4})?$/', '', trim($s)) ?? $s);
+        if (preg_match('/[,\s]([A-Za-z]{2})$/', $s, $m) && self::stateAbbr($m[1])) {
+            return true;
+        }
+        foreach (self::STATES as $name) {
+            if (preg_match('/[,\s]' . preg_quote($name, '/') . '$/i', $s)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** "Seminary Rd", "Columbia Pike", "Skyline Square" — a name ending in a street word, without a house number. */
+    private static function looksLikeStreet(string $s): bool
+    {
+        $s = trim($s);
+        if ($s === '' || preg_match('/\d/', $s) || !str_contains($s, ' ')) {
+            return false;
+        }
+        $words = preg_split('/\s+/', $s) ?: [];
+        $last = strtolower(rtrim((string) end($words), '.'));
+        if (in_array($last, self::DIRECTIONS, true) && count($words) > 2) {
+            $last = strtolower(rtrim((string) $words[count($words) - 2], '.'));
+        }
+        return self::isStreetWord($last);
+    }
+
+    private static function streetLoc(string $street, string $city, string $state): array
+    {
+        $street = self::titleCity(trim($street, ' ,'));
+        $norm = self::normalizeStreet($street);
+        $city = $city !== '' ? self::titleCity($city) : '';
+        $label = implode(', ', array_filter([$street, $city, $state]));
+        $words = preg_split('/\s+/', strtolower($street)) ?: [];
+        $maybeName = in_array(rtrim((string) end($words), '.'), self::NAME_WORDS, true);
+        return ['type' => 'street', 'street' => $street, 'city' => $city, 'state' => $state, 'name_like' => $maybeName,
+            'key' => 'street:' . $state . ':' . mb_strtolower($city) . ':' . $norm, 'label' => $label];
+    }
+
+    /**
+     * SQL regular expression for a street name, matching its long and short spellings anywhere in an address line:
+     * "seminary rd" → (^|[^a-z0-9])seminary (rd|road)([^a-z0-9]|$)
+     */
+    public static function streetRegex(string $street): string
+    {
+        $words = preg_split('/\s+/', strtolower(trim(preg_replace('/[^a-z0-9\s]/i', ' ', $street) ?? ''))) ?: [];
+        $alts = [];
+        foreach (array_filter($words, 'strlen') as $w) {
+            $forms = [$w];
+            foreach (self::STREET_WORDS as $short => $long) {
+                if ($w === $short || $w === $long) {
+                    $forms = [$short, $long];
+                    if ($short === 'av') {
+                        $forms[] = 'ave';
+                    }
+                    if ($short === 'ave') {
+                        $forms[] = 'av';
                     }
                 }
             }
-            return self::multi($parts);
-        }
-        $counties = self::countyList($q);
-        return $counties ? self::multi($counties) : self::parseOne($q);
-    }
-
-    /** A comma before a county name separates areas; a comma before a state stays with its county. */
-    private static function countyList(string $q): array
-    {
-        $suffix = '(?:county|parish|borough)';
-        $names = preg_split('/,\s*(?=[^,]+?\s+' . $suffix . '\b)/i', $q) ?: [];
-        if (count($names) < 2) {
-            return [];
-        }
-        $parts = array_map(self::parseOne(...), $names);
-        if (count(array_filter($parts, static fn ($part) => ($part['type'] ?? '') === 'county')) !== count($names)) {
-            return [];
-        }
-        $unqualified = array_filter($names, static fn ($name) => preg_match('/\s' . $suffix . '$/i', trim($name)));
-        $last = count($names) - 1;
-        // A single state written at the very end applies to the whole comma-separated list.
-        if (count($unqualified) === $last && !isset($unqualified[$last])) {
-            foreach ($unqualified as $i => $name) {
-                $parts[$i] = self::parseOne($name . ', ' . $parts[$last]['state']);
+            foreach (['n' => 'north', 's' => 'south', 'e' => 'east', 'w' => 'west'] as $short => $long) {
+                if ($w === $short || $w === $long) {
+                    $forms = [$short, $long];
+                }
             }
+            if ($w === 'saint' || $w === 'st' && count($alts) === 0) {
+                $forms = array_unique(array_merge($forms, ['st', 'saint']));
+            }
+            $alts[] = count($forms) > 1 ? '(' . implode('|', array_unique($forms)) . ')' : $forms[0];
         }
-        return $parts;
+        return '(^|[^a-z0-9])' . implode(' ', $alts) . '([^a-z0-9]|$)';
     }
 
     private static function multi(array $parts): ?array
@@ -175,9 +301,17 @@ final class Address
         ];
     }
 
+    private static function addressLoc(array $a): array
+    {
+        $partial = ($a['city'] ?? '') === '' && ($a['zip'] ?? '') === '';
+        return ['type' => 'address', 'partial' => $partial,
+            'key' => 'addr:' . self::hash($a['address'], $a['city'], $a['state'], $a['zip']), 'label' => self::full($a)] + $a;
+    }
+
     private static function parseOne(string $q): ?array
     {
         $q = trim($q, " \t,");
+        $q = preg_replace('/^(?:zip(?:\s*code)?|postal\s+code)\s*:?\s*(?=\d{5})/i', '', $q) ?? $q;
         if ($q === '') {
             return null;
         }
@@ -185,13 +319,19 @@ final class Address
             $zip = substr($q, 0, 5);
             return ['type' => 'zip', 'zip' => $zip, 'key' => 'zip:' . $zip, 'label' => $zip];
         }
+        // "22041 Falls Church VA": a ZIP code followed by its town, not a house number.
+        if (preg_match('/^(\d{5})(?:-\d{4})?\s+([^\d]+)$/', $q, $m) && !self::looksLikeStreet(preg_replace('/[,\s]+[A-Za-z]{2}$/', '', $m[2]) ?? $m[2])
+            && !preg_match('/\s(?:' . self::streetWordPattern() . ')\.?(?:\s|$)/i', ' ' . $m[2])) {
+            return self::parseOne($m[1]);
+        }
         // Starts with a house number → a street address.
-        if (preg_match('/^\d+[a-z]?\s+\S+/i', $q)) {
-            $a = self::parseFullAddress($q);
-            if ($a !== null) {
-                return ['type' => 'address', 'key' => 'addr:' . self::hash($a['address'], $a['city'], $a['state'], $a['zip']), 'label' => self::full($a)] + $a;
-            }
-            return null;
+        if (preg_match('/^\d+[a-z]?(?:-\d+)?\s+\S+/i', $q)) {
+            $a = self::parseFullAddress($q) ?? self::parseLooseAddress($q);
+            return $a !== null ? self::addressLoc($a) : null;
+        }
+        // "Fairfax, VA 22030" / "Falls Church 22041": the ZIP is the most precise part.
+        if (preg_match('/^\D+?[,\s]+(\d{5})(?:-\d{4})?$/', $q, $m)) {
+            return self::parseOne($m[1]);
         }
         // The whole state: "Virginia", "VA", "all of Virginia", "entire VA", "Virginia statewide".
         $bare = preg_replace('/^(?:all of|entire|whole|statewide)\s+|\s+(?:statewide|state)$/i', '', $q) ?? $q;
@@ -202,7 +342,7 @@ final class Address
         // Split off a trailing state: "X, ST", "X ST", "X, State name".
         $state = null;
         $head = $q;
-        if (preg_match('/^(.+?)[,\s]\s*([A-Za-z]{2})$/', $q, $m) && ($st = self::stateAbbr($m[2]))) {
+        if (preg_match('/^(.+?)[,\s]\s*([A-Za-z]{2})$/', $q, $m) && ($st = self::stateAbbr($m[2])) && !(self::isStreetWord($m[2]) && self::looksLikeStreet($q))) {
             [$state, $head] = [$st, rtrim($m[1], ', ')];
         } elseif (str_contains($q, ',')) {
             [$c, $sn] = array_map('trim', explode(',', $q, 2));
@@ -218,7 +358,7 @@ final class Address
             }
         }
         $state ??= self::homeState();
-        $head = trim($head);
+        $head = trim($head, " \t,");
         if ($head === '' || preg_match('/\d/', $head)) {
             return null;
         }
@@ -227,9 +367,113 @@ final class Address
             return ['type' => 'county', 'county' => $county, 'state' => $state,
                 'key' => 'county:' . $state . ':' . mb_strtolower($county), 'label' => $county . ' County, ' . $state];
         }
+        // "City of Fairfax" is the independent city "Fairfax City".
+        if (preg_match('/^city\s+of\s+(.+)$/i', $head, $m)) {
+            $head = $m[1] . ' City';
+        }
+        // A street, with or without its city: "Seminary Rd", "Leesburg Pike Falls Church".
+        if (self::looksLikeStreet($head)) {
+            return self::streetLoc($head, '', $state);
+        }
+        if (!preg_match('/\b(?:port|fort|ft|mount|mt)\s+st\.?\s/i', $head)
+            && preg_match('/^(.+?\s+(?:' . self::streetWordPattern() . ')\.?(?:\s+(?:n|s|e|w|ne|nw|se|sw))?)\s+([a-z][a-z .\'-]+)$/i', $head, $m)
+            && self::looksLikeStreet($m[1])) {
+            return self::streetLoc($m[1], $m[2], $state);
+        }
         $city = self::titleCity($head);
         return ['type' => 'city', 'city' => $city, 'state' => $state,
             'key' => 'city:' . $state . ':' . mb_strtolower($city), 'label' => $city . ', ' . $state];
+    }
+
+    private static function streetWordPattern(): string
+    {
+        $all = array_unique(array_merge(array_keys(self::STREET_WORDS), array_values(self::STREET_WORDS)));
+        usort($all, static fn ($a, $b) => strlen($b) <=> strlen($a));
+        return implode('|', array_map(static fn ($w) => preg_quote($w, '/'), $all));
+    }
+
+    /**
+     * Addresses typed loosely: "5501 seminary road falls church va", "5501 Seminary Rd 22041",
+     * "5501 Seminary Rd" (city unknown). The street ends at its street word (plus a direction and
+     * a unit); what follows is the city. Null when that cannot be told apart.
+     * @return array{address:string, city:string, state:string, zip:string}|null
+     */
+    public static function parseLooseAddress(string $q): ?array
+    {
+        $s = trim(preg_replace('/\s+/', ' ', str_replace(',', ' ', $q)) ?? '');
+        if (!preg_match('/^\d+[a-z]?(?:-\d+)?\s+\S/i', $s)) {
+            return null;
+        }
+        $zip = '';
+        if (preg_match('/\s(\d{5})(?:-\d{4})?$/', $s, $m)) {
+            $zip = $m[1];
+            $s = trim(substr($s, 0, -strlen($m[0])));
+        }
+        $state = '';
+        foreach (self::STATES as $abbr => $name) {
+            if (preg_match('/\s' . preg_quote($name, '/') . '$/i', $s, $m)) {
+                [$state, $s] = [$abbr, trim(substr($s, 0, -strlen($m[0])))];
+                break;
+            }
+        }
+        $words = explode(' ', $s);
+        // A two-letter state at the end — unless it is the street's own type ("123 Oak Ct").
+        if ($state === '' && count($words) > 2) {
+            $tail = (string) end($words);
+            $streetWordsBefore = count(array_filter(array_slice($words, 1, -1), static fn ($w) => self::isStreetWord($w)));
+            if (strlen($tail) === 2 && self::stateAbbr($tail) && (!self::isStreetWord($tail) || $streetWordsBefore > 0)) {
+                $state = strtoupper($tail);
+                array_pop($words);
+            }
+        }
+        // The first street word after the name ends the street; "St" followed by a name is "Saint".
+        $end = null;
+        for ($i = 2, $n = count($words); $i < $n; $i++) {
+            $w = strtolower(rtrim($words[$i], '.'));
+            if (!self::isStreetWord($w)) {
+                continue;
+            }
+            // "Old St Andrews Way": this "St" is Saint when another kind of street word follows.
+            if ($w === 'st' && array_filter(array_slice($words, $i + 1), static fn ($x) => self::isStreetWord($x) && strtolower(rtrim($x, '.')) !== 'st')) {
+                continue;
+            }
+            $end = $i;
+            break;
+        }
+        if ($end === null) {
+            // No street word: the whole line is the street, and nothing may follow it.
+            if ($state !== '' || $zip !== '') {
+                return null;
+            }
+            return ['address' => self::titleStreet($s), 'city' => '', 'state' => '', 'zip' => ''];
+        }
+        $j = $end + 1;
+        if (isset($words[$j]) && in_array(strtolower($words[$j]), self::DIRECTIONS, true)) {
+            $j++;
+        }
+        if (isset($words[$j]) && preg_match('/^(?:apt|apartment|unit|suite|ste|#)\.?(.*)$/i', $words[$j], $u)) {
+            $j += $u[1] === '' ? 2 : 1;
+            if (isset($words[$j]) && preg_match('/^[NSEW]$/', $words[$j])) {
+                $j++; // tower letter: "Apt 1703 S"
+            }
+        } elseif (isset($words[$j]) && str_starts_with($words[$j], '#')) {
+            $j++;
+        }
+        $line = implode(' ', array_slice($words, 0, $j));
+        $city = trim(implode(' ', array_slice($words, $j)));
+        if ($city !== '' && preg_match('/\d/', $city)) {
+            return null;
+        }
+        if ($city !== '' && $state === '') {
+            $state = self::homeState();
+        }
+        return ['address' => self::titleStreet($line), 'city' => $city !== '' ? self::titleCity($city) : '', 'state' => $state, 'zip' => $zip];
+    }
+
+    /** "5501 seminary rd" → "5501 Seminary Rd"; deliberate casing is kept. */
+    private static function titleStreet(string $line): string
+    {
+        return $line !== mb_strtolower($line) && $line !== mb_strtoupper($line) ? $line : ucwords(mb_strtolower($line));
     }
 
     /** The areas a location stands for, flattened ("multi" → its parts). */

@@ -258,14 +258,71 @@ final class PropertyRepo
         if (!preg_match('/^(\d+[a-z]?)\s/i', $address['address'], $m)) {
             return null;
         }
-        $rows = Db::all('SELECT id, address, city, state, zip FROM properties WHERE state = ? AND (city = ? OR (? <> \'\' AND zip = ?)) AND address LIKE ?',
-            [$address['state'], $address['city'], $address['zip'], $address['zip'], $m[1] . ' %']);
+        // Same house number, in the same city or ZIP (and state, when known).
+        // No literal comparisons with bound values: on MariaDB they can mix collations and fail.
+        $zip = substr(preg_replace('/\D/', '', (string) ($address['zip'] ?? '')) ?? '', 0, 5);
+        $city = (string) ($address['city'] ?? '');
+        $state = (string) ($address['state'] ?? '');
+        if ($zip === '' && $city === '') {
+            return null;
+        }
+        $w = ['address LIKE ?'];
+        $args = [$m[1] . ' %'];
+        if ($state !== '') {
+            $w[] = 'state = ?';
+            $args[] = $state;
+        }
+        if ($zip !== '' && $city !== '') {
+            $w[] = '(city = ? OR zip = ?)';
+            array_push($args, $city, $zip);
+        } elseif ($zip !== '') {
+            $w[] = 'zip = ?';
+            $args[] = $zip;
+        } else {
+            $w[] = 'city = ?';
+            $args[] = $city;
+        }
+        $rows = Db::all('SELECT id, address, city, state, zip FROM properties WHERE ' . implode(' AND ', $w) . ' LIMIT 200', $args);
+        if ($state === '') {
+            $address['state'] = $rows[0]['state'] ?? '';
+        }
         foreach ($rows as $row) {
             if (Address::sameProperty($address, $row)) {
                 return (int) $row['id'];
             }
         }
         return null;
+    }
+
+    /**
+     * Every home at a street address — all its units when no unit was given, else the ones
+     * whose unit matches. The town narrows it when known. @return int[]
+     */
+    public static function atAddress(array $a, int $limit = 300): array
+    {
+        $line = (string) ($a['address'] ?? '');
+        if (!preg_match('/^(\d+[a-z]?(?:-\d+)?)\s+(.+)$/i', trim($line), $m)) {
+            return [];
+        }
+        $street = trim(preg_replace('/\s+(?:apartment|apt|unit|suite|ste|#)\.?\s*\S+(?:\s+[NSEW])?$|\s+#\S+$/i', '', $m[2]) ?? $m[2]);
+        $hasUnit = $street !== trim($m[2]);
+        $w = ['address LIKE ?', 'LOWER(address) REGEXP ?'];
+        $args = [$m[1] . ' %', '^' . preg_quote(strtolower($m[1]), '/') . ' ((n|s|e|w|north|south|east|west) )?' . substr(Address::streetRegex($street), strlen('(^|[^a-z0-9])'))];
+        foreach (['state' => 'state', 'zip' => 'zip'] as $k => $col) {
+            if (($a[$k] ?? '') !== '') {
+                $w[] = "$col = ?";
+                $args[] = $k === 'zip' ? substr((string) $a['zip'], 0, 5) : (string) $a[$k];
+            }
+        }
+        if (($a['city'] ?? '') !== '' && ($a['zip'] ?? '') === '') {
+            $w[] = 'city = ?';
+            $args[] = (string) $a['city'];
+        }
+        $rows = Db::all('SELECT id, address, city, state, zip FROM properties WHERE ' . implode(' AND ', $w) . ' ORDER BY address LIMIT ' . max(1, $limit), $args);
+        if ($hasUnit) {
+            $rows = array_filter($rows, static fn ($r) => Address::sameProperty(array_replace($a, ['state' => $a['state'] ?: $r['state'], 'zip' => $a['zip'] ?: $r['zip'], 'city' => $a['city'] ?: $r['city']]), $r));
+        }
+        return array_map('intval', array_column($rows, 'id'));
     }
 
     public static function events(int $id): array
@@ -300,8 +357,24 @@ final class PropertyRepo
                 $a[] = $loc['zip'];
                 return 'p.zip = ?';
             case 'city':
-                array_push($a, $loc['state'], $loc['city']);
-                return '(p.state = ? AND p.city = ?)';
+                // "Fairfax City" is also the county-level name of an independent city.
+                array_push($a, $loc['state'], $loc['city'], $loc['city']);
+                return '(p.state = ? AND (p.city = ? OR p.county = ?))';
+            case 'street':
+                $sql = 'p.state = ? AND LOWER(p.address) REGEXP ?';
+                array_push($a, $loc['state'], Address::streetRegex($loc['street']));
+                if (($loc['city'] ?? '') !== '') {
+                    $sql .= ' AND p.city = ?';
+                    $a[] = $loc['city'];
+                }
+                return '(' . $sql . ')';
+            case 'address':
+                $ids = $loc['ids'] ?? self::atAddress($loc);
+                if (!$ids) {
+                    return '1=0';
+                }
+                array_push($a, ...$ids);
+                return 'p.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
             case 'county':
                 array_push($a, $loc['state'], $loc['county'], $loc['county'] . ' County', $loc['county'] . ' Parish', $loc['county'] . ' Borough');
                 return '(p.state = ? AND p.county IN (?, ?, ?, ?))';
@@ -470,6 +543,17 @@ final class PropertyRepo
         };
 
         $where = implode(' AND ', $w);
+        // Homes asked for by their address are always listed, whatever their status or the filters.
+        $named = [];
+        foreach (is_array($f['loc'] ?? null) ? Address::areas($f['loc']) : [] as $part) {
+            if ($part['type'] === 'address') {
+                array_push($named, ...($part['ids'] ?? self::atAddress($part)));
+            }
+        }
+        if ($named) {
+            $named = array_values(array_unique(array_map('intval', $named)));
+            $where = '((' . $where . ') OR p.id IN (' . implode(',', $named) . '))';
+        }
         $from = 'FROM properties p LEFT JOIN watchlist w ON w.property_id = p.id LEFT JOIN property_condition c ON c.property_id = p.id
                  LEFT JOIN users ou ON ou.id = w.owner_id WHERE ' . $where;
         $total = (int) Db::val("SELECT COUNT(*) $from", $a);

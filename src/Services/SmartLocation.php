@@ -31,14 +31,14 @@ final class SmartLocation
     {
         $q = self::normalize($query);
         $parsed = Address::parseLocation($q);
-        if ($q === '' || ($parsed && $parsed['type'] !== 'city')) {
+        if ($q === '' || ($parsed && !self::ambiguous($parsed))) {
             return $parsed;
         }
         $cached = Cache::get(self::key($q));
         if (is_array($cached)) {
             return $cached['location'];
         }
-        if ($parsed && Db::val('SELECT id FROM properties WHERE state=? AND city=? LIMIT 1', [$parsed['state'],$parsed['city']])) {
+        if ($parsed && $parsed['type'] === 'city' && Db::val('SELECT id FROM properties WHERE state=? AND city=? LIMIT 1', [$parsed['state'],$parsed['city']])) {
             return $parsed;
         }
         $building = BuildingSearch::location($q);
@@ -61,12 +61,29 @@ final class SmartLocation
         $features = json_decode($r['body'], true)['features'] ?? [];
         $location = $r['status'] === 200 ? self::fromFeatures($q, (array) $features) : null;
         // Explicit city/state text retains the old city-search fallback when the public geocoder is down.
-        $looksLikeBuilding = substr_count($q, ',') >= 2 || preg_match('/\b(?:tower|towers|apartments|condominiums|residences|building)\b/i', $q);
-        if (!$location && !$looksLikeBuilding && !preg_match('/^\d/', $q)) {
+        $looksLikeBuilding = preg_match('/\b(?:tower|towers|apartments|condominiums?|condos|residences|building|lofts|flats)\b/i', $q)
+            || ($parsed === null && substr_count($q, ',') >= 2);
+        if (!$location && !$looksLikeBuilding && ($parsed === null || empty($parsed['partial']))) {
             $location = $parsed;
         }
         Cache::put(self::key($q), 'smart_location', ['location'=>$location], $location && $r['status'] === 200 ? 86400 * 7 : 900);
         return $location;
+    }
+
+    /**
+     * Readings that could also be a building or need a map: a single name ("Skyline Towers"),
+     * a street name that is often a building's ("Skyline Square"), "Name, City, ST" read as two
+     * cities, and a house number on a street with no town.
+     */
+    public static function ambiguous(array $parsed): bool
+    {
+        return match ($parsed['type']) {
+            'city' => true,
+            'street' => !empty($parsed['name_like']),
+            'address' => !empty($parsed['partial']),
+            'multi' => count($parsed['parts']) === 2 && $parsed['parts'][0]['type'] === 'city' && $parsed['parts'][1]['type'] === 'city',
+            default => false,
+        };
     }
 
     private static function stateAndHead(string $q): array

@@ -133,8 +133,11 @@ final class RentCast
             'zip' => ['zipCode' => $loc['zip']],
             'city' => ['city' => $loc['city'], 'state' => $loc['state']],
             'state' => ['state' => $loc['state']],
-            // RentCast has no county filter: pull the state with the filters, then narrow by county locally.
-            'county' => ['state' => $loc['state']],
+            // RentCast has no county filter: the county's own circle when it is known (CountyArea), else the
+            // state — either way with the filters, and narrowed to the county locally.
+            'county' => isset($loc['lat'], $loc['lng'], $loc['radius'])
+                ? ['latitude' => $loc['lat'], 'longitude' => $loc['lng'], 'radius' => $loc['radius']]
+                : ['state' => $loc['state']],
             'point' => ['latitude' => $loc['lat'], 'longitude' => $loc['lng'], 'radius' => $loc['radius'] ?? 1],
             default => [],
         };

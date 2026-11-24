@@ -76,9 +76,12 @@ final class HomesSearch
                         $out['zip:' . $zip] = ['type' => 'zip', 'zip' => $zip, 'label' => $zip, 'key' => 'zip:' . $zip];
                     }
                 }
-            } elseif ($area['type'] === 'address') {
-                $scope = !empty($area['zip']) ? Address::parseLocation($area['zip']) : Address::parseLocation($area['city'] . ', ' . $area['state']);
-                $out[$scope['key']] = $scope;
+            } elseif ($area['type'] === 'address' || $area['type'] === 'street') {
+                $scope = !empty($area['zip']) ? Address::parseLocation($area['zip'])
+                    : (($area['city'] ?? '') !== '' ? Address::parseLocation($area['city'] . ', ' . $area['state']) : null);
+                if ($scope && in_array($scope['type'], ['zip', 'city'], true)) {
+                    $out[$scope['key']] = $scope;
+                }
             } elseif (in_array($area['type'], ['zip','city','county','state'], true)) {
                 $out[$area['key']] = $area;
             }
@@ -90,7 +93,9 @@ final class HomesSearch
     {
         foreach (Address::areas($loc) as $area) {
             $match = match ($area['type']) {
-                'address' => Address::sameProperty($item, $area),
+                'address' => Address::sameProperty($item, $area) || (empty($area['partial']) && Address::sameProperty($item, $area, true) && !preg_match('/\b(?:apt|apartment|unit|suite|ste)\b|#/i', (string) $area['address'])),
+                'street' => $item['state'] === $area['state'] && (($area['city'] ?? '') === '' || strcasecmp($item['city'], $area['city']) === 0)
+                    && preg_match('/' . str_replace('/', '\/', Address::streetRegex($area['street'])) . '/i', strtolower((string) $item['address'])) === 1,
                 'building' => BuildingSearch::matches($item, $area),
                 'zip' => $item['zip'] === $area['zip'],
                 'city' => $item['state'] === $area['state'] && strcasecmp($item['city'], $area['city']) === 0,

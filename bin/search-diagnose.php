@@ -40,17 +40,20 @@ echo json_encode(Db::all("SELECT baths, COUNT(*) n FROM properties WHERE status 
 
 echo "== Queries\n";
 $queries = [
-    'Fairfax County', 'fairfax county va', 'Fairfax County, Loudoun County', 'Fairfax County, Arlington County, VA', 'Fairfax', 'Falls Church',
-    'falls church, va', 'Alexandria VA', 'Arlington', '22041', '22041 22042', '22041, 22042, 22044', 'Seminary Rd', 'Seminary Road Falls Church',
+    'Fairfax County', 'fairfax county va', 'Fairfax County, Loudoun County', 'Fairfax County and Arlington County', 'Fairfax', 'Falls Church',
+    'falls church, va', 'Falls Church, Arlington, Alexandria', 'Fairfax City', 'City of Fairfax', '22041', '22041 22042', '22041, 22042, 22044',
+    'Seminary Rd', 'Seminary Road Falls Church', 'Columbia Pike, Arlington', 'Leesburg Pike Falls Church VA',
     '5501 Seminary Rd', '5501 Seminary Rd, Falls Church, VA 22041', '5501 seminary road falls church va', '5501 Seminary Rd Apt 1703S Falls Church VA 22041',
-    'Skyline Square', 'Prince William County; Manassas', 'Virginia', 'Montgomery County, MD', 'Miami-Dade County, FL', 'Lee County FL',
-    'Fairfax County 3 bed under 500k', 'townhouse in falls church',
+    'Skyline Square', 'Skyline Square, Falls Church, VA', 'Prince William County; Manassas', 'Virginia', 'Montgomery County, MD', 'Miami-Dade County, FL', 'Lee County FL',
+    'Fairfax County 3 bed under 500k', 'townhouse in falls church', '3 bed townhouse in Falls Church under 500k', '۳ خوابه زیر ۵۰۰ هزار در Fairfax County',
+    'condos in Arlington price reduced', 'houses in Vienna with basement', 'Fairfax County; 22041; Seminary Rd',
 ];
 $filters = ['none' => [], 'beds3' => ['beds_min' => 3], 'baths2' => ['baths_min' => 2], 'p500' => ['price_max' => 500000], 'all' => ['beds_min' => 3, 'baths_min' => 2, 'price_max' => 700000]];
 foreach ($queries as $q) {
     $t0 = microtime(true);
+    $typed = Search::fromRequest(['q' => $q]);
     try {
-        $loc = Search::location(['q' => $q], false);
+        $loc = Search::location($typed, true); // free map services only; no listing provider is called
     } catch (Throwable $e) {
         echo str_pad($q, 48), ' ERROR ', $e->getMessage(), "\n";
         continue;
@@ -63,10 +66,13 @@ foreach ($queries as $q) {
     if ($loc['type'] !== 'address') {
         foreach ($filters as $name => $extra) {
             $f = Search::fromRequest(['q' => $q] + $extra);
+            $f = $extra ? $f : $typed;
             $counts[] = $name . '=' . PropertyRepo::search($f + ['loc' => $loc, 'limit' => 1])['total'];
         }
     } else {
-        $counts[] = 'on file: ' . (PropertyRepo::findAddress($loc) ? 'yes' : 'no');
+        $counts[] = 'homes on file there: ' . count($loc['ids'] ?? []);
     }
-    printf("%s → %s [%s] %s (%.2fs)\n", str_pad($q, 48), $loc['type'], $loc['label'] ?? '', implode(' ', $counts), microtime(true) - $t0);
+    $pulls = array_map(static fn ($n) => $n['key'] . (isset($n['radius']) ? ' (' . $n['radius'] . ' mi)' : ''), Search::plan($loc, $typed)['needs']);
+    printf("%s → %s [%s] %s%s · pulls: %s (%.2fs)\n", str_pad($q, 48), $loc['type'], $loc['label'] ?? '', $typed['understood'] ? '{' . implode(', ', $typed['understood']) . '} ' : '',
+        implode(' ', $counts), implode(', ', $pulls) ?: '-', microtime(true) - $t0);
 }

@@ -39,7 +39,9 @@ final class Search
 
     public static function fromRequest(array $src): array
     {
-        $f = ['q' => mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH)];
+        // Filters typed in the box ("3 bed townhouse under 500k") become filters; the rest is the place.
+        $typed = SearchQuery::understand(mb_substr(trim((string) ($src['q'] ?? '')), 0, self::AREA_MAX_LENGTH));
+        $f = ['q' => $typed['q']];
         $f['scope'] = ($src['scope']??'') === 'saved' ? 'saved' : 'area';
         $f['view'] = $f['scope']==='saved' && ($src['view']??'')==='opportunities' ? 'opportunities' : 'all';
         $f['search_kind'] = ($src['search_kind'] ?? '') === 'building' ? 'building' : 'auto';
@@ -48,12 +50,24 @@ final class Search
             $v = isset($src[$k]) && is_scalar($src[$k]) ? parse_num((string) $src[$k]) : null;
             if ($v !== null && $v >= 0) {
                 $f[$k] = $v;
+            } elseif (isset($typed['filters'][$k])) {
+                $f[$k] = (float) $typed['filters'][$k];
             }
+        }
+        // A minimum typed above the maximum is the two boxes swapped, not "no results".
+        foreach (['price', 'beds', 'baths', 'sqft', 'lot', 'year', 'hoa', 'dom'] as $k) {
+            if (isset($f[$k . '_min'], $f[$k . '_max']) && $f[$k . '_max'] > 0 && $f[$k . '_min'] > $f[$k . '_max']) {
+                [$f[$k . '_min'], $f[$k . '_max']] = [$f[$k . '_max'], $f[$k . '_min']];
+            }
+        }
+        if (($typed['filters']['mode'] ?? '') === 'sold') {
+            $src['mode'] = 'sold';
         }
         $days = (int) ($src['sold_days'] ?? 180);
         $f['sold_days'] = in_array($days, [30, 90, 180, 365, 730], true) ? $days : 180;
-        $f['types'] = array_values(array_intersect(PropertyRepo::TYPES, (array) ($src['types'] ?? [])));
-        $f['listing'] = array_values(array_intersect(array_keys(PropertyRepo::LISTING), (array) ($src['listing'] ?? [])));
+        $f['types'] = array_values(array_intersect(PropertyRepo::TYPES, (array) ($src['types'] ?? []) ?: (array) ($typed['filters']['types'] ?? [])));
+        $f['listing'] = array_values(array_intersect(array_keys(PropertyRepo::LISTING), array_merge((array) ($src['listing'] ?? []), (array) ($typed['filters']['listing'] ?? []))));
+        $f['understood'] = $typed['understood'];
         $f['cond'] = array_values(array_intersect(array_keys(Condition::OVERALL), (array) ($src['cond'] ?? [])));
         foreach (['kitchen', 'bathroom', 'roof', 'hvac'] as $part) {
             $v = (string) ($src['c_' . $part] ?? 'any');
@@ -99,7 +113,7 @@ final class Search
             $bits[] = $loc['label'] ?? $f['q'];
         }
         if (($f['mode'] ?? 'sale') === 'sold') {
-            $bits[] = 'sold in the last ' . self::daysLabel((int) ($f['sold_days'] ?? 180));
+            $bits[] = t('sold in the last %s', t(self::daysLabel((int) ($f['sold_days'] ?? 180))));
         }
         $span = static function (mixed $lo, mixed $hi, callable $fmt, string $unit = ''): ?string {
             if ($lo && $hi) {
@@ -108,38 +122,38 @@ final class Search
             if ($lo) {
                 return $fmt($lo) . '+' . $unit;
             }
-            return $hi ? 'up to ' . $fmt($hi) . $unit : null;
+            return $hi ? t('up to %s', $fmt($hi) . $unit) : null;
         };
         $bits[] = $span($f['price_min'] ?? null, $f['price_max'] ?? null, 'money_short');
-        $bits[] = $span($f['beds_min'] ?? null, $f['beds_max'] ?? null, 'trim_num', ' bd');
-        $bits[] = $span($f['baths_min'] ?? null, $f['baths_max'] ?? null, 'trim_num', ' ba');
-        $bits[] = $span($f['sqft_min'] ?? null, $f['sqft_max'] ?? null, static fn ($v) => number_format((float) $v), ' sqft');
-        $bits[] = $span($f['year_min'] ?? null, $f['year_max'] ?? null, static fn ($v) => (string) (int) $v, ' built');
+        $bits[] = $span($f['beds_min'] ?? null, $f['beds_max'] ?? null, 'trim_num', ' ' . t('bd'));
+        $bits[] = $span($f['baths_min'] ?? null, $f['baths_max'] ?? null, 'trim_num', ' ' . t('ba'));
+        $bits[] = $span($f['sqft_min'] ?? null, $f['sqft_max'] ?? null, static fn ($v) => number_format((float) $v), ' ' . t('sqft'));
+        $bits[] = $span($f['year_min'] ?? null, $f['year_max'] ?? null, static fn ($v) => (string) (int) $v, ' ' . t('built'));
         if (!empty($f['types'])) {
-            $bits[] = implode(', ', $f['types']);
+            $bits[] = implode(', ', array_map('t', $f['types']));
         }
         foreach ((array) ($f['listing'] ?? []) as $l) {
-            $bits[] = mb_strtolower(PropertyRepo::LISTING[$l] ?? $l);
+            $bits[] = mb_strtolower(t(PropertyRepo::LISTING[$l] ?? $l));
         }
         foreach ((array) ($f['cond'] ?? []) as $c) {
-            $bits[] = mb_strtolower(Condition::OVERALL[$c] ?? $c);
+            $bits[] = mb_strtolower(t(Condition::OVERALL[$c] ?? $c));
         }
         foreach (['kitchen', 'bathroom', 'roof', 'hvac'] as $part) {
             if (($f['c_' . $part] ?? 'any') !== 'any') {
-                $bits[] = $part . ' ' . ($f['c_' . $part] === 'updated' ? 'updated' : 'needs work');
+                $bits[] = t(ucfirst($part)) . ' ' . mb_strtolower(t($f['c_' . $part] === 'updated' ? 'Updated' : 'Needs work'));
             }
         }
         if (isset($f['hoa_max'])) {
-            $bits[] = (float) $f['hoa_max'] == 0.0 ? 'no HOA' : 'HOA ≤ $' . number_format((float) $f['hoa_max']);
+            $bits[] = (float) $f['hoa_max'] == 0.0 ? t('no HOA') : 'HOA ≤ $' . number_format((float) $f['hoa_max']);
         }
         if (!empty($f['score_min'])) {
-            $bits[] = 'score ' . (int) $f['score_min'] . '+';
+            $bits[] = t('score %d+', (int) $f['score_min']);
         }
         if (!empty($f['profit_min'])) {
-            $bits[] = 'profit ' . money_short($f['profit_min']) . '+';
+            $bits[] = t('profit %s+', money_short($f['profit_min']));
         }
         if (!empty($f['below_median'])) {
-            $bits[] = trim_num($f['below_median']) . '% under area $/sqft';
+            $bits[] = t('%s%% under area $/sqft', trim_num($f['below_median']));
         }
         return implode(' · ', array_filter($bits));
     }
@@ -155,15 +169,71 @@ final class Search
     public static function location(array $f, bool $fetch = false): ?array
     {
         if (($f['scope']??'')==='saved') return ['type'=>'saved','key'=>'saved:all','label'=>t(($f['view']??'')==='opportunities' ? 'Saved opportunities' : 'Saved homes')];
-        $address = Address::parseLocation((string) ($f['q'] ?? ''));
-        if ($address && $address['type'] !== 'city') {
-            return $address;
+        $q = (string) ($f['q'] ?? '');
+        $address = Address::parseLocation($q);
+        if ($address && !SmartLocation::ambiguous($address)) {
+            return self::withHomes($address);
         }
         if (($f['search_kind'] ?? '') === 'building') {
-            $loc = BuildingSearch::location((string) ($f['q'] ?? ''));
+            $loc = BuildingSearch::location($q);
             return $loc ? $loc + ['buildings'=>BuildingSearch::resolve($loc,$fetch)] : null;
         }
-        return SmartLocation::resolve((string) ($f['q'] ?? ''), $fetch);
+        // A house number and street with no town: the homes on file at that address come first.
+        if ($address && $address['type'] === 'address' && ($ids = PropertyRepo::atAddress($address))) {
+            return $address + ['ids' => $ids];
+        }
+        $smart = SmartLocation::resolve($q, $fetch);
+        // A street name with no building behind it is still a street.
+        $loc = $smart ?? ($address && $address['type'] === 'street' ? $address : null);
+        return $loc ? self::withHomes($loc) : null;
+    }
+
+    /** Addresses carry the homes on file there: the exact home, else every unit at that street number. */
+    public static function withHomes(array $loc): array
+    {
+        $attach = static function (array $a): array {
+            if ($a['type'] !== 'address' || isset($a['ids'])) {
+                return $a;
+            }
+            $exact = empty($a['partial']) ? PropertyRepo::findAddress($a) : null;
+            return $a + ['ids' => $exact ? [$exact] : PropertyRepo::atAddress($a)];
+        };
+        if ($loc['type'] === 'multi') {
+            $loc['parts'] = array_map($attach, $loc['parts']);
+            return $loc;
+        }
+        return $attach($loc);
+    }
+
+    /**
+     * A full street address that is not on file yet: placed with the free Census geocoder and saved,
+     * so it can be looked up and tracked. Null when it cannot be placed (the address is then not saved
+     * unless $always).
+     * @return array{id:?int, placed:bool}
+     */
+    public static function addAddress(array $loc, bool $always = true): array
+    {
+        if (!empty($loc['partial']) || ($loc['city'] === '' && $loc['zip'] === '')) {
+            return ['id' => null, 'placed' => false];
+        }
+        $geo = \App\Providers\Census::geocode(Address::full($loc));
+        $matched = $geo ? Address::parseFullAddress($geo['matched']) : null;
+        if (!$matched || !Address::sameProperty($loc, $matched, true)) {
+            $geo = null;
+        }
+        $loc['zip'] = $loc['zip'] ?: ($geo['zip'] ?? '');
+        $loc['state'] = $loc['state'] ?: ($matched['state'] ?? '');
+        if ($id = PropertyRepo::findAddress($loc)) {
+            return ['id' => $id, 'placed' => $geo !== null];
+        }
+        if (!$geo && !$always) {
+            return ['id' => null, 'placed' => false];
+        }
+        $id = PropertyRepo::upsert([
+            'address' => $loc['address'], 'city' => $loc['city'] ?: ($matched['city'] ?? ''), 'state' => $loc['state'],
+            'zip' => $loc['zip'], 'lat' => $geo['lat'] ?? null, 'lng' => $geo['lng'] ?? null, 'county' => $geo['county'] ?? null,
+        ], 'manual')['id'];
+        return ['id' => $id, 'placed' => $geo !== null];
     }
 
     public static function locationProvider(array $loc, string $ctx = 'manual'): ?string
@@ -205,8 +275,22 @@ final class Search
             $loc['buildings'] ??= BuildingSearch::resolve($loc, ($opt['fetch'] ?? true) !== false);
         }
         $out['loc'] = $loc;
-        if ($loc['type'] === 'address') {
-            return $out; // the caller sends address lookups to the property page
+        if ($loc['type'] === 'address' && count($loc['ids'] ?? []) < 2) {
+            return $out; // the caller sends a single home to its page
+        }
+        // Several addresses typed together: the ones not on file yet are placed and saved (at most 10).
+        if ($loc['type'] === 'multi' && ($opt['fetch'] ?? true) !== false && $ctx === 'manual' && \App\Auth::can('edit')) {
+            $added = 0;
+            foreach ($loc['parts'] as $i => $part) {
+                if ($part['type'] === 'address' && empty($part['ids']) && empty($part['partial']) && $added < 10) {
+                    $r = self::addAddress($part, false);
+                    $added++;
+                    if ($r['id']) {
+                        $loc['parts'][$i]['ids'] = [$r['id']];
+                    }
+                }
+            }
+            $out['loc'] = $loc;
         }
 
         if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved') {
@@ -263,9 +347,10 @@ final class Search
         $recent = false;
         $latest = null;
         foreach (Address::areas($loc) as $area) {
-            $fetchLoc = $area['type'] === 'county'
-                ? ['type' => 'state', 'state' => $area['state'], 'key' => 'state:' . $area['state'], 'label' => Address::STATES[$area['state']] ?? $area['state']]
-                : $area;
+            $fetchLoc = self::fetchArea($area);
+            if ($fetchLoc === null) {
+                continue; // an address or a street with no town: nothing to pull for it
+            }
             $c = self::cover($fetchLoc, $f, null);
             $latest ??= $c['hit'] ?? $c['recent'];
             if ($c['hit'] === null) {
@@ -274,6 +359,27 @@ final class Search
             }
         }
         return ['needs' => array_values($needs), 'recent' => $recent, 'snapshot' => $latest];
+    }
+
+    /** What a provider pull for one searched area is: a county through its state, a street through its town. */
+    public static function fetchArea(array $area): ?array
+    {
+        if ($area['type'] === 'county' && ($circle = \App\Providers\CountyArea::find($area['state'], $area['county']))) {
+            // RentCast has no county filter: ask for the county's own circle, then keep the county's homes locally.
+            return ['type' => 'county', 'county' => $area['county'], 'state' => $area['state'], 'lat' => $circle['lat'], 'lng' => $circle['lng'],
+                'radius' => $circle['radius'], 'key' => 'countyarea:' . $area['state'] . ':' . mb_strtolower($area['county']), 'label' => $area['label']];
+        }
+        // Independent cities ("Fairfax City") are known to listing providers by their postal name ("Fairfax").
+        if ($area['type'] === 'city' && preg_match('/^(.+?)\s+city$/i', $area['city'], $m)
+            && ($area['state'] === 'VA' || ($area['state'] === 'MD' && strcasecmp($m[1], 'Baltimore') === 0) || ($area['state'] === 'MO' && preg_match('/^(st\.?|saint) louis$/i', $m[1])))) {
+            return Address::parseLocation($m[1] . ', ' . $area['state']);
+        }
+        return match ($area['type']) {
+            'county' => ['type' => 'state', 'state' => $area['state'], 'key' => 'state:' . $area['state'], 'label' => Address::STATES[$area['state']] ?? $area['state']],
+            'street' => ($area['city'] ?? '') !== '' ? Address::parseLocation($area['city'] . ', ' . $area['state']) : null,
+            'address' => null,
+            default => $area,
+        };
     }
 
     /**

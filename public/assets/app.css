@@ -969,3 +969,12 @@ html[lang="fa"] {
 .photo-viewer-stage.is-zoomed{display:block;height:76vh;height:76dvh}
 .photo-viewer-stage.is-zoomed img{max-width:none;max-height:none;min-width:100%;cursor:zoom-out}
 @media print{.photo-viewer{display:none!important}}
+
+/* Smart search: examples, detected places and understood filters */
+.search-examples { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 6px; color: var(--ink-3); }
+.search-examples a { display: inline-block; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--ink-2); text-decoration: none; font-size: 12px; }
+.search-examples a:hover { border-color: var(--teal); color: var(--teal); }
+.search-examples bdi { font-family: inherit; }
+.detected-parts, .search-understood { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.detected-parts { margin-inline-start: 6px; }
+.detected-parts .chip, .search-understood .chip { white-space: normal; }
