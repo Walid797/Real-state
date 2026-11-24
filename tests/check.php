@@ -153,6 +153,17 @@ $res = Search::run(Search::fromRequest(['q' => 'Dallas, TX']));
 $ok(!$res['fetched'] && str_contains((string) $res['notice'], 'No data source'), 'unknown area without provider explains itself');
 
 /* ── Which earlier pulls answer a new request for free ───────────────── */
+$refreshArea = Address::parseLocation('99946');
+$refreshFilters = Search::fromRequest(['q'=>'99946']);
+$refreshSample = Db::insert('snapshots', ['provider'=>'rentcast', 'mode'=>'sale', 'loc_key'=>$refreshArea['key'],
+    'filter_sig'=>'', 'filter_json'=>'[]', 'result_count'=>1, 'truncated'=>0, 'fetched_at'=>now()]);
+try {
+    $eq(Search::plan($refreshArea, $refreshFilters)['needs'], [], 'ordinary repeated search reuses a covering snapshot');
+    $eq(array_column(Search::plan($refreshArea, $refreshFilters, 'manual', true)['needs'], 'key'), [$refreshArea['key']],
+        'explicit refresh schedules a provider pull even with a covering snapshot');
+} finally {
+    Db::run('DELETE FROM snapshots WHERE id=?', [$refreshSample]);
+}
 $ok(Search::covers([], ['price' => '*:600000', 'bedrooms' => '3:*']), 'an unfiltered pull covers any filter');
 $ok(Search::covers(['price' => '*:600000'], ['price' => '200000:500000', 'bedrooms' => '3:*']), 'wider price range covers a narrower one');
 $ok(!Search::covers(['price' => '*:600000'], ['price' => '*:700000']), 'narrower price range does not cover a wider one');

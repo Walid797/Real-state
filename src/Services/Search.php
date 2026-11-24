@@ -294,10 +294,10 @@ final class Search
         }
 
         if (($opt['fetch'] ?? true) !== false && $loc['type']!=='saved') {
-            $plan = self::plan($loc, $f, $ctx);
+            $force = !empty($opt['force']);
+            $plan = self::plan($loc, $f, $ctx, $force);
             $out['needs'] = $plan['needs'];
             $confirmed = !empty($opt['confirm']);
-            $force = !empty($opt['force']);
             // Multiple areas require confirmation even when they share one provider request.
             $go = $plan['needs'] && ($confirmed || $force || ($loc['type'] !== 'multi' && !$plan['recent']));
             if ($go) {
@@ -340,7 +340,7 @@ final class Search
      * (no county filter upstream); several areas need one pull each.
      * @return array{needs:array, recent:bool, snapshot:?array}
      */
-    public static function plan(array $loc, array $f, string $ctx = 'manual'): array
+    public static function plan(array $loc, array $f, string $ctx = 'manual', bool $force = false): array
     {
         if ($loc['type']==='saved') return ['needs'=>[],'recent'=>false,'snapshot'=>null];
         $needs = [];
@@ -353,7 +353,7 @@ final class Search
             }
             $c = self::cover($fetchLoc, $f, null);
             $latest ??= $c['hit'] ?? $c['recent'];
-            if ($c['hit'] === null) {
+            if ($force || $c['hit'] === null) {
                 $needs[$fetchLoc['key']] = $fetchLoc;
                 $recent = $recent || $c['recent'] !== null;
             }
