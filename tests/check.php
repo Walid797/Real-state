@@ -1021,6 +1021,31 @@ try {
 }
 
 /* Homes.com public-page integration: fixture pages, cached responses and actual shared search flow. */
+$homesGateway = App\Providers\HomesCom::failure(['status'=>503,'headers'=>[]]);
+$ok($homesGateway['retryable'] && $homesGateway['delay']===60, 'a temporary Homes.com gateway failure allows a bounded retry without a one-hour ban');
+$homesDenied = App\Providers\HomesCom::failure(['status'=>403,'headers'=>[]]);
+$ok(!$homesDenied['retryable'] && $homesDenied['code']==='access_denied' && $homesDenied['delay']===300,
+    'Homes.com access refusal is explicit and is not immediately retried');
+$homesLimited = App\Providers\HomesCom::failure(['status'=>429,'headers'=>['retry-after'=>'1800']]);
+$ok(!$homesLimited['retryable'] && $homesLimited['delay']===1800 && $homesLimited['code']==='rate_limit',
+    'Homes.com rate-limit cooldown honors Retry-After instead of hiding the reason');
+$homesMaintenance = App\Providers\HomesCom::failure(['status'=>503,'headers'=>['retry-after'=>'120']]);
+$ok(!$homesMaintenance['retryable'] && $homesMaintenance['delay']===120, 'server-requested waiting suppresses immediate Homes.com retry');
+$homesDateLimit = App\Providers\HomesCom::failure(['status'=>429,'headers'=>['retry-after'=>gmdate('D, d M Y H:i:s',time()+900).' GMT']]);
+$ok($homesDateLimit['delay']>=898 && $homesDateLimit['delay']<=900, 'Homes.com also honors HTTP-date Retry-After');
+$homesCooldownKey=App\Cache::key('homes',App\Providers\HomesCom::COOLDOWN_KEY);
+$homesCooldownPrior=App\Cache::get($homesCooldownKey);
+try {
+    $blocked=['error'=>$homesDenied['message'],'error_code'=>'access_denied','http_status'=>403,'retry_at'=>gmdate('Y-m-d H:i:s',time()+300)];
+    App\Cache::put($homesCooldownKey,'homes',$blocked,300);
+    $blockedResult=App\Providers\HomesCom::search(['type'=>'city','city'=>'Cooldown Fixture','state'=>'VA','key'=>'homes-cooldown-test']);
+    $ok(!$blockedResult['ok'] && $blockedResult['error_code']==='access_denied' && $blockedResult['http_status']===403
+        && $blockedResult['retry_at']===$blocked['retry_at'] && $blockedResult['items']===[],
+        'cached host refusal preserves the actual reason and retry time without returning invented listings');
+} finally {
+    Db::run('DELETE FROM api_cache WHERE cache_key=?',[$homesCooldownKey]);
+    if($homesCooldownPrior!==null)App\Cache::put($homesCooldownKey,'homes',$homesCooldownPrior,300);
+}
 $homesLoc = Address::parseLocation('24979');
 $homesUrl = 'https://www.homes.com/fixtureville-va/24979/';
 $homesPropertyUrl = 'https://www.homes.com/property/1-provider-fixture-rd-fixtureville-va-unit-1s/testhome1/';

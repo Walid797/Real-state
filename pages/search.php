@@ -322,6 +322,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         <?php else: ?><span><?= te('Homes.com did not return verified listings for this search. Other sources and saved results remain available.') ?></span><?php endif; ?>
         <?php if ($homes['limited']): ?><small><?= te('Only part of the requested areas was checked within this search time limit.') ?></small><?php endif; ?>
         <?php foreach ($homes['errors'] as $error): ?><small><?= te($error) ?></small><?php endforeach; ?>
+        <?php if (!empty($homes['retry_at'])): ?><small><?= te('Homes.com can be checked again after') ?> <time><bdi><?= e($homes['retry_at']) ?> UTC</bdi></time></small><?php endif; ?>
       </div>
       <?php endif; ?>
 

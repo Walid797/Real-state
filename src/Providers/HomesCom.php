@@ -18,7 +18,8 @@ final class HomesCom
 {
     public const ID = 'homes';
     public const TTL = 3600;
-    public const CACHE_VERSION = 'public-search-v2';
+    public const CACHE_VERSION = 'public-search-v3';
+    public const COOLDOWN_KEY = 'host-cooldown-v2';
 
     public static function enabled(): bool
     {
@@ -48,9 +49,16 @@ final class HomesCom
         if (is_array($cached)) {
             return array_replace($cached, ['cached' => true]);
         }
-        $out = ['ok' => false, 'items' => [], 'observed_at' => now(), 'cached' => false, 'error' => null, 'url' => null];
-        if (Cache::get(Cache::key(self::ID, 'host-cooldown')) !== null) {
-            $out['error'] = 'Homes.com is temporarily unavailable; RentCast and saved results are still shown.';
+        $out = ['ok' => false, 'items' => [], 'observed_at' => now(), 'cached' => false, 'error' => null, 'url' => null,
+            'http_status'=>null, 'error_code'=>null, 'retry_at'=>null];
+        if (!class_exists(DOMDocument::class)) {
+            $out['error']='Homes.com needs the PHP DOM/XML extension enabled on this host.';
+            $out['error_code']='missing_dom';
+            return $out;
+        }
+        $cooldown = Cache::get(Cache::key(self::ID, self::COOLDOWN_KEY));
+        if (is_array($cooldown)) {
+            $out = array_replace($out, array_intersect_key($cooldown, array_flip(['error','error_code','http_status','retry_at'])));
             return $out; // do not hammer a refusing host
         }
         if ($loc['type'] === 'zip' && (empty($loc['city']) || empty($loc['state']))) {
@@ -69,21 +77,51 @@ final class HomesCom
             return $out;
         }
         $out['url'] = $url;
-        $r = Http::get($url, ['Accept' => 'text/html'], max(1, min(8, (int) $remaining)));
-        Quota::log(self::ID, (string) parse_url($url, PHP_URL_PATH), $r['status'], $r['ms'], $r['error'], $ctx);
+        for ($attempt=0; $attempt<2; $attempt++) {
+            $remaining=$budget-(microtime(true)-$started);
+            $r = Http::get($url, ['Accept' => 'text/html'], max(1, min(8, (int) $remaining)));
+            Quota::log(self::ID, (string) parse_url($url, PHP_URL_PATH), $r['status'], $r['ms'], $r['error'], $ctx);
+            $failure=self::failure($r);
+            // One retry for a network or temporary gateway failure, inside the original budget.
+            // Refusals, rate limits and explicit Retry-After instructions are never retried here.
+            if (!$failure['retryable'] || $budget-(microtime(true)-$started)<2) break;
+        }
+        $out['http_status']=$r['status'];
         if ($r['status'] !== 200) {
-            $out['error'] = 'Homes.com is temporarily unavailable; RentCast and saved results are still shown.';
+            $out['error']=$failure['message'];$out['error_code']=$failure['code'];
+            $out['retry_at']=gmdate('Y-m-d H:i:s',time()+$failure['delay']);
             if (in_array($r['status'], [403, 429, 503], true)) {
-                Cache::put(Cache::key(self::ID, 'host-cooldown'), self::ID, true, 3600);
+                Cache::put(Cache::key(self::ID, self::COOLDOWN_KEY), self::ID, $out, $failure['delay']);
             }
         } else {
             $parsed = self::parse($r['body'], $loc, $url, $out['observed_at']);
             $out['ok'] = $parsed['ok'];
             $out['items'] = $parsed['items'];
             $out['error'] = $parsed['ok'] ? null : 'Homes.com page data could not be verified; its listings were not imported.';
+            $out['error_code']=$parsed['ok']?null:'unverified_page';
         }
-        Cache::put($key, self::ID, $out, $out['ok'] ? self::TTL : 900);
+        Cache::put($key, self::ID, $out, $out['ok'] ? self::TTL : ($failure['delay']??60));
         return $out;
+    }
+
+    /** Classify failures without treating a temporary gateway error as a one-hour host ban. */
+    public static function failure(array $response): array
+    {
+        $status=(int)$response['status'];
+        $retry=$response['headers']['retry-after']??null;
+        $retrySeconds=is_string($retry)&&ctype_digit($retry)?(int)$retry:($retry?max(0,(strtotime((string)$retry)?:time())-time()):0);
+        $delay=min(86400,max($status===403||$status===429?300:60,$retrySeconds));
+        [$code,$message]=match(true){
+            $status===200=>[null,null],
+            $status===403=>['access_denied','Homes.com refused access from this hosting server (HTTP 403).'],
+            $status===429=>['rate_limit','Homes.com has temporarily limited requests (HTTP 429).'],
+            $status===0=>['connection','The hosting server could not connect to Homes.com before the request timed out.'],
+            $status===404=>['page_missing','The requested area page was not found on Homes.com (HTTP 404).'],
+            $status>=500=>['upstream','Homes.com returned a temporary server error.'],
+            default=>['http_error','Homes.com did not return a successful page response.'],
+        };
+        return ['code'=>$code,'message'=>$message,'delay'=>$delay,
+            'retryable'=>in_array($status,[0,502,503,504],true)&&$retry===null];
     }
 
     private static function postal(string $zip, int $timeout): ?array

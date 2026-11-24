@@ -3,6 +3,14 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Homes.com needs the PHP DOM/XML extension enabled on this host.'=>'برای خواندن Homes.com باید افزونهٔ DOM/XML در تنظیمات PHP هاست فعال باشد.',
+    'Homes.com refused access from this hosting server (HTTP 403).'=>'Homes.com دسترسی از سرور این هاست را رد کرد (خطای ۴۰۳).',
+    'Homes.com has temporarily limited requests (HTTP 429).'=>'Homes.com تعداد درخواست‌ها را موقتاً محدود کرده است (خطای ۴۲۹).',
+    'The hosting server could not connect to Homes.com before the request timed out.'=>'سرور هاست در مهلت درخواست نتوانست به Homes.com وصل شود.',
+    'The requested area page was not found on Homes.com (HTTP 404).'=>'صفحهٔ این منطقه در Homes.com پیدا نشد (خطای ۴۰۴).',
+    'Homes.com returned a temporary server error.'=>'سرور Homes.com با خطای موقت پاسخ داد.',
+    'Homes.com did not return a successful page response.'=>'Homes.com پاسخ موفقی برای دریافت صفحه نداد.',
+    'Homes.com can be checked again after'=>'زمان مجاز بررسی دوبارهٔ Homes.com:',
     'Writing the AI interpretation; verified figures are ready'=>'آمار تأییدشده آماده است؛ هوش مصنوعی در حال نوشتن توضیحات است',
     'Showing available saved evidence now. Fresh sources are being checked; missing values remain unknown.'=>'اطلاعات موجود و ذخیره‌شده اکنون نمایش داده می‌شود. منابع تازه در حال بررسی‌اند؛ مقادیر ناموجود حدس زده نمی‌شوند.',
     'Insufficient verified housing evidence'=>'اطلاعات تأییدشدهٔ بازار مسکن کافی نیست',

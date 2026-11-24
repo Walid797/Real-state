@@ -19,7 +19,7 @@ final class HomesSearch
         $started = microtime(true);
         $scopes = self::scopes($loc);
         $out = ['count' => 0, 'added' => 0, 'checked' => 0, 'available' => false, 'cached' => true,
-            'limited' => false, 'errors' => [], 'observed_at' => null];
+            'limited' => false, 'errors' => [], 'observed_at' => null, 'retry_at'=>null];
         $seen = $score = [];
         foreach (array_slice($scopes, 0, 3) as $scope) {
             $remaining = 12 - (microtime(true) - $started);
@@ -31,6 +31,7 @@ final class HomesSearch
             $out['cached'] = $out['cached'] && $r['cached'];
             if (!$r['ok']) {
                 $out['errors'][] = $r['error'];
+                if (!empty($r['retry_at'])) $out['retry_at']=max($out['retry_at']??'', $r['retry_at']);
                 continue;
             }
             $out['available'] = true;
