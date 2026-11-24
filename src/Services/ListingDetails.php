@@ -20,11 +20,26 @@ final class ListingDetails
     /** A home Zillow had nothing for is not asked about again for this long. */
     private const RETRY_DAYS = 30;
 
+    public static function defaultMode(): string
+    {
+        return Settings::get('openwebninja_details_mode', 'auto') === 'manual' ? 'manual' : 'auto';
+    }
+
+    public static function overrideMode(array $p): string
+    {
+        $mode = $p['details']['zillow_details_mode'] ?? 'default';
+        return in_array($mode, ['auto', 'manual'], true) ? $mode : 'default';
+    }
+
+    public static function mode(array $p): string
+    {
+        $override = self::overrideMode($p);
+        return $override === 'default' ? self::defaultMode() : $override;
+    }
+
     public static function autoLimit(): int
     {
-        return Settings::get('openwebninja_auto_on', '0') === '1'
-            ? max(0, Settings::int('openwebninja_auto', 60))
-            : 0;
+        return max(0, Settings::int('openwebninja_auto', 60));
     }
 
     public static function autoUsed(): int
@@ -39,7 +54,7 @@ final class ListingDetails
     public static function wanted(array $p): bool
     {
         $d = (array) ($p['details'] ?? []);
-        if ((!empty($d['zillow']) && array_key_exists('schools', $d)) || !OpenWebNinja::enabled() || self::autoLimit() === 0) {
+        if ((!empty($d['zillow']) && array_key_exists('schools', $d)) || !OpenWebNinja::enabled() || self::mode($p) !== 'auto' || self::autoLimit() === 0) {
             return false;
         }
         // Nothing on Zillow: ask again in a month. A failed request (network, limit): ask again the next day.

@@ -3,6 +3,18 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Automatic'=>'خودکار',
+    'Manual'=>'دستی',
+    'Automatic on open or favorite'=>'خودکار هنگام باز کردن یا افزودن به علاقه‌مندی‌ها',
+    'Manual (only when requested)'=>'دستی، فقط با زدن دکمهٔ خواندن آگهی',
+    'Default Zillow listing details mode'=>'روش پیش‌فرض دریافت جزئیات آگهی Zillow',
+    'Each home can use a different mode. A cap of 0 stops all automatic Zillow details.'=>'برای هر خانه می‌توان روش جداگانه‌ای انتخاب کرد. سقف ۰ تمام دریافت‌های خودکار Zillow را متوقف می‌کند.',
+    'Zillow listing details for this home'=>'روش دریافت آگهی Zillow برای این خانه',
+    'Use site setting (%s)'=>'طبق تنظیم سایت (%s)',
+    'Up to 1 Zillow request'=>'حداکثر ۱ درخواست Zillow',
+    'Zillow listing details mode saved.'=>'روش دریافت آگهی Zillow ذخیره شد.',
+    'Choose a valid listing details mode.'=>'روش دریافت آگهی را انتخاب کنید.',
+    'Opening this home uses saved details. Use “Read the listing” to request more.'=>'با باز کردن این خانه اطلاعات ذخیره‌شده نمایش داده می‌شود. برای دریافت بیشتر، «خواندن آگهی» را بزنید.',
     'Search with Homes.com'=>'جستجو با Homes.com',
     'Allow new Zillow API requests'=>'اجازهٔ ارسال درخواست تازه به Zillow',
     'Zillow data is turned off in Settings.'=>'داده‌های Zillow در تنظیمات غیرفعال است.',

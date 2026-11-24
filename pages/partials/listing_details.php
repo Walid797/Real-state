@@ -28,6 +28,27 @@ $autoNow = ListingDetails::wanted($p);
 ?>
 <section class="section" id="listing-details"<?= $autoNow ? ' data-auto-details="/api/details/' . (int) $id . '" data-csrf="' . e(App\Auth::csrfToken()) . '"' : '' ?>>
   <div class="section-head"><h2><?= te('Property details') ?></h2><?php if (!empty($d['zillow'])): ?><span class="aside"><?= te('from the listing, via Zillow data') ?></span><?php endif; ?></div>
+  <?php if (App\Auth::can('edit')): ?>
+  <div class="actions mb-m">
+    <form method="post" action="/property/<?= (int) $id ?>/act" class="inline">
+      <?= csrf_field() ?><input type="hidden" name="do" value="zillow_details_mode">
+      <label><?= te('Zillow listing details for this home') ?>
+        <select class="select" name="zillow_details_mode">
+          <option value="default"<?= selected(ListingDetails::overrideMode($p), 'default') ?>><?= te('Use site setting (%s)', t(ListingDetails::defaultMode() === 'auto' ? 'Automatic' : 'Manual')) ?></option>
+          <option value="auto"<?= selected(ListingDetails::overrideMode($p), 'auto') ?>><?= te('Automatic') ?></option>
+          <option value="manual"<?= selected(ListingDetails::overrideMode($p), 'manual') ?>><?= te('Manual') ?></option>
+        </select>
+      </label>
+      <button class="btn btn-sm" type="submit"><?= te('Save') ?></button>
+    </form>
+    <?php if (App\Providers\OpenWebNinja::enabled()): ?>
+    <form method="post" action="/property/<?= (int) $id ?>/act" class="inline">
+      <?= csrf_field() ?><input type="hidden" name="do" value="zillow">
+      <button class="btn btn-sm" type="submit"<?= App\Quota::can('openwebninja') ? '' : ' disabled' ?>><?= te('Read the listing') ?> · <?= te('Up to 1 Zillow request') ?></button>
+    </form>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
   <?php $homesQuote = $d['homes'] ?? null; $homesLink = App\Providers\HomesCom::propertyUrl($homesQuote['url'] ?? null); if ($homesLink): ?>
   <aside class="homes-property-source note mb-m">
     <strong>Homes.com</strong>
@@ -44,8 +65,8 @@ $autoNow = ListingDetails::wanted($p);
   <p class="blank"><?= te('The listing on Zillow lists no further details.') ?></p>
   <?php elseif (!App\Providers\OpenWebNinja::enabled()): ?>
     <p class="blank"><?= te('Full listing details (taxes, HOA, features, photos) come from Zillow data.') ?> <?= App\Auth::can('admin') ? '<a href="/settings#sources">' . te('Data sources') . '</a>' : '' ?></p>
-  <?php elseif (ListingDetails::autoLimit() === 0): ?>
-    <p class="blank"><?= te('Opening this home uses saved details. Use the Zillow photos and history button to request more.') ?></p>
+  <?php elseif (ListingDetails::mode($p) === 'manual' || ListingDetails::autoLimit() === 0): ?>
+    <p class="blank"><?= te('Opening this home uses saved details. Use “Read the listing” to request more.') ?></p>
   <?php else: ?>
   <p class="blank"><?= match (true) {
       !empty($d['zillow_error']) => 'The last try to fetch the listing didn’t get through (' . e(ago($d['zillow_tried_at'])) . '). The site tries again tomorrow, or use “Read the listing” now.',

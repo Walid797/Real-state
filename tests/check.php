@@ -561,21 +561,28 @@ Db::run("DELETE FROM properties WHERE city = 'Askville'");
 
 /* ── Full listing fetched by the site itself, once per home ────────── */
 $hadOwn = App\Settings::get('openwebninja_key');
-$previousAutoOn = Settings::get('openwebninja_auto_on');
+$previousDetailsMode = Settings::get('openwebninja_details_mode');
+$previousAutoCap = Settings::get('openwebninja_auto');
 $previousZillowOn = Settings::get('openwebninja_on');
 Settings::set('openwebninja_on', '1');
-Settings::set('openwebninja_auto_on', '0');
+Settings::set('openwebninja_details_mode', 'manual');
 App\Settings::set('openwebninja_key', 'check-only');
 App\Settings::set('openwebninja_auto', '60');
 $ld = PropertyRepo::upsert(['address' => '9 Auto Ln', 'city' => 'Autoville', 'state' => 'VA', 'zip' => '24980', 'status' => 'for_sale', 'list_price' => 200000], 'manual')['id'];
 $ldp = PropertyRepo::find($ld);
-$ok(!App\Services\ListingDetails::wanted($ldp), 'existing automatic request cap does not opt anyone into spending when opening a home');
+$ok(!App\Services\ListingDetails::wanted($ldp), 'manual site mode suppresses automatic requests despite an available monthly cap');
 $eq(App\Services\ListingDetails::fetch($ldp, 'auto')['status'], 'none', 'direct automatic detail requests stop when disabled');
 Settings::set('openwebninja_on', '0');
 $off = App\Providers\OpenWebNinja::search(Address::parseLocation('22041'), 'sale', 'manual');
 $eq($off['error'], t('Zillow data is turned off in Settings.'), 'disabled Zillow stops search before transport even with a configured key');
 Settings::set('openwebninja_on', '1');
-Settings::set('openwebninja_auto_on', '1');
+$perHome = $ldp;
+$perHome['details']['zillow_details_mode'] = 'auto';
+$ok(App\Services\ListingDetails::wanted($perHome), 'a property can opt into automatic details when the site defaults to manual');
+Settings::set('openwebninja_details_mode', null);
+$eq(App\Services\ListingDetails::defaultMode(), 'auto', 'Zillow detail fetching defaults to automatic');
+$perHome['details']['zillow_details_mode'] = 'manual';
+$ok(!App\Services\ListingDetails::wanted($perHome), 'a manual property override stops automatic requests in the automatic site mode');
 $ok(App\Services\ListingDetails::wanted($ldp), 'a home without its listing is fetched when first opened');
 $ldp['details']['zillow'] = true;
 $ok(App\Services\ListingDetails::wanted($ldp), 'an older full listing can acquire its newly supported school data within the automatic cap');
@@ -594,9 +601,9 @@ App\Quota::log('openwebninja', '/property-details-address', 200, 10, null, 'auto
 $ok(!App\Services\ListingDetails::wanted(PropertyRepo::find($ld)) && App\Services\ListingDetails::autoUsed() >= 1, 'the monthly cap stops automatic fetches');
 Db::run("DELETE FROM api_log WHERE provider = 'openwebninja' AND context = 'auto'");
 Db::run("DELETE FROM properties WHERE city = 'Autoville'");
-App\Settings::set('openwebninja_auto', '60');
+App\Settings::set('openwebninja_auto', $previousAutoCap);
 App\Settings::set('openwebninja_key', $hadOwn);
-Settings::set('openwebninja_auto_on', $previousAutoOn);
+Settings::set('openwebninja_details_mode', $previousDetailsMode);
 Settings::set('openwebninja_on', $previousZillowOn);
 $searchCard = (new ReflectionMethod(App\Providers\OpenWebNinja::class, 'mapItem'))->invoke(null, [
     'zpid' => 71, 'address' => '7 Sample Rd, Fairfax, VA 22030', 'price' => 425000,

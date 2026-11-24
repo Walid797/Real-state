@@ -186,9 +186,21 @@ switch ($do) {
         $home .= '#comps';
         break;
 
+    case 'zillow_details_mode':
+        $mode = input('zillow_details_mode');
+        if (!in_array($mode, ['default', 'auto', 'manual'], true)) {
+            flash(t('Choose a valid listing details mode.'), 'warn');
+        } else {
+            Db::run("UPDATE properties SET details = JSON_SET(COALESCE(details, JSON_OBJECT()), '$.zillow_details_mode', ?) WHERE id = ?", [$mode, $id]);
+            flash(t('Zillow listing details mode saved.'));
+        }
+        $home .= '#listing-details';
+        break;
+
     case 'zillow':
         $r = App\Services\ListingDetails::fetch($p, 'manual');
         flash($r['message'], ['fetched' => 'ok', 'none' => 'warn', 'error' => 'err'][$r['status']]);
+        $home .= '#listing-details';
         break;
 }
 
