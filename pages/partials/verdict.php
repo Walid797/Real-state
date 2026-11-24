@@ -40,7 +40,7 @@ $confLabel = ['high' => 'High confidence', 'medium' => 'Medium confidence', 'low
   </ul>
   <?php endif; ?>
   <div data-intelligence-url="/api/property-analysis/<?= (int) $p['id'] ?>/status" data-property-id="<?= (int) $p['id'] ?>" data-csrf="<?= e(App\Auth::csrfToken()) ?>">
-    <?php $report = App\Services\PropertyAnalysis::get((int) $p['id']); include APP_ROOT . '/pages/partials/intelligence.php'; ?>
+    <?php $report = App\Services\PropertyAnalysis::publicReport((int) $p['id']); include APP_ROOT . '/pages/partials/intelligence.php'; ?>
   </div>
   <?php include APP_ROOT . '/pages/partials/regional_demand.php'; ?>
   <p class="section-note"><?= te('This weighs everything on this page — the deal, comparable sales, the assessment, the seller’s position, flips and values in the area, flood zone, neighbourhood, the building and the land. It is an analysis of the data on file, not an appraisal or an inspection.') ?></p>

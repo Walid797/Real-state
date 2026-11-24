@@ -23,7 +23,11 @@ The existing auto and score jobs also process analysis work. Each background pas
 
 Opening a property marks only its report as requested, starts a targeted worker through JavaScript, and polls its status. The worker always selects that property ID. Recently opened homes have background retry priority. Legacy bulk requests stay dormant until their own property page is opened.
 
-Reports are refreshed after 48 hours when opened again. Property and calculator edits invalidate the stored input fingerprint. The refresh action requests an earlier update. Source collection and AI interpretation may take separate requests on slower hosts. Cached completed reports are reused.
+Reports are refreshed after 48 hours when opened again. Property and calculator edits invalidate the stored input fingerprint. The refresh action requests an earlier update. Cached completed reports are reused.
+
+Version 4 displays a cache-only preview immediately when a snapshot is absent or outdated. That preview makes no external HTTP requests, keeps each fact's source and period, and leaves missing figures unknown. After verified geography is resolved, independent evidence providers run concurrently using PHP Fibers and cURL multi, with a shared forty-second collection budget. Source-specific timeouts and validation still apply. A failing source does not discard other sources' results. Geography resolution and earlier property enrichment can add time outside that budget.
+
+Fresh evidence is saved and returned before any language-model call. The next targeted request writes the interpretation with status `writing`; status polling keeps the evidence visible while it waits. No paid model fallback is enabled. Free-model throttling can still delay the narrative. Only the opened property is processed, and calculated scores and numerical facts remain controlled by source validation rather than the model. Transport regression checks use the local-only fixture documented in tests/http_fixture.php; these fixture responses never enter property reports.
 
 Authenticated endpoints are available through the existing session and CSRF checks.
 

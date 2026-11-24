@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Writing the AI interpretation; verified figures are ready'=>'آمار تأییدشده آماده است؛ هوش مصنوعی در حال نوشتن توضیحات است',
+    'Showing available saved evidence now. Fresh sources are being checked; missing values remain unknown.'=>'اطلاعات موجود و ذخیره‌شده اکنون نمایش داده می‌شود. منابع تازه در حال بررسی‌اند؛ مقادیر ناموجود حدس زده نمی‌شوند.',
     'Insufficient verified housing evidence'=>'اطلاعات تأییدشدهٔ بازار مسکن کافی نیست',
     'County median days on market'=>'میانهٔ روزهای حضور آگهی در بازار شهرستان',
     'County active listings'=>'آگهی‌های فعال شهرستان',

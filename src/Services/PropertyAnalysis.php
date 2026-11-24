@@ -15,14 +15,14 @@ final class PropertyAnalysis
     public static function enqueue(int $id, bool $refresh = false): void
     {
         $previous = Db::one('SELECT fingerprint, status FROM property_analyses WHERE property_id=?', [$id]);
-        if (!$refresh && !empty($previous['fingerprint']) && $previous['status'] !== 'collecting') {
+        if (!$refresh && !empty($previous['fingerprint']) && !in_array($previous['status'],['collecting','writing'],true)) {
             $property = PropertyRepo::find($id);
             $refresh = $property && $previous['fingerprint'] !== self::fingerprint($property);
         }
         if ($refresh) {
             // An active worker finishes its current snapshot. It may be refreshed after completion.
             Db::run("UPDATE property_analyses SET status='pending', attempts=0, error_code=NULL, next_attempt_at=?, requested_at=?, updated_at=?
-                WHERE property_id=? AND status <> 'collecting'", [now(), now(), now(), $id]);
+                WHERE property_id=? AND status NOT IN ('collecting','writing')", [now(), now(), now(), $id]);
         }
         Db::run(
             "INSERT INTO property_analyses (property_id, requested_at, updated_at, next_attempt_at, opened_at) VALUES (?, ?, ?, ?, ?)
@@ -46,7 +46,7 @@ final class PropertyAnalysis
         if ($row['evidence']) {
             $p = PropertyRepo::find($id);
             $row['stale'] = !$p || self::fingerprint($p) !== $row['fingerprint'];
-            if ($p && $row['stale'] && $row['status'] !== 'collecting') {
+            if ($p && $row['stale'] && !in_array($row['status'],['collecting','writing'],true)) {
                 self::enqueue($id, true);
                 $row['status'] = 'pending';
             }
@@ -60,6 +60,16 @@ final class PropertyAnalysis
         if (!$r) {
             return null;
         }
+        if (empty($r['evidence']) || !empty($r['stale'])) {
+            $p=PropertyRepo::find($id);
+            if($p){
+                $language=$_COOKIE['plat_language']??null;$_COOKIE['plat_language']='en';
+                try{$r['evidence']=InvestmentEvidence::collect($p,false);}finally{
+                    if($language===null)unset($_COOKIE['plat_language']);else $_COOKIE['plat_language']=$language;
+                }
+                $r['preview']=true;$r['narrative']=null;
+            }
+        }
         unset($r['fingerprint']);
         return $r;
     }
@@ -68,7 +78,7 @@ final class PropertyAnalysis
     public static function run(int $budgetSeconds = 110, ?int $propertyId = null): array
     {
         Db::run("UPDATE property_analyses SET status='retry', error_code='interrupted', next_attempt_at=UTC_TIMESTAMP()
-            WHERE opened_at IS NOT NULL AND status='collecting' AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)
+            WHERE opened_at IS NOT NULL AND status IN ('collecting','writing') AND updated_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)
             AND (? IS NULL OR property_id=?)", [$propertyId, $propertyId]);
         $row = self::due($propertyId);
         if (!$row) {
@@ -105,6 +115,7 @@ final class PropertyAnalysis
             if (!$packet || !in_array($row['status'], ['evidence_ready','awaiting_key','retry'], true)
                 || $row['fingerprint'] !== $fingerprint
                 || !$row['generated_at'] || strtotime($row['generated_at'] . ' UTC') < time() - 48 * 3600) {
+                $collected=true;
                 // Store canonical English evidence so reports can switch language independently.
                 $language = $_COOKIE['plat_language'] ?? null;
                 $_COOKIE['plat_language'] = 'en';
@@ -116,6 +127,10 @@ final class PropertyAnalysis
                 Db::run("UPDATE property_analyses SET evidence=?, narrative=NULL, fingerprint=?, generated_at=?, updated_at=? WHERE property_id=?",
                     [json_encode($packet, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE), $fingerprint, now(), now(), $id]);
             }
+            if (!empty($collected)) {
+                self::state($id,OpenRouter::enabled()?'evidence_ready':'awaiting_key',null,0);
+                return ['Property '.$id.' verified evidence ready; interpretation is a separate step.'];
+            }
             if (!OpenRouter::enabled()) {
                 self::state($id, 'awaiting_key', null, 0);
                 return ['Property ' . $id . ' evidence collected; OpenRouter key needed.'];
@@ -124,6 +139,7 @@ final class PropertyAnalysis
                 self::state($id, 'evidence_ready', null, 0);
                 return ['Property ' . $id . ' evidence collected; AI will continue on the next request.'];
             }
+            self::state($id,'writing',null,0);
             $result = OpenRouter::analyze($packet);
             if (!$result['ok']) {
                 $attempts = (int) $row['attempts'] + 1;

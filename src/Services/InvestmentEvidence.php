@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Cache;
 use App\Db;
+use App\Http;
 use App\Geo;
 use App\Providers\Census;
 use App\Providers\Fema;
@@ -17,7 +18,7 @@ use App\Providers\NearbyPlaces;
 
 final class InvestmentEvidence
 {
-    public const VERSION = 3;
+    public const VERSION = 4;
     public const WEIGHTS = ['profitability' => 40, 'housing' => 20, 'economic' => 15, 'social' => 10, 'infrastructure' => 10, 'risk_safety' => 5];
 
     public static function collect(array $p, bool $fetch = true): array
@@ -25,21 +26,32 @@ final class InvestmentEvidence
         $condition = Condition::get((int) $p['id']);
         $deal = Deal::analyse($p, $condition);
         $existingScore = Score::compute($p, $deal, $condition);
-        $region = RegionalDemand::for($p, $fetch);
         $geo = Geo::valid($p['lat'], $p['lng']);
-        $tract = $geo ? ($fetch ? Census::tractAt((float) $p['lat'], (float) $p['lng']) : Census::cachedTract((float) $p['lat'], (float) $p['lng'])) : null;
-        $tractData = $tract ? RegionalData::tract($tract, $fetch) : [];
-        $location = $geo && $fetch ? LocationEvidence::at((float) $p['lat'], (float) $p['lng']) : [];
-        if ($geo && $fetch && self::accessScore($location)['score']===null) {
-            $alternative=NearbyPlaces::at((float)$p['lat'],(float)$p['lng']);
-            foreach($alternative['places']??[] as $kind=>$place) {
+        $lat=(float)$p['lat'];$lng=(float)$p['lng'];
+        $tract = $geo ? ($fetch ? Census::tractAt($lat,$lng) : Census::cachedTract($lat,$lng)) : null;
+        $fips=($tract['state']??'').($tract['county']??'');
+        $cachedLocation=$geo?LocationEvidence::cached($lat,$lng):[];
+        $cachedNearby=$geo?NearbyPlaces::cached($lat,$lng):[];
+        $jobs=[
+            'region'=>static fn()=>RegionalDemand::for($p,$fetch),
+            'tract'=>static fn()=>$tract?RegionalData::tract($tract,$fetch):[],
+            'countyMarket'=>static fn()=>CountyHousing::get($fips,$fetch),
+            'location'=>static fn()=>!$geo?[]:($fetch?LocationEvidence::at($lat,$lng):$cachedLocation),
+            'nearby'=>static fn()=>!$geo||self::accessScore($cachedLocation)['score']!==null?[]:($fetch?NearbyPlaces::at($lat,$lng):$cachedNearby),
+            'flood'=>static fn()=>!$geo?null:($fetch?Fema::zoneAt($lat,$lng):Cache::get(Cache::key('fema','zone',['lat'=>round($lat,5),'lng'=>round($lng,5)]))),
+            'development'=>static fn()=>$geo?DevelopmentEvidence::nearby($lat,$lng,$p['state'],$fetch):[],
+        ];
+        $data=$fetch?Http::concurrent($jobs,40):array_map(static fn($job)=>$job(),$jobs);
+        $region=$data['region']??RegionalDemand::for($p,false);
+        $tractData=$data['tract']??[];$countyMarket=$data['countyMarket']??[];
+        $location=$data['location']??[];$alternative=$data['nearby']??[];
+        if(self::accessScore($location)['score']===null){
+            foreach($alternative['places']??[] as $kind=>$place){
                 if(!isset($location['places'][$kind]))$location['places'][$kind]=$place+['source'=>'ArcGIS World Geocoding'];
             }
-            $location['observed_at']??=$alternative['observed_at'];
+            $location['observed_at']??=$alternative['observed_at']??null;
         }
-        $flood = $geo ? ($fetch ? Fema::zoneAt((float) $p['lat'], (float) $p['lng']) : Cache::get(Cache::key('fema', 'zone', [
-            'lat' => round((float) $p['lat'], 5), 'lng' => round((float) $p['lng'], 5),
-        ]))) : null;
+        $flood=$data['flood']??null;$development=$data['development']??[];
         $facts = [];
         $add = static function (string $section, string $label, mixed $value, string $scope, string $source, ?string $period = null) use (&$facts): void {
             if ($value === null || $value === '' || $value === []) {
@@ -88,8 +100,6 @@ final class InvestmentEvidence
         foreach ($market['metrics'] as $label => $value) {
             $add('housing', $label, $value, 'Within 1 mile, same type, size within 35%', 'Stored property transactions', now());
         }
-        $fips=($tract['state']??'').($tract['county']??'');
-        $countyMarket=CountyHousing::get($fips,$fetch);
         foreach($countyMarket['metrics']??[] as $label=>$value) {
             $add('housing',$label,$value,'County FIPS '.$fips.' · '.($countyMarket['county']??''),'Realtor.com monthly inventory',$countyMarket['period']);
         }
@@ -106,7 +116,6 @@ final class InvestmentEvidence
         }
         $add('location', 'Nearby schools and source ratings', $schools, $propertyScope, 'Zillow school data / OpenStreetMap', $p['details']['schools_checked_at'] ?? $location['observed_at'] ?? null);
         $add('development', 'Mapped construction awaiting official verification', $location['construction'] ?? null, 'Within 3 miles', 'OpenStreetMap', $location['observed_at'] ?? null);
-        $development = $geo && $fetch ? DevelopmentEvidence::nearby((float) $p['lat'], (float) $p['lng'], $p['state']) : [];
         $add('development', 'Nearby VDOT approved-program projects', $development['projects'] ?? null, 'Within 3 miles', 'VDOT SYIP', $development['collected_at'] ?? null);
         $record = $p['details']['county_record'] ?? [];
         $add('development', 'Zoning', $record['zoning'] ?? null, $propertyScope, $record['record_url'] ?? 'County record', $p['updated_at']);

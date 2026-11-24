@@ -9,6 +9,10 @@ use App\Http;
 
 final class LocationEvidence
 {
+    public static function cached(float $lat,float $lng): array
+    {
+        return Cache::get(Cache::key('location','routes-v3',['lat'=>round($lat,5),'lng'=>round($lng,5)]))??[];
+    }
     public static function at(float $lat, float $lng): array
     {
         $result = Cache::remember('location', 'routes-v3', ['lat' => round($lat, 5), 'lng' => round($lng, 5)], 86400 * 30,

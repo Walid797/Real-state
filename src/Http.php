@@ -7,12 +7,48 @@ namespace App;
 final class Http
 {
     public const UA = 'Plat/1.0 (personal real estate research)';
+    private static mixed $multi = null;
+    private static array $pending = [];
+    private static float $deadline = 0;
+
+    /** Run independent providers together; their cache, validation and retry code stays unchanged. */
+    public static function concurrent(array $jobs, int $seconds = 40): array
+    {
+        if(self::$multi!==null)throw new \LogicException('Nested HTTP batches are not supported.');
+        self::$multi=curl_multi_init();self::$deadline=microtime(true)+$seconds;
+        $fibers=[];$results=[];
+        try {
+            foreach($jobs as $key=>$job){
+                $fiber=new \Fiber(static function() use($job,$key,&$results): void {
+                    try{$results[$key]=$job();}catch(\Throwable $e){$results[$key]=null;error_log('Evidence source failed: '.get_class($e));}
+                });
+                $fibers[]=$fiber;$fiber->start();
+            }
+            while(self::$pending){
+                do{$code=curl_multi_exec(self::$multi,$running);}while($code===CURLM_CALL_MULTI_PERFORM);
+                while($done=curl_multi_info_read(self::$multi)){
+                    $ch=$done['handle'];$id=spl_object_id($ch);$fiber=self::$pending[$id]['fiber'];
+                    $body=$done['result']===CURLE_OK?curl_multi_getcontent($ch):false;
+                    curl_multi_remove_handle(self::$multi,$ch);unset(self::$pending[$id]);$fiber->resume($body);
+                }
+                if(microtime(true)>=self::$deadline||$code!==CURLM_OK){
+                    foreach(self::$pending as $id=>$entry){curl_multi_remove_handle(self::$multi,$entry['handle']);unset(self::$pending[$id]);$entry['fiber']->resume(false);}
+                }elseif(self::$pending){if(curl_multi_select(self::$multi,.1)===-1)usleep(1000);}
+            }
+        }finally{curl_multi_close(self::$multi);self::$multi=null;self::$pending=[];self::$deadline=0;}
+        return $results;
+    }
 
     /**
      * @return array{status:int, body:string, headers:array<string,string>, error:?string, ms:int}
      */
     public static function request(string $method, string $url, array $headers = [], ?string $body = null, int $timeout = 20): array
     {
+        if(self::$multi!==null){
+            $remaining=(int)ceil(self::$deadline-microtime(true));
+            if($remaining<=0)return ['status'=>0,'body'=>'','headers'=>[],'error'=>'Evidence time limit reached','ms'=>0];
+            $timeout=min($timeout,$remaining);
+        }
         $respHeaders = [];
         // Plain http is allowed for one case only: a local test copy talking to a fake provider on this machine.
         $proto = str_starts_with($url, 'http://127.0.0.1:') && str_starts_with((string) Config::get('base_url', ''), 'http://127.0.0.1:')
@@ -48,10 +84,13 @@ final class Http
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         }
         $t = microtime(true);
-        $out = curl_exec($ch);
+        if(self::$multi!==null&&\Fiber::getCurrent()){
+            self::$pending[spl_object_id($ch)]=['fiber'=>\Fiber::getCurrent(),'handle'=>$ch];
+            curl_multi_add_handle(self::$multi,$ch);$out=\Fiber::suspend();
+        }else{$out = curl_exec($ch);}
         $ms = (int) round((microtime(true) - $t) * 1000);
-        $err = $out === false ? curl_error($ch) : null;
-        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $err = $out === false ? (curl_error($ch) ?: 'Request interrupted or evidence time limit reached') : null;
+        $status = $out === false ? 0 : (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
         curl_close($ch);
         return ['status' => $status, 'body' => $out === false ? '' : (string) $out, 'headers' => $respHeaders, 'error' => $err, 'ms' => $ms];
     }

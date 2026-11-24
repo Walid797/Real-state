@@ -9,6 +9,10 @@ use App\Http;
 /** Public ArcGIS place candidates are location observations, not service-quality ratings. */
 final class NearbyPlaces
 {
+    public static function cached(float $lat,float $lng): array
+    {
+        return Cache::get(Cache::key('arcgis_places','v1',['lat'=>round($lat,5),'lng'=>round($lng,5)]))??[];
+    }
     public static function at(float $lat,float $lng): array
     {
         $key=Cache::key('arcgis_places','v1',['lat'=>round($lat,5),'lng'=>round($lng,5)]);

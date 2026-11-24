@@ -10,7 +10,7 @@ final class DevelopmentEvidence
 {
     public const SOURCE = 'https://services.arcgis.com/p5v98VHDX9Atv3l7/arcgis/rest/services/SYIP_Approved_Projects/FeatureServer/0';
 
-    public static function nearby(float $lat, float $lng, string $state): array
+    public static function nearby(float $lat, float $lng, string $state, bool $fetch = true): array
     {
         if ($state !== 'VA') {
             return [];
@@ -19,6 +19,9 @@ final class DevelopmentEvidence
         $cached = Cache::get($key);
         if (is_array($cached)) {
             return $cached;
+        }
+        if (!$fetch) {
+            return [];
         }
         $q = [
             'f' => 'json', 'geometry' => $lng . ',' . $lat, 'geometryType' => 'esriGeometryPoint', 'inSR' => 4326,

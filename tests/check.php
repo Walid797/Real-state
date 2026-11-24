@@ -878,6 +878,18 @@ try {
         && $packet['scores']['infrastructure'] === null && count($packet['missing_data']) > 0,
         'missing evidence produces null scores in the subject-specific packet');
     $eq(array_sum($packet['scores']['weights']), 100, 'individual investment weights total 100');
+    $callsBefore = (int) Db::val('SELECT COUNT(*) FROM api_log');
+    $preview = App\Services\PropertyAnalysis::publicReport($analysisId);
+    $ok(!empty($preview['preview']) && $preview['evidence']['property']['id'] === $analysisId
+        && $preview['evidence']['scores']['final_score'] === null && $preview['narrative'] === null,
+        'pending report immediately exposes subject-specific saved evidence without inventing missing scores or prose');
+    $eq((int) Db::val('SELECT COUNT(*) FROM api_log'), $callsBefore, 'cache-only preview makes no metered provider calls');
+    Db::run("UPDATE property_analyses SET status='writing' WHERE property_id=?", [$analysisId]);
+    App\Services\PropertyAnalysis::enqueue($analysisId, true);
+    $eq(Db::val('SELECT status FROM property_analyses WHERE property_id=?', [$analysisId]), 'writing', 'refresh cannot restart a worker writing its interpretation');
+    $chooseWriting = new ReflectionMethod(App\Services\PropertyAnalysis::class, 'due');
+    $eq($chooseWriting->invoke(null, $analysisId), null, 'writing reports are not selected as duplicate work');
+    Db::run("UPDATE property_analyses SET status='pending' WHERE property_id=?", [$analysisId]);
     $ok(Db::val('SELECT opened_at FROM property_analyses WHERE property_id=?', [$analysisId]) !== null, 'only a specifically requested property is marked as opened');
     $otherId = PropertyRepo::upsert(['address'=>'72 Intelligence Check Ct','city'=>'Fixture','state'=>'VA','zip'=>'20997',
         'status'=>'for_sale','list_price'=>260000,'sqft'=>1500,'property_type'=>'Single Family'], 'manual')['id'];

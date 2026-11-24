@@ -7,7 +7,7 @@ $stateLabels = [
     'pending' => 'Queued for automatic analysis', 'collecting' => 'Collecting property evidence',
     'awaiting_key' => 'Evidence ready; OpenRouter key required', 'evidence_ready' => 'Evidence ready; AI interpretation queued',
     'retry' => 'Source limit or temporary failure; automatic retry scheduled', 'failed' => 'AI response could not be verified',
-    'ready' => 'Individual property report ready',
+    'ready' => 'Individual property report ready', 'writing'=>'Writing the AI interpretation; verified figures are ready',
 ];
 $scoreLabels = [
     'profitability' => 'Property profitability', 'housing' => 'Housing market strength', 'economic' => 'Economic conditions',
@@ -27,12 +27,13 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
     <?php endif; ?>
   </div>
   <p class="small analysis-status" role="status"><?= te($stateLabels[$status] ?? $stateLabels['pending']) ?></p>
+  <?php if(!empty($report['preview'])): ?><p class="small note"><?= te('Showing available saved evidence now. Fresh sources are being checked; missing values remain unknown.') ?></p><?php endif; ?>
   <?php if (!$packet): ?><p class="small soft mt-s"><?= te('Opening this home starts its individual analysis automatically. Source and free-model limits may delay completion.') ?></p><?php endif; ?>
   <?php if ($status === 'awaiting_key' && App\Auth::can('admin')): ?><p class="note mt-s"><?= te('Set OPENROUTER_API_KEY in the private server .env file to enable AI interpretation. Public evidence continues to be collected automatically.') ?></p><?php endif; ?>
   <?php if (!empty($report['stale'])): ?><p class="note mt-s"><?= te('This snapshot predates a property or calculator change. A fresh report has been requested.') ?></p><?php endif; ?>
   <?php if ($packet): ?>
   <p class="small mt-s"><bdi><?= e($packet['property']['address']) ?>, <?= e($packet['property']['city']) ?> <?= e($packet['property']['state']) ?> <?= e($packet['property']['zip']) ?></bdi></p>
-  <p class="small muted"><?= te('Evidence collected') ?> <time><?= e($packet['collected_at']) ?> UTC</time><?= $report['model'] ? ' · ' . e($report['model']) : '' ?></p>
+  <?php if(empty($report['preview'])): ?><p class="small muted"><?= te('Evidence collected') ?> <time><?= e($packet['collected_at']) ?> UTC</time><?= $report['model'] ? ' · ' . e($report['model']) : '' ?></p><?php endif; ?>
   <div class="analysis-scores">
     <?php foreach ($scoreLabels as $key => $label): ?>
     <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong>
