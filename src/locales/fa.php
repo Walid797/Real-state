@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Allow new RentCast API requests'=>'اجازهٔ ارسال درخواست تازه به RentCast',
+    'Allow new searches on Homes.com'=>'اجازهٔ جستجوی تازه در Homes.com',
+    'RentCast is turned off in Settings.'=>'RentCast در تنظیمات غیرفعال است.',
+    'Homes.com search is turned off in Settings.'=>'جستجوی Homes.com در تنظیمات غیرفعال است.',
     'View listings on Homes.com'=>'مشاهدهٔ آگهی‌ها در Homes.com',
     'Import Homes.com saved-search email alerts'=>'تنظیم دریافت آگهی‌های Homes.com از طریق ایمیل جستجوی ذخیره‌شده',
     'Tampa Bay uses the four-county Florida metro definition: Hernando, Hillsborough, Pasco and Pinellas.'=>'تامپا بی بر اساس محدودهٔ کلان‌شهری چهار شهرستان فلوریدا جستجو می‌شود: Hernando، Hillsborough، Pasco و Pinellas.',

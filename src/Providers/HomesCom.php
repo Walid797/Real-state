@@ -44,6 +44,7 @@ final class HomesCom
     /** Official collection page for a browser visit, including when the host is cooling down. */
     public static function browserPage(array $scope): ?string
     {
+        if (!self::enabled()) return null;
         if ($scope['type'] === 'zip' && empty($scope['city'])) {
             $postal = self::postal($scope['zip'], 2);
             if (!$postal) return null;
@@ -55,14 +56,17 @@ final class HomesCom
     /** @return array{ok:bool, items:array, observed_at:string, cached:bool, error:?string, url:?string} */
     public static function search(array $loc, string $ctx = 'manual', float $budget = 10): array
     {
+        $out = ['ok' => false, 'items' => [], 'observed_at' => now(), 'cached' => false, 'error' => null, 'url' => null,
+            'http_status'=>null, 'error_code'=>null, 'retry_at'=>null];
+        if (!self::enabled()) {
+            return array_replace($out, ['error' => 'Homes.com search is turned off in Settings.', 'error_code' => 'disabled']);
+        }
         $started = microtime(true);
         $key = Cache::key(self::ID, self::CACHE_VERSION, ['key' => $loc['key']]);
         $cached = Cache::get($key);
         if (is_array($cached)) {
             return array_replace($cached, ['cached' => true]);
         }
-        $out = ['ok' => false, 'items' => [], 'observed_at' => now(), 'cached' => false, 'error' => null, 'url' => null,
-            'http_status'=>null, 'error_code'=>null, 'retry_at'=>null];
         if (!class_exists(DOMDocument::class)) {
             $out['error']='Homes.com needs the PHP DOM/XML extension enabled on this host.';
             $out['error_code']='missing_dom';

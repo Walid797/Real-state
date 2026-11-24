@@ -58,9 +58,14 @@ final class RentCast
         return $local !== '' && preg_match('~^https?://(127\.0\.0\.1|localhost)[:/]~', $site) ? rtrim($local, '/') : self::BASE;
     }
 
+    public static function switchedOn(): bool
+    {
+        return Settings::get('rentcast_on', '1') === '1';
+    }
+
     public static function enabled(): bool
     {
-        return Settings::has('rentcast_key');
+        return self::switchedOn() && Settings::has('rentcast_key');
     }
 
     /**
@@ -68,6 +73,9 @@ final class RentCast
      */
     private static function call(string $path, array $params, string $ctx): array
     {
+        if (!self::switchedOn()) {
+            return ['ok' => false, 'status' => 0, 'data' => null, 'error' => t('RentCast is turned off in Settings.')];
+        }
         if (!self::enabled()) {
             return ['ok' => false, 'status' => 0, 'data' => null, 'error' => 'Add your RentCast key in Settings first.'];
         }

@@ -389,7 +389,7 @@ View::script('/assets/vendor/leaflet/leaflet.js');
         </form>
       </div>
       <?php endif; ?>
-      <?php $rcProblem = App\Providers\RentCast::problem(); ?>
+      <?php $rcProblem = App\Providers\RentCast::switchedOn() ? App\Providers\RentCast::problem() : null; ?>
       <?php if ($res['notice'] && $rcProblem && $res['notice'] === $rcProblem['why']): ?>
       <div class="callout callout-bad mt-s" role="alert"><?= icon('triangle-alert', 16) ?><div>
         <strong><?= te('No new homes could be pulled:') ?> <?= e($rcProblem['why']) ?></strong>

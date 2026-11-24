@@ -499,6 +499,10 @@ final class Search
                 return ['snapshot' => $latest, 'fetched' => false, 'partial' => true,
                     'notice' => 'Building addresses and saved homes are shown below. Live building listings need a connected Zillow-data source with requests remaining.'];
             }
+            if (!RentCast::switchedOn() && Settings::get('search_provider', 'auto') === RentCast::ID) {
+                return ['snapshot' => $latest, 'fetched' => false, 'partial' => $latest !== null,
+                    'notice' => 'RentCast is turned off in Settings.'];
+            }
             $notice = (!RentCast::enabled() && !OpenWebNinja::enabled())
                 ? 'No data source is connected yet — showing only what’s already saved. Add a free API key in Settings.'
                 : ($ctx === 'cron' ? 'Quota reserved for manual searches; used saved data.'

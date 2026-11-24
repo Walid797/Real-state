@@ -50,7 +50,7 @@ $hello = Auth::name() ? explode(' ', Auth::name())[0] : '';
 
 View::header('Dashboard', 'dashboard');
 ?>
-<?php if (Auth::can('admin') && Settings::has('rentcast_key') && ($rcProblem = App\Providers\RentCast::problem())): ?>
+<?php if (Auth::can('admin') && App\Providers\RentCast::enabled() && ($rcProblem = App\Providers\RentCast::problem())): ?>
 <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div>
   <strong><?= e($rcProblem['why']) ?></strong>
   <span class="small soft"><?= te('Until then searches show only homes already on file') ?><?= App\Providers\OpenWebNinja::enabled() ? ' or come from the Zillow-data source' : '' ?>.</span>

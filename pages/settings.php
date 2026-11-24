@@ -18,6 +18,7 @@ if (is_post()) {
     $anchor = '';
     switch ($do) {
         case 'sources':
+            Settings::set('rentcast_on', isset($_POST['rentcast_on']) ? '1' : '0');
             Settings::set('homes_on', isset($_POST['homes_on']) ? '1' : '0');
             Settings::set('rentcast_limit', $int('rentcast_limit', 0, 100000, 50));
             Settings::set('rentcast_reserve', $int('rentcast_reserve', 0, 100000, 15));
@@ -147,8 +148,9 @@ View::header('Settings', 'settings');
   <form method="post" action="/settings" class="mt-m">
     <?= csrf_field() ?><input type="hidden" name="do" value="sources">
     <div class="card">
-      <?php $rcProblem = App\Providers\RentCast::problem(); ?>
-      <h3>RentCast <?php if ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('rentcast_key') ? 'Connected' : 'Not connected') ?></span><?php endif; ?><?= tip_open() ?><?= te('Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.') ?><?= tip_close() ?></h3>
+      <?php $rcOn = App\Providers\RentCast::switchedOn(); $rcProblem = $rcOn ? App\Providers\RentCast::problem() : null; ?>
+      <h3>RentCast <?php if (!$rcOn): ?><span class="tag"><?= te('Off') ?></span><?php elseif ($rcProblem && Settings::has('rentcast_key')): ?><span class="tag tag-bad"><?= te('Key refused') ?></span><?php else: ?><span class="tag<?= Settings::has('rentcast_key') ? ' tag-live' : '' ?>"><?= te(Settings::has('rentcast_key') ? 'Connected' : 'Not connected') ?></span><?php endif; ?><?= tip_open() ?><?= te('Listings for sale, county sale records, value and rent estimates. The free Developer plan gives 50 requests a month.') ?><?= tip_close() ?></h3>
+      <label class="check"><input type="checkbox" name="rentcast_on" value="1"<?= checked($rcOn) ?>><?= te('Allow new RentCast API requests') ?></label>
       <?php if ($rcProblem && Settings::has('rentcast_key')): ?>
       <div class="callout callout-bad mb-m" role="alert"><?= icon('triangle-alert', 16) ?><div><strong><?= e($rcProblem['why']) ?></strong>
         <span class="small soft"><?= te('Last refused') ?> <?= e(ago($rcProblem['at'])) ?><?= te('. Refused requests are not counted against your 50.') ?></span>
@@ -171,7 +173,7 @@ View::header('Settings', 'settings');
 
     <div class="card">
       <h3>Homes.com<?= tip_open() ?><?= te('Reads the first public search page for up to three areas within a short time limit. Pages are cached for one hour. No RentCast request is used for this source. Access and coverage depend on Homes.com.') ?><?= tip_close() ?></h3>
-      <label class="check"><input type="checkbox" name="homes_on" value="1"<?= checked(App\Providers\HomesCom::enabled()) ?>><?= te('Add public Homes.com listings alongside RentCast') ?></label>
+      <label class="check"><input type="checkbox" name="homes_on" value="1"<?= checked(App\Providers\HomesCom::enabled()) ?>><?= te('Allow new searches on Homes.com') ?></label>
     </div>
 
     <div class="card">

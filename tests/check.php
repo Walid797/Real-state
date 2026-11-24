@@ -193,6 +193,19 @@ Settings::set('rentcast_limit', '3');
 Settings::set('rentcast_reserve', '2');
 Db::run('DELETE FROM api_usage');
 $ok(Quota::can('rentcast', 'manual') && Quota::can('rentcast', 'cron'), 'fresh month allows both');
+$rentCastSwitch = Settings::get('rentcast_on');
+try {
+    Settings::set('rentcast_on', '0');
+    $logBefore = (int) Db::val('SELECT COUNT(*) FROM api_log');
+    $eq(Search::provider('manual'), null, 'disabled RentCast is skipped for manual searches');
+    $eq(Search::provider('cron'), null, 'disabled RentCast is skipped for scheduled searches');
+    $eq(RentCast::saleListings($loc, [], 'manual')['error'], t('RentCast is turned off in Settings.'), 'direct RentCast calls refuse before transport');
+    $eq(Quota::used('rentcast'), 0, 'disabled RentCast uses no requests');
+    $eq(App\Providers\HomesCom::search(Address::parseLocation('22041'))['error_code'], 'disabled', 'disabled Homes.com refuses direct searches before transport');
+    $eq((int) Db::val('SELECT COUNT(*) FROM api_log'), $logBefore, 'disabled providers do not log an upstream attempt');
+} finally {
+    Settings::set('rentcast_on', $rentCastSwitch);
+}
 Quota::spend('rentcast');
 $ok(Quota::can('rentcast', 'manual') && !Quota::can('rentcast', 'cron'), 'alerts stop at limit − reserve');
 Quota::spend('rentcast');
@@ -1052,6 +1065,7 @@ $ok($homesDateLimit['delay']>=898 && $homesDateLimit['delay']<=900, 'Homes.com a
 $homesCooldownKey=App\Cache::key('homes',App\Providers\HomesCom::COOLDOWN_KEY);
 $homesCooldownPrior=App\Cache::get($homesCooldownKey);
 try {
+    Settings::set('homes_on', '1');
     $blocked=['error'=>$homesDenied['message'],'error_code'=>'access_denied','http_status'=>403,'retry_at'=>gmdate('Y-m-d H:i:s',time()+300)];
     App\Cache::put($homesCooldownKey,'homes',$blocked,300);
     $blockedResult=App\Providers\HomesCom::search(['type'=>'city','city'=>'Cooldown Fixture','state'=>'VA','key'=>'homes-cooldown-test']);
@@ -1061,6 +1075,7 @@ try {
 } finally {
     Db::run('DELETE FROM api_cache WHERE cache_key=?',[$homesCooldownKey]);
     if($homesCooldownPrior!==null)App\Cache::put($homesCooldownKey,'homes',$homesCooldownPrior,300);
+    Settings::set('homes_on', '0');
 }
 $homesLoc = Address::parseLocation('24979');
 $homesUrl = 'https://www.homes.com/fixtureville-va/24979/';
