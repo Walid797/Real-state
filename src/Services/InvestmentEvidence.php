@@ -12,10 +12,12 @@ use App\Providers\DevelopmentEvidence;
 use App\Providers\LocationEvidence;
 use App\Providers\RegionalData;
 use App\Providers\SchoolEvidence;
+use App\Providers\CountyHousing;
+use App\Providers\NearbyPlaces;
 
 final class InvestmentEvidence
 {
-    public const VERSION = 2;
+    public const VERSION = 3;
     public const WEIGHTS = ['profitability' => 40, 'housing' => 20, 'economic' => 15, 'social' => 10, 'infrastructure' => 10, 'risk_safety' => 5];
 
     public static function collect(array $p, bool $fetch = true): array
@@ -28,6 +30,13 @@ final class InvestmentEvidence
         $tract = $geo ? ($fetch ? Census::tractAt((float) $p['lat'], (float) $p['lng']) : Census::cachedTract((float) $p['lat'], (float) $p['lng'])) : null;
         $tractData = $tract ? RegionalData::tract($tract, $fetch) : [];
         $location = $geo && $fetch ? LocationEvidence::at((float) $p['lat'], (float) $p['lng']) : [];
+        if ($geo && $fetch && self::accessScore($location)['score']===null) {
+            $alternative=NearbyPlaces::at((float)$p['lat'],(float)$p['lng']);
+            foreach($alternative['places']??[] as $kind=>$place) {
+                if(!isset($location['places'][$kind]))$location['places'][$kind]=$place+['source'=>'ArcGIS World Geocoding'];
+            }
+            $location['observed_at']??=$alternative['observed_at'];
+        }
         $flood = $geo ? ($fetch ? Fema::zoneAt((float) $p['lat'], (float) $p['lng']) : Cache::get(Cache::key('fema', 'zone', [
             'lat' => round((float) $p['lat'], 5), 'lng' => round((float) $p['lng'], 5),
         ]))) : null;
@@ -79,8 +88,17 @@ final class InvestmentEvidence
         foreach ($market['metrics'] as $label => $value) {
             $add('housing', $label, $value, 'Within 1 mile, same type, size within 35%', 'Stored property transactions', now());
         }
+        $fips=($tract['state']??'').($tract['county']??'');
+        $countyMarket=CountyHousing::get($fips,$fetch);
+        foreach($countyMarket['metrics']??[] as $label=>$value) {
+            $add('housing',$label,$value,'County FIPS '.$fips.' · '.($countyMarket['county']??''),'Realtor.com monthly inventory',$countyMarket['period']);
+        }
+        $housingBasis=$market['score']===null ? 'Insufficient verified housing evidence' : 'Matched nearby sales';
+        if($market['score']===null && ($countyMarket['score']??null)!==null) {
+            $market['score']=$countyMarket['score'];$housingBasis='County inventory (Realtor.com)';
+        }
         foreach ($location['places'] ?? [] as $kind => $place) {
-            $add('location', 'Road access to ' . $kind, $place, $propertyScope, 'OpenStreetMap / OSRM', $location['observed_at'] ?? null);
+            $add('location', 'Road access to ' . $kind, $place, $propertyScope, $place['source']??'OpenStreetMap / OSRM', $location['observed_at'] ?? null);
         }
         $schools = SchoolEvidence::forProperty($p, $location);
         if (!empty($p['details']['homes']['price'])) {
@@ -118,6 +136,7 @@ final class InvestmentEvidence
             'version' => self::VERSION, 'collected_at' => now(),
             'property' => array_intersect_key($p, array_flip(['id','address','city','county','state','zip','lat','lng','property_type','list_price','sqft','beds','baths','year_built','updated_at'])),
             'scores' => $scores, 'property_score' => $existingScore['score'],
+            'score_basis'=>['housing'=>$housingBasis,'infrastructure'=>self::accessScore($location)['basis']],
             'financial_verdict' => Verdict::for($p, $deal)['verdict'],
             'recommendation' => match (true) {
                 $deal['ok'] && $deal['base']['profit'] <= 0 => 'Measured financial risk is high',
@@ -153,11 +172,7 @@ final class InvestmentEvidence
         $score['economic'] = count($economic) === 2 ? (int) round(array_sum($economic) / 2) : null;
         $score['social'] = $g['population']['points'] === null ? null : (int) round(100 * $g['population']['points'] / $g['population']['weight']);
         // Access can be quantified; announced future projects remain unknown.
-        $routes = array_filter($location['places'] ?? [], static fn ($place) => isset($place['road_miles']));
-        if (count($routes) >= 4) {
-            $score['infrastructure'] = (int) round(array_sum(array_map(static fn ($place) =>
-                max(0, min(100, 100 * (8 - $place['road_miles']) / 7)), $routes)) / count($routes));
-        }
+        $score['infrastructure']=self::accessScore($location)['score'];
         if (is_array($flood) && in_array($flood['risk'] ?? '', ['low','moderate','high'], true) && $g['cost']['points'] !== null) {
             $floodPoints = ['low' => 100, 'moderate' => 50, 'high' => 0][$flood['risk']];
             $score['risk_safety'] = (int) round(($floodPoints + 100 * $g['cost']['points'] / $g['cost']['weight']) / 2);
@@ -173,6 +188,20 @@ final class InvestmentEvidence
         $score['final_score'] = $covered === 100 ? (int) round($weighted / 100) : null;
         $score['weights'] = self::WEIGHTS;
         return $score;
+    }
+
+    public static function accessScore(array $location): array
+    {
+        $places=[];
+        foreach($location['places']??[] as $p) {
+            if(Geo::valid($p['lat']??null,$p['lng']??null)&&is_numeric($p['straight_miles']??null)&&$p['straight_miles']>=0&&$p['straight_miles']<=3)
+                $places[$p['lat'].','.$p['lng']]=$p;
+        }
+        $routes=array_filter($places,static fn($p)=>isset($p['road_miles'])&&is_numeric($p['road_miles'])&&$p['road_miles']>=0);
+        $road=count($routes)>=4;$sample=$road?$routes:$places;
+        if(count($sample)<4)return ['score'=>null,'basis'=>'Insufficient verified nearby places'];
+        $values=array_map(static fn($p)=>max(0,min(100,100*(($road?8:3)-$p[$road?'road_miles':'straight_miles'])/($road?7:3))),$sample);
+        return ['score'=>(int)round(array_sum($values)/count($values)),'basis'=>$road?'Verified road routes':'Mapped proximity (straight-line)'];
     }
 
     private static function nearbyMarket(array $p): array

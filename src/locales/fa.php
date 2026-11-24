@@ -3,6 +3,22 @@ declare(strict_types=1);
 
 // Interface strings keyed by their English source text.
 return [
+    'Insufficient verified housing evidence'=>'اطلاعات تأییدشدهٔ بازار مسکن کافی نیست',
+    'County median days on market'=>'میانهٔ روزهای حضور آگهی در بازار شهرستان',
+    'County active listings'=>'آگهی‌های فعال شهرستان',
+    'County pending listings'=>'آگهی‌های شهرستان در انتظار تکمیل معامله',
+    'County median asking price'=>'میانهٔ قیمت درخواستی شهرستان',
+    'County new listings'=>'آگهی‌های تازهٔ شهرستان',
+    'County pending to active ratio'=>'نسبت معاملات در انتظار به آگهی‌های فعال شهرستان',
+    'County inventory (Realtor.com)'=>'بر اساس بازار شهرستان — Realtor.com',
+    'Matched nearby sales'=>'بر اساس فروش‌های مشابه نزدیک همین خانه',
+    'Verified road routes'=>'بر اساس مسیرهای جاده‌ای تأییدشده',
+    'Mapped proximity (straight-line)'=>'بر اساس نزدیکی امکانات روی نقشه — فاصلهٔ مستقیم',
+    'Insufficient verified nearby places'=>'امکانات نزدیکِ تأییدشده کافی نیست',
+    'Realtor.com monthly inventory'=>'آمار ماهانهٔ بازار مسکن Realtor.com',
+    'ArcGIS World Geocoding'=>'نقشهٔ مکان‌ها — ArcGIS',
+    'The final score is unavailable until every component has verified evidence.'=>'تا زمانی که همهٔ بخش‌ها اطلاعات تأییدشده نداشته باشند، امتیاز نهایی محاسبه نمی‌شود.',
+    'Housing prefers eight matched local sales. Otherwise, recent county inventory with at least 30 active listings and a clean quality flag uses median days on market: 100 points at 30 days, zero at 120 days. Access uses four distinct mapped places; road distance is preferred, with explicitly labelled straight-line proximity when routing is unavailable. The final score still requires all six components.'=>'برای بازار مسکن ابتدا حداقل ۸ فروش مشابه نزدیک بررسی می‌شود. در نبود آن، آمار تازهٔ شهرستان با حداقل ۳۰ آگهی فعال و تأیید کیفیت به کار می‌رود: ۳۰ روز حضور در بازار معادل ۱۰۰ امتیاز و ۱۲۰ روز معادل صفر است. دسترسی با حداقل ۴ مکان متفاوت روی نقشه سنجیده می‌شود؛ مسیر جاده‌ای اولویت دارد و در نبود آن، فاصلهٔ مستقیم با برچسب روشن استفاده می‌شود. امتیاز نهایی همچنان به اطلاعات هر شش بخش نیاز دارد.',
     'Enlarge photo'=>'بزرگ‌کردن عکس',
     'Close photo'=>'بستن عکس',
     'No saved homes match these filters.'=>'هیچ خانهٔ ذخیره‌شده‌ای با این فیلترها منطبق نیست.',

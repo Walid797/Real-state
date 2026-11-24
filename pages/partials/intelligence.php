@@ -35,11 +35,14 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
   <p class="small muted"><?= te('Evidence collected') ?> <time><?= e($packet['collected_at']) ?> UTC</time><?= $report['model'] ? ' · ' . e($report['model']) : '' ?></p>
   <div class="analysis-scores">
     <?php foreach ($scoreLabels as $key => $label): ?>
-    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong></div>
+    <div><span><?= te($label) ?></span><strong><?= $packet['scores'][$key] === null ? '—' : (int) $packet['scores'][$key] . '/100' ?></strong>
+      <?php if(isset($packet['score_basis'][$key])): ?><small><?= te($packet['score_basis'][$key]) ?></small><?php endif; ?>
+    </div>
     <?php endforeach; ?>
     <div><span><?= te('Final investment score') ?></span><strong><?= $packet['scores']['final_score'] === null ? '—' : (int) $packet['scores']['final_score'] . '/100' ?></strong><small><?= te('Evidence coverage %d%%', $packet['scores']['coverage']) ?></small></div>
   </div>
   <p class="section-note"><?= te('The final score requires all six components. Higher risk-score values mean lower measured risk. Age, family composition and education are descriptive and excluded from scoring.') ?></p>
+  <?php if($packet['scores']['final_score']===null): ?><p class="small muted"><?= te('The final score is unavailable until every component has verified evidence.') ?></p><?php endif; ?>
   <p class="analysis-recommendation mt-m"><strong><?= te($packet['recommendation'] ?? 'More verified evidence is needed') ?></strong></p>
   <p class="small mt-s"><?= te('Property financial verdict') ?> · <?= te(App\Services\Verdict::VERDICTS[$packet['financial_verdict']] ?? 'Not enough data to decide') ?></p>
   <?php if ($ai): ?><p class="small mt-s"><?= e($ai['summary']) ?></p><?php endif; ?>
@@ -102,7 +105,7 @@ $sectionLabels = ['social' => 'Social and demographic analysis', 'economic' => '
   </div>
   <details class="mt-m"><summary><?= te('Missing data and scoring method') ?></summary>
     <ul class="small mt-s"><?php foreach ($packet['missing_data'] as $missing): ?><li><?= te($missing) ?></li><?php endforeach; ?></ul>
-    <p class="small mt-m"><?= te('Profitability averages profit versus the target and ROI versus 25%. Housing uses at least eight matched nearby sales and their closing time and sale-to-asking ratio. Economic and demographic scores use observed regional evidence. Infrastructure measures road access. Risk combines verified FEMA risk and property tax.') ?></p>
+    <p class="small mt-m"><?= te('Housing prefers eight matched local sales. Otherwise, recent county inventory with at least 30 active listings and a clean quality flag uses median days on market: 100 points at 30 days, zero at 120 days. Access uses four distinct mapped places; road distance is preferred, with explicitly labelled straight-line proximity when routing is unavailable. The final score still requires all six components.') ?></p>
     <p class="small mt-s"><?= te('Prices are sampled from similar homes within one mile and 35% of this home’s size. Price changes compare six-month sale-price-per-square-foot samples, with at least eight sales in each period. Construction observations require official approval and completion verification.') ?></p>
   </details>
   <?php endif; ?>

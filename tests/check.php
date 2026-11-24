@@ -1188,6 +1188,33 @@ $eq($goodResults['total'],(int)Db::val("SELECT COUNT(*) FROM properties WHERE st
 $eq((int)Db::val('SELECT COUNT(*) FROM api_log'),$apiBefore,'dashboard inventory cards make no external data requests');
 $ok($savedResults['homes']===null && !$savedResults['fetched'] && !$savedResults['needs'],'saved inventory bypasses provider planning and Homes.com');
 $eq(Search::fromRequest(Search::compact($goodFilters))['scope'],'saved','inventory scope survives pagination, export and saved-profile parameters');
+$countyCsv="month_date_yyyymm,county_fips,county_name,median_days_on_market,active_listing_count,pending_listing_count,quality_flag\n".gmdate('Ym').",51059,Fixture County,37,2479,962,0\n";
+$countyData=App\Providers\CountyHousing::parse($countyCsv);
+$eq($countyData['51059']['score'],92,'published county days-on-market can score housing when linked local sales are unavailable');
+$eq(array_keys($countyData),[51059],'county data remains keyed to its exact verified FIPS');
+$eq(App\Providers\CountyHousing::parse(str_replace(',962,0',',962,1',$countyCsv))['51059']['score'],null,'flagged market data does not produce a housing score');
+$eq(App\Providers\CountyHousing::parse(str_replace(gmdate('Ym'),gmdate('Ym',strtotime('-6 months')),$countyCsv))['51059']['score'],null,'old market observations are displayed without scoring');
+$accessPlaces=[];
+foreach([0.3,0.5,0.7,0.9] as $i=>$distance)$accessPlaces['kind'.$i]=['lat'=>38.8+$i*.001,'lng'=>-77.2,'straight_miles'=>$distance,'road_miles'=>null];
+$access=App\Services\InvestmentEvidence::accessScore(['places'=>$accessPlaces]);
+$eq([$access['score'],$access['basis']],[80,'Mapped proximity (straight-line)'],'measured mapped distances provide an explicitly labelled proximity score without invented routes');
+$duplicates=array_fill(0,4,$accessPlaces['kind0']);
+$eq(App\Services\InvestmentEvidence::accessScore(['places'=>$duplicates])['score'],null,'repeated observations of one facility do not count as four places');
+foreach($accessPlaces as &$place)$place['road_miles']=2;
+unset($place);
+$eq(App\Services\InvestmentEvidence::accessScore(['places'=>$accessPlaces])['basis'],'Verified road routes','complete road evidence retains priority over direct distances');
+$placeRows=App\Providers\NearbyPlaces::parse([
+ ['score'=>100,'location'=>['y'=>38.8,'x'=>-77.2],'attributes'=>['PlaceName'=>'Fixture pharmacy','Addr_type'=>'POI']],
+ ['score'=>100,'location'=>['y'=>40,'x'=>-77.2],'attributes'=>['PlaceName'=>'Far away place','Addr_type'=>'POI']],
+ ['score'=>100,'location'=>['y'=>38.8,'x'=>-77.2],'attributes'=>['PlaceName'=>'Street candidate','Addr_type'=>'StreetAddress']],
+],38.8,-77.2);
+$eq(count($placeRows),1,'fallback map evidence rejects far-away and non-place candidates');
+$scorer=new ReflectionMethod(App\Services\InvestmentEvidence::class,'scores');
+$testRegion=['groups'=>['jobs'=>['points'=>10,'weight'=>15],'income'=>['points'=>10,'weight'=>15],'population'=>['points'=>5,'weight'=>15],'cost'=>['points'=>4,'weight'=>5]]];
+$complete=$scorer->invoke(null,['ok'=>true,'base'=>['profit'=>40000,'roi'=>25],'target'=>40000],$testRegion,['score'=>92],['places'=>$accessPlaces],['risk'=>'low'],[]);
+$ok($complete['coverage']===100&&is_int($complete['final_score']),'real market and mapped-access inputs allow the final weighted calculation when all six components exist');
+$incomplete=$scorer->invoke(null,['ok'=>false],$testRegion,['score'=>92],['places'=>$accessPlaces],['risk'=>'low'],[]);
+$eq($incomplete['final_score'],null,'missing financial evidence is never replaced by an invented final score');
 Settings::set('homes_on',$homesWasOn);
 echo $fail === 0 ? "All $n checks passed.\n" : "$fail of $n checks failed.\n";
 exit($fail === 0 ? 0 : 1);

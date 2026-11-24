@@ -46,6 +46,16 @@ Age, education and family composition are descriptive only and excluded from sco
 
 AI receives the server's evidence packet and financial verdict. It returns bilingual prose and citations to evidence IDs. It cannot supply numeric scores. The response validator rejects a different property ID, unknown evidence IDs, incomplete sections, numerical claims, HTML and links. Numbers are displayed from the stored calculation packet. AI interpretation still requires human review before a purchase.
 
+## Market and access evidence fallbacks
+
+Report version 3 refreshes older snapshots when the home is opened. Matched local sales retain priority for housing scores. When fewer than eight matched sales have listing history, the report additionally fetches Realtor.com's published monthly county inventory CSV, keyed strictly to the Census-verified county FIPS. County figures retain their county scope and observation month. They never become comparable sales or property-level sale-to-asking ratios.
+
+A county housing score requires an unflagged observation no older than three months, at least thirty active listings and valid median listing DOM. It scales linearly from 100 at thirty days to zero at 120 days. This is a proposed county-market reference score, clearly labelled in the UI, not an official index or a matched-property market measurement. The shared county file caches for one day; failures cache for fifteen minutes.
+
+Location evidence first uses OSM/OSRM. If fewer than four mapped place types are available, bounded public ArcGIS place searches supply nearby healthcare, pharmacy, grocery and park candidates. Only high-confidence POI coordinates within three miles survive. These candidates describe mapped locations, not service quality. Four distinct coordinates are required for an access score. Four valid road routes retain priority; otherwise direct geographic distances produce a clearly labelled proximity score. No road distance or travel time is invented. Proximity scales from 100 at the property to zero at three miles. Sparse fallback responses cache for fifteen minutes, complete ones for seven days.
+
+The final investment score still requires all six components, using the original 40/20/15/10/10/5 weights. Missing finances, verified geography, market data or other components keep it unknown with an explanation. Public-source errors do not become zero or neutral scores. Source names, basis and dates accompany displayed evidence. No language model supplies these numeric values.
+
 ## Schools and health care
 
 The opened property's listing import now retains available school names, levels, ratings, provider distances and assignment flags. School ratings keep Zillow's original ten-point scale, with GreatSchools attribution where the supplied source link identifies it. A star is a visual marker beside the original score. The interface highlights a score of at least 8/10. Missing ratings stay unknown. A nearby school does not establish attendance eligibility.

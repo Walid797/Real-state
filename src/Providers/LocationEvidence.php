@@ -11,7 +11,7 @@ final class LocationEvidence
 {
     public static function at(float $lat, float $lng): array
     {
-        $result = Cache::remember('location', 'routes-v2', ['lat' => round($lat, 5), 'lng' => round($lng, 5)], 86400 * 30,
+        $result = Cache::remember('location', 'routes-v3', ['lat' => round($lat, 5), 'lng' => round($lng, 5)], 86400 * 30,
             static function () use ($lat, $lng): array {
                 $around = sprintf('(around:4828,%.6f,%.6f)', $lat, $lng);
                 $query = '[out:json][timeout:8];('
@@ -19,7 +19,7 @@ final class LocationEvidence
                     . 'nwr' . $around . '[shop=supermarket];node' . $around . '[highway~"^(bus_stop|motorway_junction)$"];'
                     . 'nwr' . $around . '[railway=station];nwr' . $around . '[leisure=park];'
                     . 'nwr' . $around . '[office];nwr' . $around . '[construction];);out center qt 500;';
-                $r = Http::postForm(Overpass::URLS[0], ['data' => $query], 8);
+                $r = Http::get(Overpass::URLS[0] . '?' . http_build_query(['data'=>$query]), [], 8);
                 $data = json_decode($r['body'], true);
                 if ($r['status'] !== 200 || !is_array($data['elements'] ?? null)) {
                     foreach (array_slice(Overpass::URLS, 1) as $server) {
@@ -39,7 +39,7 @@ final class LocationEvidence
                 $withRoute = static function (array $place) use ($lat, $lng, $routingStarted, &$routes): array {
                     $key = $place['lat'] . ',' . $place['lng'];
                     if (!array_key_exists($key, $routes)) {
-                        $routes[$key] = microtime(true) - $routingStarted < 24 ? self::route($lat, $lng, $place['lat'], $place['lng']) : null;
+                        $routes[$key] = microtime(true) - $routingStarted < 8 ? self::route($lat, $lng, $place['lat'], $place['lng']) : null;
                     }
                     return $place + ['road_miles' => $routes[$key]['miles'] ?? null, 'driving_minutes' => $routes[$key]['minutes'] ?? null];
                 };
@@ -48,7 +48,7 @@ final class LocationEvidence
                 return $out + ['unavailable' => false, 'observed_at' => now()];
             });
         if (!empty($result['unavailable'])) {
-            Cache::put(Cache::key('location', 'routes-v2', ['lat' => round($lat, 5), 'lng' => round($lng, 5)]), 'location', $result, 900);
+            Cache::put(Cache::key('location', 'routes-v3', ['lat' => round($lat, 5), 'lng' => round($lng, 5)]), 'location', $result, 900);
         }
         return $result;
     }
